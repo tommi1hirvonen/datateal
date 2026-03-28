@@ -84,12 +84,12 @@ public sealed class AksNodeService : INodeService
     }
 
     public Task StopNodeAsync(string name, CancellationToken cancellationToken = default) =>
-        ScaleNodePoolAsync(name, count: 0, cancellationToken);
+        SetPowerStateAsync(name, ContainerServiceStateCode.Stopped, cancellationToken);
 
     public Task StartNodeAsync(string name, CancellationToken cancellationToken = default) =>
-        ScaleNodePoolAsync(name, count: 1, cancellationToken);
+        SetPowerStateAsync(name, ContainerServiceStateCode.Running, cancellationToken);
 
-    private async Task ScaleNodePoolAsync(string name, int count, CancellationToken cancellationToken)
+    private async Task SetPowerStateAsync(string name, ContainerServiceStateCode state, CancellationToken cancellationToken)
     {
         var cluster = GetClusterResource();
         var pool = (await cluster.GetContainerServiceAgentPoolAsync(name, cancellationToken)).Value;
@@ -97,11 +97,12 @@ public sealed class AksNodeService : INodeService
 
         var updated = new ContainerServiceAgentPoolData
         {
-            Count = count,
+            Count = existing.Count,
             VmSize = existing.VmSize,
             OSType = existing.OSType,
             OSSku = existing.OSSku,
             Mode = existing.Mode,
+            PowerStateCode = state,
         };
 
         await cluster.GetContainerServiceAgentPools().CreateOrUpdateAsync(
@@ -110,7 +111,7 @@ public sealed class AksNodeService : INodeService
             updated,
             cancellationToken);
 
-        _logger.LogInformation("Scaling node pool {PoolName} to {Count} node(s)", name, count);
+        _logger.LogInformation("Set power state of node pool {PoolName} to {State}", name, state);
     }
 }
 
