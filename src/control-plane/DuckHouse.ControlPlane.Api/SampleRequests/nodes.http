@@ -1,0 +1,21 @@
+### Sample endpoint (for connection testing)
+
+GET http://localhost:5066/weatherforecast
+
+### List nodes
+
+GET http://localhost:5066/nodes
+
+### Create node
+
+POST http://localhost:5066/nodes
+Content-Type: application/json
+
+{
+  "name": "node-1",
+  "vmSize": "Standard_D4as_v5"
+}
+
+### Remove node
+
+DELETE http://localhost:5066/nodes/node-1
