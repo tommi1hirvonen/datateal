@@ -1,16 +1,40 @@
 import asyncio
+import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
 from jupyter_client.manager import AsyncKernelManager
 from jupyter_client.asynchronous.client import AsyncKernelClient
+from jupyter_client.kernelspec import KernelSpec
+
+
+class _DuckhouseKernelManager(AsyncKernelManager):
+    """AsyncKernelManager that launches kernels in the configured Python environment.
+
+    The kernel Python executable is resolved from the DUCKHOUSE_KERNEL_PYTHON
+    environment variable, falling back to the API server's own executable.
+    This allows the kernel environment to be fully separated from the API
+    environment (e.g. two distinct venvs in a Docker image).
+
+    The kernel environment must have ipykernel installed.
+    """
+
+    @property
+    def kernel_spec(self) -> KernelSpec:  # type: ignore[override]
+        kernel_python = os.environ.get("DUCKHOUSE_KERNEL_PYTHON", sys.executable)
+        return KernelSpec(
+            argv=[kernel_python, "-m", "ipykernel_launcher", "-f", "{connection_file}"],
+            display_name="DuckHouse Python Kernel",
+            language="python",
+        )
 
 
 class KernelConnection:
     def __init__(self, kernel_id: str) -> None:
         self.kernel_id = kernel_id
-        self.km: AsyncKernelManager = AsyncKernelManager(kernel_name="python3")
+        self.km: _DuckhouseKernelManager = _DuckhouseKernelManager()
         self.kc: Optional[AsyncKernelClient] = None
         self.status = "starting"
         self.created_at = datetime.now(timezone.utc)
