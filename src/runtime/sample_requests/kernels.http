@@ -1,0 +1,32 @@
+### List kernels
+
+GET http://localhost:8000/kernels
+
+### Create kernel
+
+POST http://localhost:8000/kernels
+
+### Get kernel
+
+GET http://localhost:8000/kernels/e7bb7f3e-6ac7-4edf-ad34-c21485c039ad
+
+### Delete kernel
+
+DELETE http://localhost:8000/kernels/e7bb7f3e-6ac7-4edf-ad34-c21485c039ad
+
+### Execute
+
+POST http://localhost:8000/kernels/e7bb7f3e-6ac7-4edf-ad34-c21485c039ad/execute
+Content-Type: application/json
+
+{
+  "code": "print('Hello, world!')"
+}
+
+### Restart kernel
+
+POST http://localhost:8000/kernels/e7bb7f3e-6ac7-4edf-ad34-c21485c039ad/restart
+
+### Interrupt kernel
+
+POST http://localhost:8000/kernels/e7bb7f3e-6ac7-4edf-ad34-c21485c039ad/interrupt

@@ -1,46 +1,84 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
-import uuid
+from fastapi import APIRouter, HTTPException
+
+from duckhouse_runtime.kernels.manager import KernelConnection, registry
+from duckhouse_runtime.kernels.models import (
+    ErrorInfo,
+    ExecuteRequest,
+    ExecutionResult,
+    KernelInfo,
+    Output,
+)
 
 router = APIRouter(prefix="/kernels", tags=["kernels"])
 
-_kernels: dict[str, dict] = {}
+
+def _to_info(conn: KernelConnection) -> KernelInfo:
+    return KernelInfo(
+        id=conn.kernel_id,
+        status=conn.status,
+        created_at=conn.created_at,
+        last_activity=conn.last_activity,
+    )
 
 
-class KernelCreate(BaseModel):
-    name: str
+@router.post("", response_model=KernelInfo, status_code=201)
+async def create_kernel():
+    conn = await registry.create()
+    return _to_info(conn)
 
 
-class Kernel(BaseModel):
-    id: str
-    name: str
-    status: str
-
-
-@router.get("", response_model=list[Kernel])
+@router.get("", response_model=list[KernelInfo])
 def list_kernels():
-    return list(_kernels.values())
+    return [_to_info(c) for c in registry.list()]
 
 
-@router.post("", response_model=Kernel, status_code=201)
-def create_kernel(body: KernelCreate):
-    kernel = Kernel(id=str(uuid.uuid4()), name=body.name, status="idle")
-    _kernels[kernel.id] = kernel.model_dump()
-    return kernel
-
-
-@router.get("/{kernel_id}", response_model=Kernel)
+@router.get("/{kernel_id}", response_model=KernelInfo)
 def get_kernel(kernel_id: str):
-    from fastapi import HTTPException
-    kernel = _kernels.get(kernel_id)
-    if not kernel:
+    conn = registry.get(kernel_id)
+    if not conn:
         raise HTTPException(status_code=404, detail="Kernel not found")
-    return kernel
+    return _to_info(conn)
 
 
 @router.delete("/{kernel_id}", status_code=204)
-def delete_kernel(kernel_id: str):
-    from fastapi import HTTPException
-    if kernel_id not in _kernels:
+async def delete_kernel(kernel_id: str):
+    if not await registry.delete(kernel_id):
         raise HTTPException(status_code=404, detail="Kernel not found")
-    del _kernels[kernel_id]
+
+
+@router.post("/{kernel_id}/execute", response_model=ExecutionResult)
+async def execute(kernel_id: str, body: ExecuteRequest):
+    conn = registry.get(kernel_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Kernel not found")
+    if conn.status == "dead":
+        raise HTTPException(status_code=409, detail="Kernel is dead")
+    try:
+        result = await conn.execute(body.code, body.timeout)
+        outputs = [Output(**o) for o in result["outputs"]]
+        error = ErrorInfo(**result["error"]) if result["error"] else None
+        return ExecutionResult(
+            status=result["status"],
+            execution_count=result["execution_count"],
+            outputs=outputs,
+            error=error,
+        )
+    except TimeoutError:
+        raise HTTPException(status_code=408, detail="Execution timed out")
+
+
+@router.post("/{kernel_id}/restart", response_model=KernelInfo)
+async def restart_kernel(kernel_id: str):
+    conn = registry.get(kernel_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Kernel not found")
+    await conn.restart()
+    return _to_info(conn)
+
+
+@router.post("/{kernel_id}/interrupt", status_code=204)
+async def interrupt_kernel(kernel_id: str):
+    conn = registry.get(kernel_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Kernel not found")
+    await conn.interrupt()
