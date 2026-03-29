@@ -6,7 +6,7 @@ GET http://localhost:5066/weatherforecast
 
 GET http://localhost:5066/nodes
 
-### Create node
+### Create or update node
 
 POST http://localhost:5066/nodes
 Content-Type: application/json
