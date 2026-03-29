@@ -16,15 +16,18 @@ param systemNodePoolVmSize string = 'Standard_D2as_v5'
 @description('Object ID of the principal that will manage node pools. Empty = skip role assignment.')
 param apiPrincipalId string = ''
 
+@description('Name of the Azure Container Registry. Must be globally unique and alphanumeric only.')
+param acrName string
+
 // ── Managed Identity ──────────────────────────────────────────────────────────
 
 resource clusterManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: '${clusterName}-mi'
+  name: 'mi-${clusterName}'
   location: location
 }
 
 resource systemPoolManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: '${clusterName}-systempool-mi'
+  name: 'mi-${clusterName}-systempool'
   location: location
 }
 
@@ -117,6 +120,34 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
   }
 }
 
+// ── Azure Container Registry ──────────────────────────────────────────────────
+
+resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+  name: acrName
+  location: location
+  sku: { name: 'Basic' }
+  properties: {
+    adminUserEnabled: false
+  }
+}
+
+var acrPullRoleId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
+)
+
+// Grants the kubelet identity AcrPull on the registry so all current and future
+// node pools in this cluster can pull images without explicit credentials.
+resource acrPullAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, systemPoolManagedIdentity.id, acrPullRoleId)
+  scope: acr
+  properties: {
+    roleDefinitionId: acrPullRoleId
+    principalId: systemPoolManagedIdentity.id
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // ── Role assignment ───────────────────────────────────────────────────────────
 
 // Grants the API principal "Azure Kubernetes Service Contributor" on the cluster
@@ -142,3 +173,4 @@ resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = i
 output clusterName string = cluster.name
 output clusterFqdn string = cluster.properties.fqdn
 output kubeletIdentityObjectId string = cluster.properties.identityProfile.kubeletidentity.objectId
+output acrLoginServer string = acr.properties.loginServer

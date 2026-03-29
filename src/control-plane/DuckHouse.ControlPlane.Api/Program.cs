@@ -17,6 +17,14 @@ builder.AddServiceDefaults();
 builder.Services.AddOpenApi();
 
 var nodeBackend = builder.Configuration.GetValue("NodeService:Backend", "Local");
+
+builder.Services.AddSingleton<IKubernetes>(_ =>
+{
+    var config = KubernetesClientConfiguration.BuildConfigFromConfigFile(
+        KubernetesClientConfiguration.KubeConfigDefaultLocation);
+    return new Kubernetes(config);
+});
+
 if (string.Equals(nodeBackend, "Aks", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddOptions<AksNodeOptions>().BindConfiguration(AksNodeOptions.Section);
@@ -32,12 +40,6 @@ if (string.Equals(nodeBackend, "Aks", StringComparison.OrdinalIgnoreCase))
 }
 else
 {
-    builder.Services.AddSingleton<IKubernetes>(_ =>
-    {
-        var config = KubernetesClientConfiguration.BuildConfigFromConfigFile(
-            KubernetesClientConfiguration.KubeConfigDefaultLocation);
-        return new Kubernetes(config);
-    });
     builder.Services.AddScoped<INodeService, LocalNodeService>();
 }
 

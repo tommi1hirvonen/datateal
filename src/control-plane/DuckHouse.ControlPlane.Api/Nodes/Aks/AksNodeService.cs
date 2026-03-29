@@ -2,19 +2,27 @@ using Azure;
 using Azure.ResourceManager;
 using Azure.ResourceManager.ContainerService;
 using Azure.ResourceManager.ContainerService.Models;
+using k8s;
+using k8s.Models;
 using Microsoft.Extensions.Options;
 
 namespace DuckHouse.ControlPlane.Api.Nodes.Aks;
 
 public sealed class AksNodeService : INodeService
 {
+    private const string Namespace = "default";
+    private const string ManagedByLabelKey = "app.kubernetes.io/managed-by";
+    private const string ManagedByLabelValue = "duckhouse-control-plane";
+
     private readonly ArmClient _armClient;
+    private readonly IKubernetes _kubernetes;
     private readonly AksNodeOptions _options;
     private readonly ILogger<AksNodeService> _logger;
 
-    public AksNodeService(ArmClient armClient, IOptions<AksNodeOptions> options, ILogger<AksNodeService> logger)
+    public AksNodeService(ArmClient armClient, IKubernetes kubernetes, IOptions<AksNodeOptions> options, ILogger<AksNodeService> logger)
     {
         _armClient = armClient;
+        _kubernetes = kubernetes;
         _options = options.Value;
         _logger = logger;
     }
@@ -87,6 +95,39 @@ public sealed class AksNodeService : INodeService
 
         _logger.LogInformation("Started provisioning node pool {PoolName} with VM size {VmSize}", request.Name, vmSize);
 
+        var pod = new V1Pod
+        {
+            Metadata = new V1ObjectMeta
+            {
+                Name = request.Name,
+                NamespaceProperty = Namespace,
+                Labels = new Dictionary<string, string>
+                {
+                    [ManagedByLabelKey] = ManagedByLabelValue,
+                },
+            },
+            Spec = new V1PodSpec
+            {
+                // Pin the pod to the dedicated node pool so it runs on the provisioned VM.
+                NodeSelector = new Dictionary<string, string>
+                {
+                    ["kubernetes.azure.com/agentpool"] = request.Name,
+                },
+                Containers =
+                [
+                    new V1Container
+                    {
+                        Name = "node",
+                        Image = _options.RuntimeImage,
+                    },
+                ],
+                RestartPolicy = "Always",
+            },
+        };
+
+        var created = await _kubernetes.CoreV1.CreateNamespacedPodAsync(pod, Namespace, cancellationToken: cancellationToken);
+        _logger.LogInformation("Created pod {PodName} in namespace {Namespace}", created.Metadata.Name, Namespace);
+
         return new NodeInfo(
             Name: request.Name,
             ProvisioningState: "Creating",
@@ -97,6 +138,16 @@ public sealed class AksNodeService : INodeService
 
     public async Task RemoveNodeAsync(string name, CancellationToken cancellationToken = default)
     {
+        try
+        {
+            await _kubernetes.CoreV1.DeleteNamespacedPodAsync(name, Namespace, cancellationToken: cancellationToken);
+            _logger.LogInformation("Deleted pod {PodName} from namespace {Namespace}", name, Namespace);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete pod {PodName}; it may not exist", name);
+        }
+
         var cluster = GetClusterResource();
         var pool = await cluster.GetContainerServiceAgentPoolAsync(name, cancellationToken);
         await pool.Value.DeleteAsync(WaitUntil.Started, cancellationToken);

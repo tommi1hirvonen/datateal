@@ -56,7 +56,7 @@ public sealed class LocalNodeService : INodeService
                     new V1Container
                     {
                         Name = "node",
-                        Image = "ubuntu:22.04",
+                        Image = "duckhouse-runtime:latest",
                         Command = ["sleep", "infinity"],
                         Resources = new V1ResourceRequirements
                         {

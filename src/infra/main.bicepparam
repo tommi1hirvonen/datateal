@@ -2,6 +2,7 @@ using './main.bicep'
 
 param location = 'swedencentral'
 param clusterName = 'aks-duckhouse-dev'
+param acrName = 'acrduckhousedev' // Must be globally unique; change if the name is already taken
 param nodeResourceGroupName = 'mrg-duckhouse-dev'
 param systemNodePoolVmSize = 'Standard_D2as_v5'
 

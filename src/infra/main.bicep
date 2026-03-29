@@ -18,6 +18,9 @@ param location string = 'westeurope'
 @description('Name of the AKS cluster.')
 param clusterName string = 'aks-duckhouse-dev'
 
+@description('Name of the Azure Container Registry. Must be globally unique and alphanumeric only.')
+param acrName string
+
 @description('Name of the AKS-managed node resource group (created automatically by AKS).')
 param nodeResourceGroupName string = 'mrg-duckhouse-dev'
 
@@ -41,6 +44,7 @@ module aks 'modules/aks.bicep' = {
     nodeResourceGroupName: nodeResourceGroupName
     systemNodePoolVmSize: systemNodePoolVmSize
     apiPrincipalId: apiPrincipalId
+    acrName: acrName
   }
 }
 
@@ -50,3 +54,4 @@ output subscriptionId string = subscription().subscriptionId
 output resourceGroupName string = resourceGroup().name
 output clusterName string = aks.outputs.clusterName
 output nodeResourceGroupName string = nodeResourceGroupName
+output acrLoginServer string = aks.outputs.acrLoginServer
