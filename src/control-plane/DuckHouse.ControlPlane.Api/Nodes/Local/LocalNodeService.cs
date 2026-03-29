@@ -27,7 +27,12 @@ public sealed class LocalNodeService : INodeService
             cancellationToken: cancellationToken);
 
         return pods.Items
-            .Select(p => new NodeInfo(p.Metadata.Name, p.Status?.Phase ?? "Unknown"))
+            .Select(p => new NodeInfo(
+                Name: p.Metadata.Name,
+                ProvisioningState: p.Status?.Phase ?? "Unknown",
+                VmSize: null,
+                PowerState: null,
+                State: NodeState.Running))
             .ToList();
     }
 
@@ -70,7 +75,12 @@ public sealed class LocalNodeService : INodeService
         var created = await _kubernetes.CoreV1.CreateNamespacedPodAsync(pod, Namespace, cancellationToken: cancellationToken);
         _logger.LogInformation("Created pod {PodName} in namespace {Namespace}", created.Metadata.Name, Namespace);
 
-        return new NodeInfo(created.Metadata.Name, created.Status?.Phase ?? "Pending");
+        return new NodeInfo(
+            Name: created.Metadata.Name,
+            ProvisioningState: created.Status?.Phase ?? "Pending",
+            VmSize: null,
+            PowerState: null,
+            State: NodeState.Resuming);
     }
 
     public async Task RemoveNodeAsync(string name, CancellationToken cancellationToken = default)

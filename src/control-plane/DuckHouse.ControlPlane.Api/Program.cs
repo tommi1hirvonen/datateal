@@ -6,6 +6,7 @@ using DuckHouse.ControlPlane.Api.Nodes;
 using DuckHouse.ControlPlane.Api.Nodes.Aks;
 using DuckHouse.ControlPlane.Api.Nodes.Local;
 using k8s;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,6 +40,11 @@ else
     });
     builder.Services.AddScoped<INodeService, LocalNodeService>();
 }
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 var app = builder.Build();
 

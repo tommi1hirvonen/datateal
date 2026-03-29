@@ -39,11 +39,26 @@ public sealed class AksNodeService : INodeService
             if (pool.Data.Mode != AgentPoolMode.User)
                 continue;
 
+            var provisioningState = pool.Data.ProvisioningState ?? "Unknown";
+            var powerState = pool.Data.PowerStateCode?.ToString() ?? "Unknown";
+            var state = (provisioningState.ToLower(), powerState.ToLower()) switch
+            {
+                ("failed", _) => NodeState.Failure,
+                ("deleting", _) => NodeState.Deleting,
+                ("creating", _) => NodeState.Creating,
+                ("starting", _) => NodeState.Resuming,
+                ("stopping", _) => NodeState.Stopping,
+                ("succeeded", "stopped") => NodeState.Stopped,
+                ("succeeded", "running") => NodeState.Running,
+                _ => NodeState.Unknown
+            };
+
             nodes.Add(new NodeInfo(
-                pool.Data.Name,
-                pool.Data.ProvisioningState ?? "Unknown",
-                pool.Data.VmSize,
-                pool.Data.PowerStateCode?.ToString()));
+                Name: pool.Data.Name,
+                ProvisioningState: provisioningState,
+                VmSize: pool.Data.VmSize,
+                PowerState: powerState,
+                State: state));
         }
 
         return nodes;
@@ -72,7 +87,12 @@ public sealed class AksNodeService : INodeService
 
         _logger.LogInformation("Started provisioning node pool {PoolName} with VM size {VmSize}", request.Name, vmSize);
 
-        return new NodeInfo(request.Name, "Creating", vmSize, PowerState: "Running");
+        return new NodeInfo(
+            Name: request.Name,
+            ProvisioningState: "Creating",
+            VmSize: vmSize,
+            PowerState: "Running",
+            State: NodeState.Creating);
     }
 
     public async Task RemoveNodeAsync(string name, CancellationToken cancellationToken = default)
