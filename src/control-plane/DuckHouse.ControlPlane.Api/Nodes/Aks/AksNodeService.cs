@@ -1,4 +1,5 @@
 using Azure;
+using Azure.Core;
 using Azure.ResourceManager;
 using Azure.ResourceManager.ContainerService;
 using Azure.ResourceManager.ContainerService.Models;
@@ -84,6 +85,7 @@ public sealed class AksNodeService : INodeService
             OSType = ContainerServiceOSType.Linux,
             OSSku = ContainerServiceOSSku.Ubuntu,
             Mode = AgentPoolMode.User,
+            VnetSubnetId = string.IsNullOrEmpty(_options.NodeSubnetId) ? null : new ResourceIdentifier(_options.NodeSubnetId),
         };
 
         // Node pool provisioning is long-running; start the operation and return immediately.

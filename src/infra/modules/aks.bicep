@@ -19,6 +19,12 @@ param apiPrincipalId string = ''
 @description('Name of the Azure Container Registry. Must be globally unique and alphanumeric only.')
 param acrName string
 
+@description('Address space for the cluster VNet.')
+param vnetAddressPrefix string = '10.0.0.0/8'
+
+@description('Address prefix for the node subnet within the VNet.')
+param nodeSubnetAddressPrefix string = '10.240.0.0/16'
+
 // ── Managed Identity ──────────────────────────────────────────────────────────
 
 resource clusterManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -48,6 +54,42 @@ resource managedIdentityOperatorRoleAssignment 'Microsoft.Authorization/roleAssi
   }
 }
 
+
+// ── Virtual Network ───────────────────────────────────────────────────────────
+
+resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
+  name: 'vnet-${clusterName}'
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: [vnetAddressPrefix]
+    }
+  }
+}
+
+resource nodeSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
+  parent: vnet
+  name: 'nodes'
+  properties: {
+    addressPrefix: nodeSubnetAddressPrefix
+  }
+}
+
+var networkContributorRoleId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '4d97b98b-1d4f-4787-a291-c67834d212e1' // Network Contributor
+)
+
+// Allows the cluster identity to manage NICs, load balancers and public IPs in the subnet.
+resource networkContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(nodeSubnet.id, clusterManagedIdentity.id, networkContributorRoleId)
+  scope: nodeSubnet
+  properties: {
+    roleDefinitionId: networkContributorRoleId
+    principalId: clusterManagedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
 
 // ── AKS cluster ───────────────────────────────────────────────────────────────
 
@@ -81,6 +123,7 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
         mode: 'System'
         type: 'VirtualMachineScaleSets'
         enableAutoScaling: false
+        vnetSubnetID: nodeSubnet.id
       }
     ]
     servicePrincipalProfile: {
@@ -93,7 +136,7 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
     }
     disableLocalAccounts: true
     networkProfile: {
-      // Azure CNI Overlay: no pre-provisioned VNet required.
+      // Azure CNI Overlay: pod IPs from an overlay; node IPs from the VNet subnet.
       networkPlugin: 'azure'
       networkPluginMode: 'overlay'
       loadBalancerSku: 'standard'
@@ -118,6 +161,7 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
       enabled: true
     }
   }
+  dependsOn: [networkContributorRoleAssignment]
 }
 
 // ── Azure Container Registry ──────────────────────────────────────────────────
@@ -174,3 +218,4 @@ output clusterName string = cluster.name
 output clusterFqdn string = cluster.properties.fqdn
 output kubeletIdentityObjectId string = cluster.properties.identityProfile.kubeletidentity.objectId
 output acrLoginServer string = acr.properties.loginServer
+output nodeSubnetId string = nodeSubnet.id

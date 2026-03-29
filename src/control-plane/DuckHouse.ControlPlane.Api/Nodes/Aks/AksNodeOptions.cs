@@ -9,6 +9,7 @@ public class AksNodeOptions
     public string ClusterName { get; set; } = "";
     public string DefaultVmSize { get; set; } = "Standard_D4as_v5";
     public string RuntimeImage { get; set; } = "";
+    public string NodeSubnetId { get; set; } = "";
 
     // Service principal authentication.
     // When all three are set, ClientSecretCredential is used.

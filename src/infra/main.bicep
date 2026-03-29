@@ -55,3 +55,4 @@ output resourceGroupName string = resourceGroup().name
 output clusterName string = aks.outputs.clusterName
 output nodeResourceGroupName string = nodeResourceGroupName
 output acrLoginServer string = aks.outputs.acrLoginServer
+output nodeSubnetId string = aks.outputs.nodeSubnetId
