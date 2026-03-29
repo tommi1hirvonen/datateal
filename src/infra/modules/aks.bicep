@@ -77,7 +77,7 @@ resource nodeSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
 
 var networkContributorRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
-  '4d97b98b-1d4f-4787-a291-c67834d212e1' // Network Contributor
+  '4d97b98b-1d4f-4787-a291-c67834d212e7' // Network Contributor
 )
 
 // Allows the cluster identity to manage NICs, load balancers and public IPs in the subnet.
@@ -187,7 +187,7 @@ resource acrPullAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' 
   scope: acr
   properties: {
     roleDefinitionId: acrPullRoleId
-    principalId: systemPoolManagedIdentity.id
+    principalId: systemPoolManagedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
