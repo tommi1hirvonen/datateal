@@ -1,10 +1,9 @@
 using './main.bicep'
 
-param location = 'westeurope'
+param location = 'swedencentral'
 param clusterName = 'aks-duckhouse-dev'
-param resourceGroupName = 'rg-lakehouse-dev'
-param nodeResourceGroupName = 'mrg-lakehouse-dev'
-param systemNodePoolVmSize = 'Standard_D4as_v5'
+param nodeResourceGroupName = 'mrg-duckhouse-dev'
+param systemNodePoolVmSize = 'Standard_D2as_v5'
 
 // Set this to the object ID of the managed identity or service principal that
 // the Control Plane API runs as, so it can create and delete node pools.

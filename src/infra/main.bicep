@@ -1,17 +1,16 @@
-// Deploys the full DuckHouse Control Plane AKS infrastructure at subscription scope.
+// Deploys the full DuckHouse Control Plane AKS infrastructure at resource group scope.
 //
-// Two resource groups are involved:
-//   • resourceGroupName     – created here; holds the AKS cluster ARM resource.
-//   • nodeResourceGroupName – NOT created here; AKS creates it automatically to
+// One additional resource group is created:
+//   • nodeResourceGroupName – AKS creates it automatically to
 //                             hold the underlying VMs, NICs, disks, etc.
 //
 // Deploy with:
-//   az deployment sub create \
-//     --location westeurope \
+//   az deployment group create \
+//     --resource-group <your-resource-group> \
 //     --template-file main.bicep \
 //     --parameters main.bicepparam
 
-targetScope = 'subscription'
+targetScope = 'resourceGroup'
 
 @description('Azure region for all resources.')
 param location string = 'westeurope'
@@ -19,14 +18,11 @@ param location string = 'westeurope'
 @description('Name of the AKS cluster.')
 param clusterName string = 'aks-duckhouse-dev'
 
-@description('Name of the resource group that will hold the AKS cluster resource.')
-param resourceGroupName string = 'rg-duckhouse-dev'
-
 @description('Name of the AKS-managed node resource group (created automatically by AKS).')
 param nodeResourceGroupName string = 'mrg-duckhouse-dev'
 
 @description('VM size for the required system node pool.')
-param systemNodePoolVmSize string = 'Standard_D4as_v5'
+param systemNodePoolVmSize string = 'Standard_D2as_v5'
 
 @description('''
 Object ID of the service principal or managed identity that will call the AKS ARM API
@@ -35,18 +31,10 @@ Leave empty to skip the role assignment and add it manually later.
 ''')
 param apiPrincipalId string = ''
 
-// ── Resource group ────────────────────────────────────────────────────────────
-
-resource rg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
-  name: resourceGroupName
-  location: location
-}
-
 // ── AKS cluster ───────────────────────────────────────────────────────────────
 
 module aks 'modules/aks.bicep' = {
   name: 'aks'
-  scope: rg
   params: {
     clusterName: clusterName
     location: location
@@ -59,6 +47,6 @@ module aks 'modules/aks.bicep' = {
 // ── Outputs (use these to configure NodeService:Aks in appsettings) ───────────
 
 output subscriptionId string = subscription().subscriptionId
-output resourceGroupName string = rg.name
+output resourceGroupName string = resourceGroup().name
 output clusterName string = aks.outputs.clusterName
 output nodeResourceGroupName string = nodeResourceGroupName
