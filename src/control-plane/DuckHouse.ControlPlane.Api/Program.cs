@@ -4,6 +4,7 @@ using Azure.ResourceManager;
 using Microsoft.Extensions.Options;
 using DuckHouse.ControlPlane.Api.Nodes;
 using DuckHouse.ControlPlane.Api.Nodes.Aks;
+using DuckHouse.ControlPlane.Api.Nodes.Kernels;
 using DuckHouse.ControlPlane.Api.Nodes.Local;
 using k8s;
 using System.Text.Json.Serialization;
@@ -24,6 +25,9 @@ builder.Services.AddSingleton<IKubernetes>(_ =>
         KubernetesClientConfiguration.KubeConfigDefaultLocation);
     return new Kubernetes(config);
 });
+// Expose the concrete type so KubernetesRuntimeClient can access HttpClient.
+builder.Services.AddSingleton(sp => (Kubernetes)sp.GetRequiredService<IKubernetes>());
+builder.Services.AddScoped<INodeRuntimeClient, KubernetesRuntimeClient>();
 
 if (string.Equals(nodeBackend, "Aks", StringComparison.OrdinalIgnoreCase))
 {

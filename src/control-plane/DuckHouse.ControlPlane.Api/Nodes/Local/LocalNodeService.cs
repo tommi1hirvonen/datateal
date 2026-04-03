@@ -57,18 +57,12 @@ public sealed class LocalNodeService : INodeService
                     {
                         Name = "node",
                         Image = "duckhouse-runtime:latest",
-                        Command = ["sleep", "infinity"],
-                        Resources = new V1ResourceRequirements
-                        {
-                            Requests = new Dictionary<string, ResourceQuantity>
-                            {
-                                ["cpu"] = new ResourceQuantity("100m"),
-                                ["memory"] = new ResourceQuantity("128Mi"),
-                            },
-                        },
+                        // Never pull from a registry; use the locally built image.
+                        ImagePullPolicy = "Never",
+                        Ports = [new V1ContainerPort { ContainerPort = 8000 }],
                     },
                 ],
-                RestartPolicy = "Never",
+                RestartPolicy = "Always",
             },
         };
 

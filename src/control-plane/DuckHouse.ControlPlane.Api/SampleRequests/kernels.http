@@ -1,0 +1,32 @@
+### List kernels
+
+GET http://localhost:5066/nodes/testnode/kernels
+
+### Create kernel
+
+POST http://localhost:5066/nodes/testnode/kernels
+
+### Get kernel
+
+GET http://localhost:5066/nodes/testnode/kernels/62704d10-d06d-4bfb-b93a-40f4f5306f85
+
+### Delete kernel
+
+DELETE http://localhost:5066/nodes/testnode/kernels/62704d10-d06d-4bfb-b93a-40f4f5306f85
+
+### Execute
+
+POST http://localhost:5066/nodes/testnode/kernels/62704d10-d06d-4bfb-b93a-40f4f5306f85/execute
+Content-Type: application/json
+
+{
+  "code": "print('Hello, world!')"
+}
+
+### Restart kernel
+
+POST http://localhost:5066/nodes/testnode/kernels/62704d10-d06d-4bfb-b93a-40f4f5306f85/restart
+
+### Interrupt kernel
+
+POST http://localhost:5066/nodes/testnode/kernels/62704d10-d06d-4bfb-b93a-40f4f5306f85/interrupt
