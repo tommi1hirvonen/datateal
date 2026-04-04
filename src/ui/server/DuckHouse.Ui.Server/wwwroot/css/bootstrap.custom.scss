@@ -21,6 +21,34 @@
     }
 }
 
+// Sidebar navigation
+.sidebar {
+    width: 220px;
+    min-height: 100vh;
+
+    .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        &.active {
+            background-color: var(--bs-primary);
+            color: white !important;
+
+            .lucide {
+                color: white;
+            }
+        }
+    }
+}
+
+// Kernel session REPL
+.kernel-pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 0;
+}
+
 // Blazor error component
 #blazor-error-ui {
     bottom: 0;

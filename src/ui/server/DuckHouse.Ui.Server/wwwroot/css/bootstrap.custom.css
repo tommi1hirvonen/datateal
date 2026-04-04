@@ -11868,6 +11868,29 @@ textarea.form-control-lg {
   vertical-align: text-bottom;
 }
 
+.sidebar {
+  width: 220px;
+  min-height: 100vh;
+}
+.sidebar .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sidebar .nav-link.active {
+  background-color: var(--bs-primary);
+  color: white !important;
+}
+.sidebar .nav-link.active .lucide {
+  color: white;
+}
+
+.kernel-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 0;
+}
+
 #blazor-error-ui {
   bottom: 0;
   display: none;

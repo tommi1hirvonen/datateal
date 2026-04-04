@@ -1,6 +1,11 @@
 ﻿@inherits LayoutComponentBase
 
-@Body
+<div class="d-flex">
+    <NavMenu />
+    <main class="flex-grow-1 p-4 overflow-auto">
+        @Body
+    </main>
+</div>
 
 <div id="blazor-error-ui" class="alert alert-danger alert-dismissible">
     <text>

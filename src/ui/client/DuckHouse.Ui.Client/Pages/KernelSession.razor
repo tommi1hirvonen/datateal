@@ -1,0 +1,315 @@
+@page "/nodes/{Name}/kernels/{KernelId}"
+
+@using DuckHouse.Core.Kernels
+@using DuckHouse.Ui.Shared.Kernels
+@using System.Text.RegularExpressions
+@inject IKernelService KernelService
+@inject NavigationManager Navigation
+
+<PageTitle>Kernel Session — DuckHouse</PageTitle>
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="nodes">Nodes</a></li>
+        <li class="breadcrumb-item"><a href="nodes/@Name/kernels">@Name</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@ShortId</li>
+    </ol>
+</nav>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center gap-2">
+        <SvgIcon Icon="LucideIcon.Terminal" />
+        <h2 class="mb-0">Kernel Session</h2>
+        @if (_kernel is not null)
+        {
+            <span class="badge @StatusBadgeClass(_kernel.Status)">@_kernel.Status</span>
+        }
+    </div>
+    <div class="d-flex gap-2">
+        @if (_kernel?.Status == "busy")
+        {
+            <Button Color="ButtonColor.Warning" Size="ButtonSize.Small"
+                    Loading="_actionBusy" Disabled="_actionBusy"
+                    @onclick="InterruptAsync">
+                <SvgIcon Icon="LucideIcon.CircleStop" />
+                Interrupt
+            </Button>
+        }
+        <Button Color="ButtonColor.Success" Size="ButtonSize.Small"
+                Loading="_actionBusy" Disabled="_actionBusy || _executing"
+                @onclick="RestartAsync">
+            <SvgIcon Icon="LucideIcon.RotateCw" />
+            Restart
+        </Button>
+        <Button Color="ButtonColor.Danger" Size="ButtonSize.Small"
+                Loading="_actionBusy" Disabled="_actionBusy"
+                @onclick="ConfirmDeleteAsync">
+            <SvgIcon Icon="LucideIcon.Trash2" />
+            Delete
+        </Button>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger alert-dismissible" role="alert">
+        @_error
+        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <Spinner />
+    </div>
+}
+else if (_kernelNotFound)
+{
+    <div class="alert alert-warning">
+        Kernel <code>@KernelId</code> was not found on node <strong>@Name</strong>.
+    </div>
+}
+else
+{
+    <div class="mb-3">
+        @if (_history.Count == 0)
+        {
+            <p class="text-muted fst-italic small">No executions yet.</p>
+        }
+        @foreach (var entry in _history)
+        {
+            <div class="d-flex gap-2 mb-1 align-items-start">
+                <span class="text-primary font-monospace small text-nowrap pt-1">In [@(entry.ExecutionCount?.ToString() ?? " ")]:</span>
+                <pre class="kernel-pre font-monospace small flex-grow-1 border-start border-primary ps-2">@entry.Code</pre>
+            </div>
+
+            @foreach (var output in entry.Result.Outputs)
+            {
+                @if (output.Type == "stream")
+                {
+                    bool isStderr = output.Name == "stderr";
+                    <div class="d-flex gap-2 mb-1 align-items-start">
+                        <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
+                        <pre class="kernel-pre font-monospace small flex-grow-1 border-start ps-2 @(isStderr ? "border-warning text-warning" : "border-secondary text-body")">@output.Text</pre>
+                    </div>
+                }
+                else if (output.Type is "execute_result" or "display_data")
+                {
+                    string? htmlText = GetDataText(output.Data, "text/html");
+                    string? plainText = GetDataText(output.Data, "text/plain") ?? output.Text;
+                    string outLabel = $"Out[{output.ExecutionCount ?? entry.ExecutionCount}]:";
+
+                    @if (htmlText is not null)
+                    {
+                        <div class="d-flex gap-2 mb-1 align-items-start">
+                            <span class="text-info font-monospace small text-nowrap pt-1">@outLabel</span>
+                            <div class="flex-grow-1 border-start border-info ps-2 small">@((MarkupString)htmlText)</div>
+                        </div>
+                    }
+                    else if (plainText is not null)
+                    {
+                        <div class="d-flex gap-2 mb-1 align-items-start">
+                            <span class="text-info font-monospace small text-nowrap pt-1">@outLabel</span>
+                            <pre class="kernel-pre font-monospace small flex-grow-1 border-start border-info ps-2">@plainText</pre>
+                        </div>
+                    }
+                }
+            }
+
+            @if (entry.Result.Error is { } err)
+            {
+                <div class="d-flex gap-2 mb-1 align-items-start">
+                    <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
+                    <div class="flex-grow-1 border-start border-danger ps-2 bg-danger bg-opacity-10 rounded-end p-2">
+                        <div class="text-danger fw-bold small mb-1">@err.Ename: @err.Evalue</div>
+                        <pre class="kernel-pre font-monospace small mb-0 text-danger-emphasis">@string.Join("\n", err.Traceback.Select(StripAnsi))</pre>
+                    </div>
+                </div>
+            }
+
+            <hr class="my-2 border-secondary opacity-25" />
+        }
+    </div>
+
+    <textarea class="form-control font-monospace mb-2"
+              rows="5"
+              placeholder="Enter Python code… (Ctrl+Enter to run)"
+              @bind="_code"
+              @bind:event="oninput"
+              @onkeydown="HandleKeyDownAsync"
+              disabled="@(_isDead || _executing)" />
+    <div class="d-flex align-items-center gap-2">
+        <Button Color="ButtonColor.Primary"
+                Loading="_executing"
+                Disabled="_executing || _isDead || string.IsNullOrWhiteSpace(_code)"
+                @onclick="ExecuteAsync">
+            <SvgIcon Icon="LucideIcon.SendHorizontal" />
+            Run
+        </Button>
+        <span class="text-muted small">or Ctrl+Enter</span>
+        @if (_isDead)
+        {
+            <span class="badge bg-danger ms-2">Kernel is dead — restart to continue</span>
+        }
+    </div>
+}
+
+<ConfirmDialog @ref="_confirmDialog" />
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public string KernelId { get; set; } = "";
+
+    private record HistoryEntry(int? ExecutionCount, string Code, ExecutionResult Result);
+
+    private KernelInfo? _kernel;
+    private List<HistoryEntry> _history = [];
+    private bool _loading = true;
+    private bool _kernelNotFound;
+    private string? _error;
+    private string _code = "";
+    private bool _executing;
+    private bool _actionBusy;
+
+    private ConfirmDialog _confirmDialog = default!;
+
+    private string ShortId => KernelId.Length > 8 ? KernelId[..8] + "…" : KernelId;
+    private bool _isDead => _kernel?.Status == "dead";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _kernel = await KernelService.GetKernelAsync(Name, KernelId);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _kernelNotFound = true;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load kernel: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ExecuteAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_code) || _isDead) return;
+
+        _executing = true;
+        _error = null;
+        var codeToRun = _code;
+        _code = "";
+        try
+        {
+            var result = await KernelService.ExecuteAsync(Name, KernelId, new ExecuteKernelRequest(codeToRun));
+            _history.Add(new HistoryEntry(result.ExecutionCount, codeToRun, result));
+            _kernel = await KernelService.GetKernelAsync(Name, KernelId);
+        }
+        catch (Exception ex)
+        {
+            _code = codeToRun;
+            _error = $"Execution failed: {ex.Message}";
+        }
+        finally
+        {
+            _executing = false;
+        }
+    }
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.CtrlKey && e.Key == "Enter")
+            await ExecuteAsync();
+    }
+
+    private async Task RestartAsync()
+    {
+        _actionBusy = true;
+        _error = null;
+        try
+        {
+            _kernel = await KernelService.RestartKernelAsync(Name, KernelId);
+            _history.Clear();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to restart kernel: {ex.Message}";
+        }
+        finally
+        {
+            _actionBusy = false;
+        }
+    }
+
+    private async Task InterruptAsync()
+    {
+        _actionBusy = true;
+        _error = null;
+        try
+        {
+            await KernelService.InterruptKernelAsync(Name, KernelId);
+            _kernel = await KernelService.GetKernelAsync(Name, KernelId);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to interrupt kernel: {ex.Message}";
+        }
+        finally
+        {
+            _actionBusy = false;
+        }
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        var confirmed = await _confirmDialog.ShowAsync(
+            title: "Delete Kernel",
+            message1: $"Are you sure you want to delete kernel '{ShortId}'? The session history will be lost.",
+            confirmDialogOptions: new ConfirmDialogOptions
+            {
+                YesButtonText = "Delete",
+                YesButtonColor = ButtonColor.Danger,
+                NoButtonText = "Cancel",
+                NoButtonColor = ButtonColor.Secondary
+            });
+
+        if (!confirmed) return;
+
+        _actionBusy = true;
+        _error = null;
+        try
+        {
+            await KernelService.DeleteKernelAsync(Name, KernelId);
+            Navigation.NavigateTo($"nodes/{Name}/kernels");
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to delete kernel: {ex.Message}";
+            _actionBusy = false;
+        }
+    }
+
+    private static string? GetDataText(Dictionary<string, object>? data, string mimeType)
+    {
+        if (data?.TryGetValue(mimeType, out var value) != true) return null;
+        return value?.ToString();
+    }
+
+    private static string StripAnsi(string text) =>
+        Regex.Replace(text, @"\x1B\[[0-9;]*[a-zA-Z]", "");
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "idle"                     => "bg-success",
+        "busy"                     => "bg-warning text-dark",
+        "starting" or "restarting" => "bg-info",
+        "dead"                     => "bg-danger",
+        _                          => "bg-secondary"
+    };
+}

@@ -1,33 +1,12 @@
 ﻿@page "/"
 
-@using BlazorBootstrap
-
 @inject IJSRuntime JSRuntime
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Home — DuckHouse</PageTitle>
 
-<h1>Hello, world!</h1>
+<h2 class="d-flex align-items-center gap-2 mb-4">
+    <SvgIcon Icon="LucideIcon.House" />
+    Home
+</h2>
 
-Welcome to your new app.
-
-<Button Color="ButtonColor.Primary" @onclick="OnButtonClick">
-    <SvgIcon Icon="LucideIcon.Info" />
-    Click me
-</Button>
-
-<Button Color="ButtonColor.Danger" @onclick="ThrowError">
-    <SvgIcon Icon="LucideIcon.OctagonX" />
-    Throw error
-</Button>
-
-@code {
-    private async Task OnButtonClick()
-    {
-        await JSRuntime.InvokeVoidAsync("alert", "Button clicked!");
-    }
-
-    private void ThrowError()
-    {
-        throw new Exception("This is a test exception.");
-    }
-}
+<p>Welcome to DuckHouse.</p>

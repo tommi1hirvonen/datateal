@@ -1,0 +1,210 @@
+@page "/nodes/{Name}/kernels"
+
+@using DuckHouse.Core.Kernels
+@inject IKernelService KernelService
+
+<PageTitle>Kernels — DuckHouse</PageTitle>
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="nodes">Nodes</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Name — Kernels</li>
+    </ol>
+</nav>
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h2 class="d-flex align-items-center gap-2 mb-0">
+        <SvgIcon Icon="LucideIcon.Cpu" />
+        Kernels
+    </h2>
+    <Button Color="ButtonColor.Primary" Loading="_creating" Disabled="_creating"
+            @onclick="CreateKernelAsync">
+        <SvgIcon Icon="LucideIcon.Plus" />
+        New Kernel
+    </Button>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger alert-dismissible" role="alert">
+        @_error
+        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <Spinner />
+    </div>
+}
+else if (_kernels.Count == 0)
+{
+    <p class="text-muted">No kernels running on <strong>@Name</strong>. Create one to get started.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Last Activity</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var kernel in _kernels)
+                {
+                    var id = kernel.Id;
+                    var busy = _busy == id;
+                    var isDead = kernel.Status == "dead";
+                    <tr>
+                        <td class="font-monospace small">@id</td>
+                        <td><span class="badge @StatusBadgeClass(kernel.Status)">@kernel.Status</span></td>
+                        <td class="text-muted small">@kernel.CreatedAt.LocalDateTime.ToString("g")</td>
+                        <td class="text-muted small">@kernel.LastActivity.LocalDateTime.ToString("g")</td>
+                        <td>
+                            <div class="d-flex gap-2 justify-content-end">
+                                <a href="nodes/@Name/kernels/@id"
+                                   class="btn btn-sm btn-outline-secondary @(isDead ? "disabled" : "")"
+                                   tabindex="@(isDead ? -1 : 0)"
+                                   aria-disabled="@isDead">
+                                    <SvgIcon Icon="LucideIcon.ExternalLink" />
+                                    Open
+                                </a>
+                                @if (!isDead)
+                                {
+                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Success"
+                                            Loading="busy" Disabled="busy"
+                                            @onclick="() => RestartKernelAsync(id)">
+                                        <SvgIcon Icon="LucideIcon.RotateCw" />
+                                    </Button>
+                                }
+                                @if (kernel.Status == "busy")
+                                {
+                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Warning"
+                                            Loading="busy" Disabled="busy"
+                                            @onclick="() => InterruptKernelAsync(id)">
+                                        <SvgIcon Icon="LucideIcon.CircleStop" />
+                                    </Button>
+                                }
+                                <Button Size="ButtonSize.Small" Color="ButtonColor.Danger"
+                                        Loading="busy" Disabled="busy || _busy is not null && _busy != id"
+                                        @onclick="() => ConfirmDeleteAsync(id)">
+                                    <SvgIcon Icon="LucideIcon.Trash2" />
+                                </Button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<ConfirmDialog @ref="_confirmDialog" />
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+
+    private List<KernelInfo> _kernels = [];
+    private bool _loading = true;
+    private string? _error;
+    private string? _busy;
+    private bool _creating;
+
+    private ConfirmDialog _confirmDialog = default!;
+
+    protected override async Task OnInitializedAsync() => await LoadKernelsAsync();
+
+    private async Task LoadKernelsAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _kernels = [.. await KernelService.GetKernelsAsync(Name)];
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load kernels: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CreateKernelAsync()
+    {
+        _creating = true;
+        _error = null;
+        try
+        {
+            var kernel = await KernelService.CreateKernelAsync(Name);
+            _kernels.Add(kernel);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to create kernel: {ex.Message}";
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
+
+    private async Task RestartKernelAsync(string kernelId) =>
+        await RunActionAsync(kernelId, async (n, k, ct) => await KernelService.RestartKernelAsync(n, k, ct), "restart");
+
+    private async Task InterruptKernelAsync(string kernelId) =>
+        await RunActionAsync(kernelId, KernelService.InterruptKernelAsync, "interrupt");
+
+    private async Task ConfirmDeleteAsync(string kernelId)
+    {
+        var confirmed = await _confirmDialog.ShowAsync(
+            title: "Delete Kernel",
+            message1: $"Are you sure you want to delete kernel '{kernelId}'?",
+            confirmDialogOptions: new ConfirmDialogOptions
+            {
+                YesButtonText = "Delete",
+                YesButtonColor = ButtonColor.Danger,
+                NoButtonText = "Cancel",
+                NoButtonColor = ButtonColor.Secondary
+            });
+
+        if (confirmed)
+            await RunActionAsync(kernelId, KernelService.DeleteKernelAsync, "delete");
+    }
+
+    private async Task RunActionAsync(string kernelId, Func<string, string, CancellationToken, Task> action, string verb)
+    {
+        _busy = kernelId;
+        _error = null;
+        try
+        {
+            await action(Name, kernelId, CancellationToken.None);
+            await LoadKernelsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to {verb} kernel '{kernelId}': {ex.Message}";
+        }
+        finally
+        {
+            _busy = null;
+        }
+    }
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "idle"                   => "bg-success",
+        "busy"                   => "bg-warning text-dark",
+        "starting" or "restarting" => "bg-info",
+        "dead"                   => "bg-danger",
+        _                        => "bg-secondary"
+    };
+}
