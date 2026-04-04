@@ -1,5 +1,8 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-builder.AddProject<Projects.DuckHouse_ControlPlane_Api>("api");
+var api = builder.AddProject<Projects.DuckHouse_ControlPlane_Api>("api");
+
+builder.AddProject<Projects.DuckHouse_Ui>("ui")
+    .WithReference(api);
 
 builder.Build().Run();
