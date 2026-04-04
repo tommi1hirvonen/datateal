@@ -72,10 +72,13 @@ if (string.Equals(nodeBackend, "Aks", StringComparison.OrdinalIgnoreCase))
 }
 else
 {
-    builder.Services.AddSingleton<IKubernetes>(_ =>
+    builder.Services.AddOptions<LocalNodeOptions>().BindConfiguration(LocalNodeOptions.Section);
+    builder.Services.AddSingleton<IKubernetes>(sp =>
     {
+        var options = sp.GetRequiredService<IOptions<LocalNodeOptions>>().Value;
         var config = KubernetesClientConfiguration.BuildConfigFromConfigFile(
-            KubernetesClientConfiguration.KubeConfigDefaultLocation);
+            KubernetesClientConfiguration.KubeConfigDefaultLocation,
+            currentContext: options.KubeContext);
         return new Kubernetes(config);
     });
     builder.Services.AddSingleton(sp => (Kubernetes)sp.GetRequiredService<IKubernetes>());
