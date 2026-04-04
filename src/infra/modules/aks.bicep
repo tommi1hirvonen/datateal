@@ -209,14 +209,19 @@ resource acrPullAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' 
 
 // ── Role assignment ───────────────────────────────────────────────────────────
 
+// Used by control plane's AksNodeService (node management).
 var aksContributorRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   'ed7f3fbd-7b88-4dd4-9017-9adb7ce333f8' // Azure Kubernetes Service Contributor Role
 )
+
+// Used to get cluster credentials (kubeconfig) when calling cluster.GetClusterUserCredentials().
 var aksClusterUserRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   '4abbcc35-e782-43d8-92c5-2d3f1bd2253f' // Azure Kubernetes Service Cluster User Role
 )
+
+// Grants Kubernetes data-plane access. Used in AksNodeService to manage pods and in KubernetesRuntimeClient for the kernel endpoints.
 var aksRbacClusterAdminRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   'b1ff04bb-8a4e-4dc4-8eb5-8693973ce19b' // Azure Kubernetes Service RBAC Cluster Admin
