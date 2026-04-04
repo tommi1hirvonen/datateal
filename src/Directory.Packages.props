@@ -4,16 +4,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageVersion Include="Azure.Identity" Version="1.19.0" />
+    <PackageVersion Include="Azure.ResourceManager.ContainerService" Version="1.4.0" />
+    <PackageVersion Include="Blazor.Bootstrap" Version="3.4.0" />
+    <PackageVersion Include="KubernetesClient" Version="18.0.5" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.5" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.5"/>
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.5"/>
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
-    <PackageVersion Include="Azure.Identity" Version="1.19.0" />
-    <PackageVersion Include="Azure.ResourceManager.ContainerService" Version="1.4.0" />
-    <PackageVersion Include="Blazor.Bootstrap" Version="3.4.0" />
-    <PackageVersion Include="KubernetesClient" Version="18.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.4.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.4.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.12.0" />

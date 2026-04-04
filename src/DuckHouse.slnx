@@ -9,11 +9,16 @@
   <Folder Name="/shared/">
     <Project Path="shared/DuckHouse.Core/DuckHouse.Core.csproj" />
   </Folder>
-  <Folder Name="/ui/">
-    <Project Path="ui/DuckHouse.Ui.Icons/DuckHouse.Ui.Icons.csproj" />
-    <Project Path="ui/DuckHouse.Ui.SourceGeneration/DuckHouse.Ui.SourceGeneration.csproj" />
-    <Project Path="ui/DuckHouse.Ui/DuckHouse.Ui.csproj" />
-    <Project Path="ui/DuckHouse.Ui.Components/DuckHouse.Ui.Components.csproj" />
-    <Project Path="ui/DuckHouse.Ui.Client/DuckHouse.Ui.Client.csproj" />
-  </Folder>
+  <Folder Name="/ui/server/">
+      <Project Path="ui/server/DuckHouse.Ui.Server.Application/DuckHouse.Ui.Server.Application.csproj" />
+      <Project Path="ui/server/DuckHouse.Ui.Server.Infrastructure/DuckHouse.Ui.Server.Infrastructure.csproj" />
+      <Project Path="ui/server/DuckHouse.Ui.Server.Core/DuckHouse.Ui.Server.Core.csproj" />
+      <Project Path="ui/server/DuckHouse.Ui.Server/DuckHouse.Ui.Server.csproj" />
+    </Folder>
+  <Folder Name="/ui/client/">
+      <Project Path="ui/client/DuckHouse.Ui.Client.Components/DuckHouse.Ui.Client.Components.csproj" />
+      <Project Path="ui/client/DuckHouse.Ui.Client.Icons/DuckHouse.Ui.Client.Icons.csproj" />
+      <Project Path="ui/client/DuckHouse.Ui.Client.SourceGeneration/DuckHouse.Ui.Client.SourceGeneration.csproj" />
+      <Project Path="ui/client/DuckHouse.Ui.Client/DuckHouse.Ui.Client.csproj" />
+    </Folder>
 </Solution>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
+        <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
+        <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+        <PackageReference Include="Blazor.Bootstrap" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\DuckHouse.Ui.Client.Components\DuckHouse.Ui.Client.Components.csproj" />
+      <ProjectReference Include="..\DuckHouse.Ui.Client.Icons\DuckHouse.Ui.Client.Icons.csproj" />
+    </ItemGroup>
+
+</Project>

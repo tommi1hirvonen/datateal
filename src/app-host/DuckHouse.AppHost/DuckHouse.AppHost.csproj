@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../control-plane/DuckHouse.ControlPlane/DuckHouse.ControlPlane.csproj" />
-    <ProjectReference Include="..\..\ui\DuckHouse.Ui\DuckHouse.Ui.csproj" />
+    <ProjectReference Include="..\..\ui\server\DuckHouse.Ui.Server\DuckHouse.Ui.Server.csproj" />
   </ItemGroup>
 
 </Project>
