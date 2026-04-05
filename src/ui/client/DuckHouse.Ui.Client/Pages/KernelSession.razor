@@ -128,7 +128,24 @@ else
                 </div>
             }
 
+            <div class="d-flex gap-2 mb-1 align-items-start">
+                <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
+                <ExecutionTimer DurationMs="entry.Result.DurationMs" />
+            </div>
+
             <hr class="my-2 border-secondary opacity-25" />
+        }
+
+        @if (_executingCode is not null)
+        {
+            <div class="d-flex gap-2 mb-1 align-items-start">
+                <span class="text-primary font-monospace small text-nowrap pt-1">In [ ]:</span>
+                <pre class="kernel-pre font-monospace small flex-grow-1 border-start border-primary ps-2">@_executingCode</pre>
+            </div>
+            <div class="d-flex gap-2 mb-1 align-items-start">
+                <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
+                <ExecutionTimer IsRunning="true" />
+            </div>
         }
     </div>
 
@@ -170,6 +187,7 @@ else
     private string? _error;
     private string _code = "";
     private bool _executing;
+    private string? _executingCode;
     private bool _actionBusy;
 
     private ConfirmDialog _confirmDialog = default!;
@@ -205,6 +223,7 @@ else
         _error = null;
         var codeToRun = _code;
         _code = "";
+        _executingCode = codeToRun;
         try
         {
             var result = await KernelService.ExecuteAsync(Name, KernelId, new ExecuteKernelRequest(codeToRun));
@@ -218,6 +237,7 @@ else
         }
         finally
         {
+            _executingCode = null;
             _executing = false;
         }
     }

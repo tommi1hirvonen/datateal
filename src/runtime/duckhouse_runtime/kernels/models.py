@@ -35,3 +35,4 @@ class ExecutionResult(BaseModel):
     execution_count: Optional[int] = None
     outputs: list[Output]
     error: Optional[ErrorInfo] = None
+    duration_ms: float

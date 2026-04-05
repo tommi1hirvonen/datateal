@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -55,8 +56,11 @@ class KernelConnection:
             self.status = "busy"
             self.last_activity = datetime.now(timezone.utc)
             try:
+                start = time.monotonic()
                 msg_id = self.kc.execute(code)
-                return await self._collect_output(msg_id, timeout)
+                result = await self._collect_output(msg_id, timeout)
+                result["duration_ms"] = (time.monotonic() - start) * 1000
+                return result
             finally:
                 self.status = "idle"
                 self.last_activity = datetime.now(timezone.utc)

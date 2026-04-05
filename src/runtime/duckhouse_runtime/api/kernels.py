@@ -62,6 +62,7 @@ async def execute(kernel_id: str, body: ExecuteRequest):
             execution_count=result["execution_count"],
             outputs=outputs,
             error=error,
+            duration_ms=result["duration_ms"],
         )
     except TimeoutError:
         raise HTTPException(status_code=408, detail="Execution timed out")

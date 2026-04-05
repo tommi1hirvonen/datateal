@@ -1,0 +1,76 @@
+@using System.Threading
+@implements IDisposable
+
+<span class="text-muted small font-monospace">@FormatDuration()</span>
+
+@code {
+    [Parameter] public double? DurationMs { get; set; }
+    [Parameter] public bool IsRunning { get; set; }
+
+    private System.Diagnostics.Stopwatch? _stopwatch;
+    private Timer? _timer;
+    private bool _disposed;
+
+    protected override void OnParametersSet()
+    {
+        if (IsRunning && _stopwatch is null)
+        {
+            _stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            ScheduleTick();
+        }
+        else if (!IsRunning)
+        {
+            StopTimer();
+        }
+    }
+
+    private void ScheduleTick()
+    {
+        if (_disposed) return;
+        int intervalMs = (_stopwatch?.Elapsed.TotalMilliseconds ?? 0) < 10_000 ? 100 : 1_000;
+        _timer?.Dispose();
+        _timer = new Timer(OnTick, null, intervalMs, Timeout.Infinite);
+    }
+
+    private void OnTick(object? _)
+    {
+        InvokeAsync(() =>
+        {
+            if (_disposed || !IsRunning) return;
+            StateHasChanged();
+            ScheduleTick();
+        });
+    }
+
+    private void StopTimer()
+    {
+        _timer?.Dispose();
+        _timer = null;
+        _stopwatch?.Stop();
+        _stopwatch = null;
+    }
+
+    private string FormatDuration()
+    {
+        double ms = IsRunning
+            ? (_stopwatch?.Elapsed.TotalMilliseconds ?? 0)
+            : (DurationMs ?? 0);
+        return FormatMs(ms);
+    }
+
+    private static string FormatMs(double ms)
+    {
+        double s = ms / 1000.0;
+        if (s < 10.0) return $"{s:F1}s";
+        int total = (int)s;
+        if (total < 60) return $"{total}s";
+        return $"{total / 60}m {total % 60}s";
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _timer?.Dispose();
+        _stopwatch?.Stop();
+    }
+}
