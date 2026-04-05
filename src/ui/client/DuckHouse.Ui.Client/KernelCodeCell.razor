@@ -25,6 +25,10 @@
     [Parameter] public bool ReadOnly { get; set; }
     [Parameter] public EventCallback OnExecute { get; set; }
     [Parameter] public string? Class { get; set; }
+    /// <summary>Returns the accumulated code from all prior cells (joined by newlines).
+    /// Used as context for completions and diagnostics so Jedi/pyflakes can see
+    /// variables and imports defined in earlier cells of the same session.</summary>
+    [Parameter] public Func<string>? PriorContext { get; set; }
 
     private CodeCell _codeCell = default!;
     private TextModel? _model;
@@ -62,7 +66,7 @@
 
             var response = await KernelService.CompleteAsync(
                 NodeName, KernelId,
-                new CompleteRequest(_currentCode, position.LineNumber, position.Column - 1),
+                new CompleteRequest(_currentCode, position.LineNumber, position.Column - 1, PriorContext?.Invoke() ?? ""),
                 cts.Token);
 
             var range = JsonSerializer.SerializeToElement(new
@@ -120,7 +124,7 @@
         {
             var response = await KernelService.DiagnoseAsync(
                 NodeName, KernelId,
-                new DiagnoseRequest(value),
+                new DiagnoseRequest(value, PriorContext?.Invoke() ?? ""),
                 ct);
 
             var markers = response.Diagnostics

@@ -96,7 +96,7 @@ async def complete(kernel_id: str, body: CompleteRequest):
     conn = registry.get(kernel_id)
     if not conn:
         raise HTTPException(status_code=404, detail="Kernel not found")
-    items = await conn.complete(body.code, body.line, body.column)
+    items = await conn.complete(body.code, body.line, body.column, body.context)
     return CompleteResponse(items=[CompletionItem(**i) for i in items])
 
 
@@ -105,5 +105,5 @@ async def diagnose(kernel_id: str, body: DiagnoseRequest):
     conn = registry.get(kernel_id)
     if not conn:
         raise HTTPException(status_code=404, detail="Kernel not found")
-    diagnostics = await conn.diagnose(body.code)
+    diagnostics = await conn.diagnose(body.code, body.context)
     return DiagnoseResponse(diagnostics=[Diagnostic(**d) for d in diagnostics])

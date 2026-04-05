@@ -42,6 +42,7 @@ class CompleteRequest(BaseModel):
     code: str
     line: int   # 1-based (Jedi convention)
     column: int  # 0-based (Jedi convention)
+    context: str = ""  # code from all prior cells joined by newlines
 
 
 class CompletionItem(BaseModel):
@@ -58,6 +59,7 @@ class CompleteResponse(BaseModel):
 
 class DiagnoseRequest(BaseModel):
     code: str
+    context: str = ""  # code from all prior cells joined by newlines
 
 
 class Diagnostic(BaseModel):

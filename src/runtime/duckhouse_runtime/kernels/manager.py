@@ -131,14 +131,26 @@ class KernelConnection:
         await self.km.shutdown_kernel(now=True)
         self.status = "dead"
 
-    async def complete(self, code: str, line: int, column: int) -> list[dict]:
-        """Return Jedi completions for code at the given 1-based line / 0-based column."""
+    async def complete(self, code: str, line: int, column: int, context: str = "") -> list[dict]:
+        """Return Jedi completions for code at the given 1-based line / 0-based column.
+
+        If *context* is provided (code from prior cells joined by newlines) it is
+        prepended so Jedi can resolve names/imports defined in earlier cells.
+        """
         kernel_python = os.environ.get("DUCKHOUSE_KERNEL_PYTHON", sys.executable)
 
         def _run() -> list[dict]:
+            if context:
+                context_line_count = context.count("\n") + 1
+                full_code = context + "\n" + code
+                adjusted_line = line + context_line_count
+            else:
+                full_code = code
+                adjusted_line = line
+
             env = JediEnvironment(kernel_python)
-            script = jedi.Script(code, environment=env)
-            completions = script.complete(line, column)
+            script = jedi.Script(full_code, environment=env)
+            completions = script.complete(adjusted_line, column)
             return [
                 {
                     "label": c.name,
@@ -152,30 +164,43 @@ class KernelConnection:
 
         return await asyncio.to_thread(_run)
 
-    async def diagnose(self, code: str) -> list[dict]:
-        """Return pyflakes diagnostics for the given code string."""
+    async def diagnose(self, code: str, context: str = "") -> list[dict]:
+        """Return pyflakes diagnostics for the given code string.
+
+        If *context* is provided (code from prior cells joined by newlines) it is
+        prepended so that names/imports defined in earlier cells are recognised.
+        Only diagnostics that fall within *code* (not the context) are returned,
+        with row numbers relative to *code*.
+        """
         def _run() -> list[dict]:
+            context_line_count = context.count("\n") + 1 if context else 0
+            full_code = (context + "\n" + code) if context else code
+
             diagnostics = []
             try:
-                tree = compile(code, "<string>", "exec", _ast.PyCF_ONLY_AST)
+                tree = compile(full_code, "<string>", "exec", _ast.PyCF_ONLY_AST)
             except SyntaxError as exc:
-                diagnostics.append({
-                    "row": exc.lineno or 1,
-                    "col": max(0, (exc.offset or 1) - 1),
-                    "message": exc.msg,
-                    "severity": "error",
-                })
+                row = (exc.lineno or 1) - context_line_count
+                if row >= 1:
+                    diagnostics.append({
+                        "row": row,
+                        "col": max(0, (exc.offset or 1) - 1),
+                        "message": exc.msg,
+                        "severity": "error",
+                    })
                 return diagnostics
 
             try:
                 checker = pyflakes.checker.Checker(tree, "<string>")
                 for msg in checker.messages:
-                    diagnostics.append({
-                        "row": msg.lineno,
-                        "col": getattr(msg, "col", 0),
-                        "message": msg.message % msg.message_args,
-                        "severity": "warning",
-                    })
+                    row = msg.lineno - context_line_count
+                    if row >= 1:
+                        diagnostics.append({
+                            "row": row,
+                            "col": getattr(msg, "col", 0),
+                            "message": msg.message % msg.message_args,
+                            "severity": "warning",
+                        })
             except ImportError:
                 pass
 

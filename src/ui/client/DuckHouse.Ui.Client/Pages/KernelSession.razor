@@ -155,6 +155,7 @@ else
                     Height="160"
                     ReadOnly="@(_isDead || _executing)"
                     OnExecute="ExecuteAsync"
+                    PriorContext="@(() => string.Join("\n", _history.Select(h => h.Code)))"
                     Class="border rounded p-1 mb-2" />
     <div class="d-flex align-items-center gap-2">
         <Button Color="ButtonColor.Primary"
