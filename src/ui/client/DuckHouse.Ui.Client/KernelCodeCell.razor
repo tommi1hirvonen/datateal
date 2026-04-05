@@ -84,6 +84,7 @@
                     Kind = MapKind(item.Kind),
                     InsertText = item.InsertText,
                     Detail = item.Detail,
+                    SortText = GetSortText(item.Label),
                     Range = range,
                 })
                 .ToList();
@@ -144,6 +145,11 @@
         catch (OperationCanceledException) { }
         catch { /* diagnostics are best-effort */ }
     }
+
+    private static string GetSortText(string label) =>
+        label.StartsWith("__") ? "2" + label :
+        label.StartsWith("_")  ? "1" + label :
+                                  "0" + label;
 
     private static BlazorMonaco.Languages.CompletionItemKind MapKind(string jediType) => jediType switch
     {

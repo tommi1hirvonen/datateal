@@ -151,6 +151,15 @@ class KernelConnection:
             env = JediEnvironment(kernel_python)
             script = jedi.Script(full_code, environment=env)
             completions = script.complete(adjusted_line, column)
+
+            def _visibility(name: str) -> int:
+                if name.startswith("__"):
+                    return 2  # dunder / name-mangled
+                if name.startswith("_"):
+                    return 1  # private / internal
+                return 0      # public
+
+            completions = sorted(completions, key=lambda c: _visibility(c.name))
             return [
                 {
                     "label": c.name,
