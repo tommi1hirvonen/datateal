@@ -81,7 +81,7 @@ else
         {
             <div class="d-flex gap-2 mb-1 align-items-start">
                 <span class="text-primary font-monospace small text-nowrap pt-1">In [@(entry.ExecutionCount?.ToString() ?? " ")]:</span>
-                <pre class="kernel-pre font-monospace small flex-grow-1 border-start border-primary ps-2">@entry.Code</pre>
+                <CodeCell Value="@entry.Code" ReadOnly="true" Class="flex-grow-1" />
             </div>
 
             @foreach (var output in entry.Result.Outputs)
@@ -140,7 +140,7 @@ else
         {
             <div class="d-flex gap-2 mb-1 align-items-start">
                 <span class="text-primary font-monospace small text-nowrap pt-1">In [ ]:</span>
-                <pre class="kernel-pre font-monospace small flex-grow-1 border-start border-primary ps-2">@_executingCode</pre>
+                <CodeCell Value="@_executingCode" ReadOnly="true" Class="flex-grow-1" />
             </div>
             <div class="d-flex gap-2 mb-1 align-items-start">
                 <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
@@ -149,13 +149,11 @@ else
         }
     </div>
 
-    <textarea class="form-control font-monospace mb-2"
-              rows="5"
-              placeholder="Enter Python code… (Ctrl+Enter to run)"
-              @bind="_code"
-              @bind:event="oninput"
-              @onkeydown="HandleKeyDownAsync"
-              disabled="@(_isDead || _executing)" />
+    <CodeCell @bind-Value="_code"
+              Height="160"
+              ReadOnly="@(_isDead || _executing)"
+              OnExecute="ExecuteAsync"
+              Class="border rounded p-1 mb-2" />
     <div class="d-flex align-items-center gap-2">
         <Button Color="ButtonColor.Primary"
                 Loading="_executing"
@@ -240,12 +238,6 @@ else
             _executingCode = null;
             _executing = false;
         }
-    }
-
-    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
-    {
-        if (e.CtrlKey && e.Key == "Enter")
-            await ExecuteAsync();
     }
 
     private async Task RestartAsync()

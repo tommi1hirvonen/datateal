@@ -1,0 +1,77 @@
+<style>#@_id { height: @(ComputedHeight)px; }</style>
+<StandaloneCodeEditor @ref="_editor"
+                      Id="@_id"
+                      CssClass="@(Class ?? "")"
+                      ConstructionOptions="GetConstructionOptions"
+                      OnDidChangeModelContent="OnContentChangedAsync"
+                      OnKeyDown="OnKeyDownAsync" />
+
+@code {
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public string Language { get; set; } = "python";
+    [Parameter] public int Height { get; set; } = 0; // 0 = auto-size from line count
+    [Parameter] public EventCallback OnExecute { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private readonly string _id = $"code-cell-{Guid.NewGuid():N}";
+    private StandaloneCodeEditor _editor = default!;
+    private bool _suppressChange;
+    private bool _lastReadOnly;
+
+    private int ComputedHeight => Height > 0
+        ? Height
+        : Math.Max(1, (Value ?? "").TrimEnd().Split('\n').Length) * 20 + 20;
+
+    private StandaloneEditorConstructionOptions GetConstructionOptions(StandaloneCodeEditor _) => new()
+    {
+        Language = Language,
+        Value = Value,
+        ReadOnly = ReadOnly,
+        AutomaticLayout = true,
+        Minimap = new EditorMinimapOptions { Enabled = false },
+        ScrollBeyondLastLine = false,
+        WordWrap = "on",
+        GlyphMargin = false,
+        OverviewRulerLanes = 0,
+        Padding = new EditorPaddingOptions { Top = 8, Bottom = 8 },
+        RenderLineHighlight = "none",
+    };
+
+    private async Task OnContentChangedAsync(ModelContentChangedEvent _)
+    {
+        if (ReadOnly || _suppressChange) return;
+        var value = await _editor.GetValue();
+        await ValueChanged.InvokeAsync(value);
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEvent e)
+    {
+        if (!ReadOnly && e.CtrlKey && e.Code == "Enter")
+            await OnExecute.InvokeAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_editor is null) return;
+
+        if (_lastReadOnly != ReadOnly)
+        {
+            _lastReadOnly = ReadOnly;
+            await _editor.UpdateOptions(new EditorUpdateOptions { ReadOnly = ReadOnly });
+        }
+
+        _suppressChange = true;
+        try
+        {
+            var current = await _editor.GetValue();
+            if (current != Value)
+                await _editor.SetValue(Value);
+        }
+        finally
+        {
+            _suppressChange = false;
+        }
+    }
+}
