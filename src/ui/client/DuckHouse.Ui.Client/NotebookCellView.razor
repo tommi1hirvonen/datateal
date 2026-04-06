@@ -33,9 +33,11 @@
                 }
                 else
                 {
-                    <Button Size="ButtonSize.ExtraSmall" Color="ButtonColor.Primary"
+                    <Button Size="ButtonSize.ExtraSmall"
+                            Color="ButtonColor.Primary"
                             Disabled="@(!HasKernel)"
-                            @onclick="OnExecute">
+                            @onclick="OnExecute"
+                            TooltipTitle="Run cell (Ctrl+Enter)">
                         <SvgIcon Icon="LucideIcon.Play" />
                     </Button>
                 }
@@ -44,30 +46,41 @@
             {
                 @if (Cell.IsEditingMarkdown)
                 {
-                    <Button Size="ButtonSize.ExtraSmall" Color="ButtonColor.Secondary"
-                            @onclick="StopEditingMarkdown">
+                    <Button Size="ButtonSize.ExtraSmall"
+                            Color="ButtonColor.Secondary"
+                            @onclick="StopEditingMarkdown"
+                            TooltipTitle="Stop editing markdown">
                         <SvgIcon Icon="LucideIcon.Check" />
-                        Done
                     </Button>
                 }
                 else
                 {
-                    <Button Size="ButtonSize.ExtraSmall" Color="ButtonColor.Secondary"
-                            @onclick="StartEditingMarkdown">
-                        <SvgIcon Icon="LucideIcon.Code" />
+                    <Button Size="ButtonSize.ExtraSmall"
+                            Color="ButtonColor.Secondary"
+                            @onclick="StartEditingMarkdown"
+                            TooltipTitle="Start editing markdown">
+                        <SvgIcon Icon="LucideIcon.Pen" />
                     </Button>
                 }
             }
-            <Button Size="ButtonSize.ExtraSmall" Color="ButtonColor.Light"
-                    Disabled="@(!CanMoveUp)" @onclick="OnMoveUp">
+            <Button Size="ButtonSize.ExtraSmall"
+                    Color="ButtonColor.Light"
+                    Disabled="@(!CanMoveUp)"
+                    @onclick="OnMoveUp"
+                    TooltipTitle="Move cell up">
                 <SvgIcon Icon="LucideIcon.ChevronUp" />
             </Button>
-            <Button Size="ButtonSize.ExtraSmall" Color="ButtonColor.Light"
-                    Disabled="@(!CanMoveDown)" @onclick="OnMoveDown">
+            <Button Size="ButtonSize.ExtraSmall"
+                    Color="ButtonColor.Light"
+                    Disabled="@(!CanMoveDown)"
+                    @onclick="OnMoveDown"
+                    TooltipTitle="Move cell down">
                 <SvgIcon Icon="LucideIcon.ChevronDown" />
             </Button>
-            <Button Size="ButtonSize.ExtraSmall" Color="ButtonColor.Danger"
-                    @onclick="OnDelete">
+            <Button Size="ButtonSize.ExtraSmall"
+                    Color="ButtonColor.Danger"
+                    @onclick="OnDelete"
+                    TooltipTitle="Delete cell">
                 <SvgIcon Icon="LucideIcon.X" />
             </Button>
         </div>
@@ -93,7 +106,7 @@
                       ValueChanged="@(async v => { Cell.Source = v; await OnCellChanged.InvokeAsync(); })"
                       Language="@(Cell.Language == NotebookCellLanguage.Sql ? "sql" : "python")"
                       ReadOnly="@Cell.IsExecuting"
-                      OnExecute="@(Cell.Language != NotebookCellLanguage.Sql ? OnExecute : default)"
+                      OnExecute="OnExecute"
                       Class="border rounded p-1 mb-1" />
         }
     }
