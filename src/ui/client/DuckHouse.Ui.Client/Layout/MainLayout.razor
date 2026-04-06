@@ -15,7 +15,8 @@
 </Layout>
 
 <div id="blazor-error-ui">
-    An error has occurred. This app may no longer respond until reloaded.
-    <a href="">Reload</a>
-    <button class="dismiss" aria-label="Close">✕</button>
+    <Alert Closable Type="AlertType.Error">
+        An error has occurred. This app may no longer respond until reloaded.
+        <a href="javascript:location.reload()">Reload</a>
+    </Alert>
 </div>

@@ -81,18 +81,12 @@
     margin-bottom: 2rem;
     margin-left: 2vw;
     margin-right: 2vw;
-    background-color: var(--ant-color-error-bg);
-    color: var(--ant-color-error-text);
-    border: 1px solid var(--ant-color-error-border);
-    border-radius: 6px;
     padding: 12px 16px;
 }
 
-#blazor-error-ui .dismiss {
-    float: right;
-    cursor: pointer;
-    background: none;
-    border: none;
-    font-size: 1rem;
-    color: inherit;
+#blazor-error-ui a {
+    color: var(--ant-color-error-text);
+    font-weight: 600;
+    margin-left: 8px;
+    text-decoration: underline;
 }
