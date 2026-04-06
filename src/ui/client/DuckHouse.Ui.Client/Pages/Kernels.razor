@@ -2,117 +2,119 @@
 
 @using DuckHouse.Core.Kernels
 @inject IKernelService KernelService
+@inject NavigationManager Navigation
 
 <PageTitle>Kernels — DuckHouse</PageTitle>
 
-<nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="nodes">Nodes</a></li>
-        <li class="breadcrumb-item active" aria-current="page">@Name — Kernels</li>
-    </ol>
-</nav>
+<Breadcrumb Style="margin-bottom: 12px;">
+    <BreadcrumbItem OnClick="@(() => Navigation.NavigateTo("/nodes"))" Href="">Nodes</BreadcrumbItem>
+    <BreadcrumbItem>@Name — Kernels</BreadcrumbItem>
+</Breadcrumb>
 
-<div class="d-flex align-items-center justify-content-between mb-4">
-    <h2 class="d-flex align-items-center gap-2 mb-0">
-        <SvgIcon Icon="LucideIcon.Cpu" />
-        Kernels
-    </h2>
-    <div class="d-flex gap-2">
-        <Button Color="ButtonColor.Secondary" @onclick="LoadKernelsAsync"
-                Disabled="@(_loading || _busy is not null)">
-            <SvgIcon Icon="LucideIcon.RefreshCw" />
-            Refresh
-        </Button>
-        <Button Color="ButtonColor.Primary" Loading="_creating" Disabled="_creating"
-                @onclick="CreateKernelAsync">
-            <SvgIcon Icon="LucideIcon.Plus" />
-            New Kernel
-        </Button>
-    </div>
-</div>
+<Flex Justify="@("space-between")" Align="FlexAlign.Center" Style="margin-bottom: 24px;">
+    <Space Align="SpaceAlign.Center" Size="@("small")">
+        <SpaceItem><SvgIcon Icon="LucideIcon.Cpu" /></SpaceItem>
+        <SpaceItem><h2 style="margin: 0;">Kernels</h2></SpaceItem>
+    </Space>
+    <Space>
+        <SpaceItem>
+            <Button OnClick="LoadKernelsAsync" Disabled="@(_loading || _busy is not null)">
+                <SvgIcon Icon="LucideIcon.RefreshCw" />
+                Refresh
+            </Button>
+        </SpaceItem>
+        <SpaceItem>
+            <Button Type="ButtonType.Primary" Loading="_creating" Disabled="_creating"
+                    OnClick="CreateKernelAsync">
+                <SvgIcon Icon="LucideIcon.Plus" />
+                New Kernel
+            </Button>
+        </SpaceItem>
+    </Space>
+</Flex>
 
 @if (_error is not null)
 {
-    <div class="alert alert-danger alert-dismissible" role="alert">
-        @_error
-        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
-    </div>
+    <Alert Type="AlertType.Error" Message="@_error" Closable ShowIcon="true"
+           OnClose="@(() => _error = null)" Style="margin-bottom: 16px;" />
 }
 
 @if (_loading)
 {
-    <div class="d-flex justify-content-center py-5">
-        <Spinner />
-    </div>
+    <Flex Justify="@("center")" Style="padding: 40px 0;">
+        <Spin />
+    </Flex>
 }
 else if (_kernels.Count == 0)
 {
-    <p class="text-muted">No kernels running on <strong>@Name</strong>. Create one to get started.</p>
+    <p style="color: var(--ant-color-text-secondary);">No kernels running on <strong>@Name</strong>. Create one to get started.</p>
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Last Activity</th>
-                    <th class="text-end">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var kernel in _kernels)
+    <Table TItem="KernelInfo" DataSource="@_kernels" Bordered>
+        <PropertyColumn Property="k => k.Id" Title="ID">
+            <span style="font-family: monospace; font-size: 0.875rem;">@context.Id</span>
+        </PropertyColumn>
+        <PropertyColumn Property="k => k.Status" Title="Status">
+            <Tag Color="@StatusTagColor(context.Status)">@context.Status</Tag>
+        </PropertyColumn>
+        <PropertyColumn Property="k => k.CreatedAt" Title="Created">
+            <span style="color: var(--ant-color-text-secondary); font-size: 0.875rem;">@context.CreatedAt.LocalDateTime.ToString("g")</span>
+        </PropertyColumn>
+        <PropertyColumn Property="k => k.LastActivity" Title="Last Activity">
+            <span style="color: var(--ant-color-text-secondary); font-size: 0.875rem;">@context.LastActivity.LocalDateTime.ToString("g")</span>
+        </PropertyColumn>
+        <ActionColumn Title="Actions">
+            @{
+                var id = context.Id;
+                var busy = _busy == id;
+                var isDead = context.Status == KernelStatus.Dead;
+            }
+            <Space>
+                <SpaceItem>
+                    <Button Size="ButtonSize.Small" Disabled="@isDead"
+                            OnClick="@(() => Navigation.NavigateTo($"nodes/{Name}/kernels/{id}"))">
+                        <SvgIcon Icon="LucideIcon.ExternalLink" />
+                        Open
+                    </Button>
+                </SpaceItem>
+                @if (!isDead)
                 {
-                    var id = kernel.Id;
-                    var busy = _busy == id;
-                    var isDead = kernel.Status == KernelStatus.Dead;
-                    <tr>
-                        <td class="font-monospace small">@id</td>
-                        <td><span class="badge @StatusBadgeClass(kernel.Status)">@kernel.Status</span></td>
-                        <td class="text-muted small">@kernel.CreatedAt.LocalDateTime.ToString("g")</td>
-                        <td class="text-muted small">@kernel.LastActivity.LocalDateTime.ToString("g")</td>
-                        <td>
-                            <div class="d-flex gap-2 justify-content-end">
-                                <a href="nodes/@Name/kernels/@id"
-                                   class="btn btn-sm btn-outline-secondary @(isDead ? "disabled" : "")"
-                                   tabindex="@(isDead ? -1 : 0)"
-                                   aria-disabled="@isDead">
-                                    <SvgIcon Icon="LucideIcon.ExternalLink" />
-                                    Open
-                                </a>
-                                @if (!isDead)
-                                {
-                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Success"
-                                            Loading="busy" Disabled="busy"
-                                            @onclick="() => RestartKernelAsync(id)">
-                                        <SvgIcon Icon="LucideIcon.RotateCw" />
-                                    </Button>
-                                }
-                                @if (kernel.Status == KernelStatus.Busy)
-                                {
-                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Warning"
-                                            Loading="busy" Disabled="busy"
-                                            @onclick="() => InterruptKernelAsync(id)">
-                                        <SvgIcon Icon="LucideIcon.CircleStop" />
-                                    </Button>
-                                }
-                                <Button Size="ButtonSize.Small" Color="ButtonColor.Danger"
-                                        Loading="busy" Disabled="busy || _busy is not null && _busy != id"
-                                        @onclick="() => ConfirmDeleteAsync(id)">
-                                    <SvgIcon Icon="LucideIcon.Trash2" />
-                                </Button>
-                            </div>
-                        </td>
-                    </tr>
+                    <SpaceItem>
+                        <Button Size="ButtonSize.Small" Type="ButtonType.Primary"
+                                Loading="@busy" Disabled="@busy"
+                                OnClick="@(() => RestartKernelAsync(id))">
+                            <SvgIcon Icon="LucideIcon.RotateCw" />
+                        </Button>
+                    </SpaceItem>
                 }
-            </tbody>
-        </table>
-    </div>
+                @if (context.Status == KernelStatus.Busy)
+                {
+                    <SpaceItem>
+                        <Button Size="ButtonSize.Small"
+                                Loading="@busy" Disabled="@busy"
+                                OnClick="@(() => InterruptKernelAsync(id))">
+                            <SvgIcon Icon="LucideIcon.CircleStop" />
+                        </Button>
+                    </SpaceItem>
+                }
+                <SpaceItem>
+                    <Popconfirm Title="@($"Are you sure you want to delete kernel '{id}'?")"
+                                OkText="Delete"
+                                CancelText="Cancel"
+                                OkType="ButtonType.Primary"
+                                OkButtonProps="new ButtonProps { Danger = true }"
+                                OnConfirm="@(() => DeleteKernelAsync(id))">
+                        <Button Size="ButtonSize.Small" Danger Type="ButtonType.Primary"
+                                Loading="@busy" Disabled="@(busy || (_busy is not null && _busy != id))">
+                            <SvgIcon Icon="LucideIcon.Trash2" />
+                        </Button>
+                    </Popconfirm>
+                </SpaceItem>
+            </Space>
+        </ActionColumn>
+    </Table>
 }
-
-<ConfirmDialog @ref="_confirmDialog" />
 
 @code {
     [Parameter] public string Name { get; set; } = "";
@@ -122,8 +124,6 @@ else
     private string? _error;
     private string? _busy;
     private bool _creating;
-
-    private ConfirmDialog _confirmDialog = default!;
 
     protected override async Task OnInitializedAsync() => await LoadKernelsAsync();
 
@@ -170,22 +170,8 @@ else
     private async Task InterruptKernelAsync(string kernelId) =>
         await RunActionAsync(kernelId, KernelService.InterruptKernelAsync, "interrupt");
 
-    private async Task ConfirmDeleteAsync(string kernelId)
-    {
-        var confirmed = await _confirmDialog.ShowAsync(
-            title: "Delete Kernel",
-            message1: $"Are you sure you want to delete kernel '{kernelId}'?",
-            confirmDialogOptions: new ConfirmDialogOptions
-            {
-                YesButtonText = "Delete",
-                YesButtonColor = ButtonColor.Danger,
-                NoButtonText = "Cancel",
-                NoButtonColor = ButtonColor.Secondary
-            });
-
-        if (confirmed)
-            await RunActionAsync(kernelId, KernelService.DeleteKernelAsync, "delete");
-    }
+    private async Task DeleteKernelAsync(string kernelId) =>
+        await RunActionAsync(kernelId, KernelService.DeleteKernelAsync, "delete");
 
     private async Task RunActionAsync(string kernelId, Func<string, string, CancellationToken, Task> action, string verb)
     {
@@ -206,12 +192,13 @@ else
         }
     }
 
-    private static string StatusBadgeClass(KernelStatus status) => status switch
+    private static string StatusTagColor(KernelStatus status) => status switch
     {
-        KernelStatus.Idle                                     => "bg-success",
-        KernelStatus.Busy                                     => "bg-warning text-dark",
-        KernelStatus.Starting or KernelStatus.Restarting     => "bg-info",
-        KernelStatus.Dead                                     => "bg-danger",
-        _                                                     => "bg-secondary"
+        KernelStatus.Idle                                     => "success",
+        KernelStatus.Busy                                     => "warning",
+        KernelStatus.Starting or KernelStatus.Restarting     => "processing",
+        KernelStatus.Dead                                     => "error",
+        _                                                     => "default"
     };
 }
+

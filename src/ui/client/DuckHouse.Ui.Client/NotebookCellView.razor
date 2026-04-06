@@ -3,16 +3,15 @@
 @using System.Text.RegularExpressions
 @using Markdig
 
-<div class="mb-3">
+<div style="margin-bottom: 12px;">
     @* ── Cell header: label + language badge + toolbar ── *@
-    <div class="d-flex align-items-center gap-2 mb-1">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
         @if (Cell.CellType == NotebookCellType.Code)
         {
-            <span class="text-primary font-monospace small text-nowrap">In [@(Cell.ExecutionCount?.ToString() ?? " ")]:</span>
+            <span style="color: var(--ant-color-primary); font-family: monospace; font-size: 0.875rem; white-space: nowrap;">In [@(Cell.ExecutionCount?.ToString() ?? " ")]:</span>
         }
 
-        <select class="form-select form-select-sm py-0 d-inline-block"
-                style="width: auto; font-size: 0.75rem;"
+        <select style="padding: 2px 6px; border: 1px solid var(--ant-color-border); border-radius: 6px; font-size: 0.75rem; height: auto;"
                 disabled="@Cell.IsExecuting"
                 value="@CellTypeValue"
                 @onchange="OnCellTypeChanged">
@@ -21,85 +20,103 @@
             <option value="markdown">Markdown</option>
         </select>
 
-        <div class="ms-auto d-flex gap-1">
+        <Space Style="margin-left: auto;" Size="@("4")">
             @if (Cell.CellType == NotebookCellType.Code)
             {
                 @if (Cell.IsExecuting)
                 {
-                    <Button Size="ButtonSize.ExtraSmall"
-                            Color="ButtonColor.Warning"
-                            TooltipTitle="Interrupt execution"
-                            @onclick="OnInterrupt">
-                        <SvgIcon Icon="LucideIcon.CircleStop" />
-                    </Button>
+                    <SpaceItem>
+                        <Tooltip Title="Interrupt execution">
+                            <Button Size="ButtonSize.Small"
+                                    OnClick="OnInterrupt">
+                                <SvgIcon Icon="LucideIcon.CircleStop" />
+                            </Button>
+                        </Tooltip>
+                    </SpaceItem>
                 }
                 else
                 {
-                    <Button Size="ButtonSize.ExtraSmall"
-                            Color="ButtonColor.Primary"
-                            TooltipTitle="Run cell"
-                            Disabled="@(!HasKernel)"
-                            @onclick="OnExecute">
-                        <SvgIcon Icon="LucideIcon.Play" />
-                    </Button>
-                    <Button Size="ButtonSize.ExtraSmall"
-                            Color="ButtonColor.Secondary"
-                            TooltipTitle="Run above cells"
-                            Disabled="@(!HasKernel || !CanMoveUp)"
-                            @onclick="OnRunAbove">
-                        <SvgIcon Icon="LucideIcon.ArrowUp" />
-                    </Button>
-                    <Button Size="ButtonSize.ExtraSmall"
-                            Color="ButtonColor.Secondary"
-                            TooltipTitle="Run cell and below"
-                            Disabled="@(!HasKernel)"
-                            @onclick="OnRunBelow">
-                        <SvgIcon Icon="LucideIcon.ArrowDownFromLine" />
-                    </Button>
+                    <SpaceItem>
+                        <Tooltip Title="Run cell">
+                            <Button Size="ButtonSize.Small" Type="ButtonType.Primary"
+                                    Disabled="@(!HasKernel)"
+                                    OnClick="OnExecute">
+                                <SvgIcon Icon="LucideIcon.Play" />
+                            </Button>
+                        </Tooltip>
+                    </SpaceItem>
+                    <SpaceItem>
+                        <Tooltip Title="Run above cells">
+                            <Button Size="ButtonSize.Small"
+                                    Disabled="@(!HasKernel || !CanMoveUp)"
+                                    OnClick="OnRunAbove">
+                                <SvgIcon Icon="LucideIcon.ArrowUp" />
+                            </Button>
+                        </Tooltip>
+                    </SpaceItem>
+                    <SpaceItem>
+                        <Tooltip Title="Run cell and below">
+                            <Button Size="ButtonSize.Small"
+                                    Disabled="@(!HasKernel)"
+                                    OnClick="OnRunBelow">
+                                <SvgIcon Icon="LucideIcon.ArrowDownFromLine" />
+                            </Button>
+                        </Tooltip>
+                    </SpaceItem>
                 }
             }
             else
             {
                 @if (Cell.IsEditingMarkdown)
                 {
-                    <Button Size="ButtonSize.ExtraSmall"
-                            Color="ButtonColor.Secondary"
-                            @onclick="StopEditingMarkdown"
-                            TooltipTitle="Stop editing markdown">
-                        <SvgIcon Icon="LucideIcon.Check" />
-                    </Button>
+                    <SpaceItem>
+                        <Tooltip Title="Stop editing markdown">
+                            <Button Size="ButtonSize.Small"
+                                    OnClick="StopEditingMarkdown">
+                                <SvgIcon Icon="LucideIcon.Check" />
+                            </Button>
+                        </Tooltip>
+                    </SpaceItem>
                 }
                 else
                 {
-                    <Button Size="ButtonSize.ExtraSmall"
-                            Color="ButtonColor.Secondary"
-                            @onclick="StartEditingMarkdown"
-                            TooltipTitle="Start editing markdown">
-                        <SvgIcon Icon="LucideIcon.Pen" />
-                    </Button>
+                    <SpaceItem>
+                        <Tooltip Title="Start editing markdown">
+                            <Button Size="ButtonSize.Small"
+                                    OnClick="StartEditingMarkdown">
+                                <SvgIcon Icon="LucideIcon.Pen" />
+                            </Button>
+                        </Tooltip>
+                    </SpaceItem>
                 }
             }
-            <Button Size="ButtonSize.ExtraSmall"
-                    Color="ButtonColor.Light"
-                    Disabled="@(!CanMoveUp)"
-                    @onclick="OnMoveUp"
-                    TooltipTitle="Move cell up">
-                <SvgIcon Icon="LucideIcon.ChevronUp" />
-            </Button>
-            <Button Size="ButtonSize.ExtraSmall"
-                    Color="ButtonColor.Light"
-                    Disabled="@(!CanMoveDown)"
-                    @onclick="OnMoveDown"
-                    TooltipTitle="Move cell down">
-                <SvgIcon Icon="LucideIcon.ChevronDown" />
-            </Button>
-            <Button Size="ButtonSize.ExtraSmall"
-                    Color="ButtonColor.Danger"
-                    @onclick="OnDelete"
-                    TooltipTitle="Delete cell">
-                <SvgIcon Icon="LucideIcon.X" />
-            </Button>
-        </div>
+            <SpaceItem>
+                <Tooltip Title="Move cell up">
+                    <Button Size="ButtonSize.Small"
+                            Disabled="@(!CanMoveUp)"
+                            OnClick="OnMoveUp">
+                        <SvgIcon Icon="LucideIcon.ChevronUp" />
+                    </Button>
+                </Tooltip>
+            </SpaceItem>
+            <SpaceItem>
+                <Tooltip Title="Move cell down">
+                    <Button Size="ButtonSize.Small"
+                            Disabled="@(!CanMoveDown)"
+                            OnClick="OnMoveDown">
+                        <SvgIcon Icon="LucideIcon.ChevronDown" />
+                    </Button>
+                </Tooltip>
+            </SpaceItem>
+            <SpaceItem>
+                <Tooltip Title="Delete cell">
+                    <Button Size="ButtonSize.Small" Danger Type="ButtonType.Primary"
+                            OnClick="OnDelete">
+                        <SvgIcon Icon="LucideIcon.X" />
+                    </Button>
+                </Tooltip>
+            </SpaceItem>
+        </Space>
     </div>
 
     @* ── Editor ── *@
@@ -114,7 +131,7 @@
                             ReadOnly="@Cell.IsExecuting"
                             PriorContext="PriorContext"
                             OnExecute="OnExecute"
-                            Class="border rounded p-1 mb-1" />
+                            Class="editor-cell" />
         }
         else
         {
@@ -123,7 +140,7 @@
                       Language="@(Cell.Language == NotebookCellLanguage.Sql ? "sql" : "python")"
                       ReadOnly="@Cell.IsExecuting"
                       OnExecute="OnExecute"
-                      Class="border rounded p-1 mb-1" />
+                      Class="editor-cell" />
         }
     }
     else
@@ -133,16 +150,15 @@
             <CodeCell Value="@Cell.Source"
                       ValueChanged="@(async v => { Cell.Source = v; await OnCellChanged.InvokeAsync(); })"
                       Language="markdown"
-                      Class="border rounded p-1 mb-1" />
+                      Class="editor-cell" />
         }
         else
         {
-            <div class="p-2 border rounded mb-1 markdown-rendered"
-                 style="cursor: pointer; min-height: 2.5rem;"
+            <div style="padding: 8px; border: 1px solid var(--ant-color-border); border-radius: 6px; margin-bottom: 4px; cursor: pointer; min-height: 2.5rem;"
                  @onclick="StartEditingMarkdown">
                 @if (string.IsNullOrWhiteSpace(Cell.Source))
                 {
-                    <span class="text-muted fst-italic small">Click to edit markdown…</span>
+                    <span style="color: var(--ant-color-text-quaternary); font-style: italic; font-size: 0.875rem;">Click to edit markdown…</span>
                 }
                 else
                 {
@@ -157,32 +173,32 @@
     {
         @if (Cell.IsExecuting || Cell.DurationMs.HasValue)
         {
-            <div class="d-flex align-items-end gap-2 mb-1">
-                <span class="invisible font-monospace small text-nowrap">In [ ]:</span>
+            <div style="display: flex; align-items: flex-end; gap: 8px; margin-bottom: 4px;">
+                <span style="visibility: hidden; font-family: monospace; font-size: 0.875rem; white-space: nowrap;">In [ ]:</span>
                 @if (!Cell.IsExecuting)
                 {
                     @if (Cell.Error is not null)
                     {
-                        <span class="lucide-sm text-danger">
+                        <span class="lucide-sm" style="color: var(--ant-color-error);">
                             <SvgIcon Icon="LucideIcon.OctagonX" />
                         </span>
                     }
                     else if (HasStderr)
                     {
-                        <span class="lucide-sm text-warning">
+                        <span class="lucide-sm" style="color: var(--ant-color-warning);">
                             <SvgIcon Icon="LucideIcon.TriangleAlert" />
                         </span>
                     }
                     else
                     {
-                        <span class="lucide-sm text-success">
+                        <span class="lucide-sm" style="color: var(--ant-color-success);">
                             <SvgIcon Icon="LucideIcon.CircleCheck" />
                         </span>
                     }
                 }
                 else
                 {
-                    <span class="lucide-sm text-secondary">
+                    <span class="lucide-sm" style="color: var(--ant-color-text-secondary);">
                         <SvgIcon Icon="LucideIcon.RefreshCw" />
                     </span>
                 }
@@ -190,7 +206,7 @@
                 @if (!Cell.IsExecuting && ExtractRowCount() is { } rowCount)
                 {
                     bool atCap = rowCount == DataFrameOutput.RowCap;
-                    <span class="text-muted small">· @rowCount.ToString("N0")@(atCap ? "+" : "") rows</span>
+                    <span style="color: var(--ant-color-text-secondary); font-size: 0.875rem;">· @rowCount.ToString("N0")@(atCap ? "+" : "") rows</span>
                 }
             </div>
         }
@@ -200,9 +216,9 @@
             @if (output.Type == "stream")
             {
                 bool isStderr = output.Name == "stderr";
-                <div class="d-flex gap-2 mb-1 align-items-start">
-                    <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
-                    <pre class="kernel-pre font-monospace small flex-grow-1 border-start ps-2 @(isStderr ? "border-warning text-warning" : "border-secondary text-body")">@output.Text</pre>
+                <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                    <span style="visibility: hidden; font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">In [ ]:</span>
+                    <pre class="kernel-pre" style="font-family: monospace; font-size: 0.875rem; flex: 1 1 0%; border-left: 3px solid @(isStderr ? "var(--ant-color-warning)" : "var(--ant-color-border)"); padding-left: 8px; color: @(isStderr ? "var(--ant-color-warning)" : "inherit");">@output.Text</pre>
                 </div>
             }
             else if (output.Type is "execute_result" or "display_data")
@@ -213,9 +229,9 @@
                      && output.Data.TryGetValue(DataFrameOutput.MimeType, out var dfRaw)
                      && DataFrameOutput.TryParse(dfRaw) is { } dfOutput)
                 {
-                    <div class="d-flex gap-2 mb-1 align-items-start">
-                        <span class="text-info font-monospace small text-nowrap pt-1">@outLabel</span>
-                        <div class="flex-grow-1 border-start border-info ps-2" style="min-width: 0;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                        <span style="color: var(--ant-color-info); font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">@outLabel</span>
+                        <div style="flex: 1 1 0%; border-left: 3px solid var(--ant-color-info); padding-left: 8px; min-width: 0;">
                             <DataFrameView Data="dfOutput" />
                         </div>
                     </div>
@@ -227,16 +243,16 @@
 
                     @if (htmlText is not null)
                     {
-                        <div class="d-flex gap-2 mb-1 align-items-start">
-                            <span class="text-info font-monospace small text-nowrap pt-1">@outLabel</span>
-                            <div class="flex-grow-1 border-start border-info ps-2 small">@((MarkupString)htmlText)</div>
+                        <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                            <span style="color: var(--ant-color-info); font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">@outLabel</span>
+                            <div style="flex: 1 1 0%; border-left: 3px solid var(--ant-color-info); padding-left: 8px; font-size: 0.875rem;">@((MarkupString)htmlText)</div>
                         </div>
                     }
                     else if (plainText is not null)
                     {
-                        <div class="d-flex gap-2 mb-1 align-items-start">
-                            <span class="text-info font-monospace small text-nowrap pt-1">@outLabel</span>
-                            <pre class="kernel-pre font-monospace small flex-grow-1 border-start border-info ps-2">@plainText</pre>
+                        <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                            <span style="color: var(--ant-color-info); font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">@outLabel</span>
+                            <pre class="kernel-pre" style="font-family: monospace; font-size: 0.875rem; flex: 1 1 0%; border-left: 3px solid var(--ant-color-info); padding-left: 8px;">@plainText</pre>
                         </div>
                     }
                 }
@@ -245,11 +261,11 @@
 
         @if (Cell.Error is { } err)
         {
-            <div class="d-flex gap-2 mb-1 align-items-start">
-                <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
-                <div class="flex-grow-1 border-start border-danger ps-2 bg-danger bg-opacity-10 rounded-end p-2">
-                    <div class="text-danger fw-bold small mb-1">@err.Ename: @err.Evalue</div>
-                    <pre class="kernel-pre font-monospace small mb-0 text-danger-emphasis">@string.Join("\n", err.Traceback.Select(StripAnsi))</pre>
+            <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                <span style="visibility: hidden; font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">In [ ]:</span>
+                <div style="flex: 1 1 0%; border-left: 3px solid var(--ant-color-error); padding-left: 8px; background-color: var(--ant-color-error-bg); border-radius: 0 4px 4px 0; padding: 8px 8px 8px 12px;">
+                    <div style="color: var(--ant-color-error); font-weight: 700; font-size: 0.875rem; margin-bottom: 4px;">@err.Ename: @err.Evalue</div>
+                    <pre class="kernel-pre" style="font-family: monospace; font-size: 0.875rem; margin: 0; color: var(--ant-color-error-text);">@string.Join("\n", err.Traceback.Select(StripAnsi))</pre>
                 </div>
             </div>
         }

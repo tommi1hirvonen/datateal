@@ -5,7 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Azure.Identity" Version="1.19.0" />
     <PackageVersion Include="Azure.ResourceManager.ContainerService" Version="1.4.0" />
-    <PackageVersion Include="Blazor.Bootstrap" Version="3.5.0" />
+    <PackageVersion Include="AntDesign" Version="1.6.0" />
     <PackageVersion Include="BlazorMonaco" Version="3.4.0" />
     <PackageVersion Include="KubernetesClient" Version="18.0.5" />
     <PackageVersion Include="Markdig" Version="1.1.2" />

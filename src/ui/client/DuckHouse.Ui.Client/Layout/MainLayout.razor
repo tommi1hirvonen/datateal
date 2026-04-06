@@ -1,16 +1,21 @@
 ﻿@inherits LayoutComponentBase
+@inject NavigationManager Navigation
 
-<div class="d-flex">
-    <NavMenu />
-    <main class="flex-grow-1 p-4 overflow-auto">
-        @Body
-    </main>
-</div>
+<AntContainer />
 
-<div id="blazor-error-ui" class="alert alert-danger alert-dismissible">
-    <text>
-        An error has occurred. This app may no longer respond until reloaded.
-    </text>
-    <a href="" class="reload alert-link">Reload</a>
-    <button type="button" class="btn-close dismiss" data-bs-dismiss="alert" aria-label="Close"></button>
+<Layout Style="min-height: 100vh;">
+    <Sider Width="220" Style="overflow: auto; height: 100vh; position: sticky; top: 0; left: 0;">
+        <NavMenu />
+    </Sider>
+    <Layout>
+        <Content Style="padding: 24px; overflow: auto;">
+            @Body
+        </Content>
+    </Layout>
+</Layout>
+
+<div id="blazor-error-ui">
+    An error has occurred. This app may no longer respond until reloaded.
+    <a href="">Reload</a>
+    <button class="dismiss" aria-label="Close">✕</button>
 </div>

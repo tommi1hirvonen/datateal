@@ -5,138 +5,146 @@
 
 <PageTitle>Nodes — DuckHouse</PageTitle>
 
-<div class="d-flex align-items-center justify-content-between mb-4">
-    <h2 class="d-flex align-items-center gap-2 mb-0">
-        <SvgIcon Icon="LucideIcon.Server" />
-        Nodes
-    </h2>
-    <div class="d-flex gap-2">
-        <Button Color="ButtonColor.Secondary" @onclick="LoadNodesAsync"
-                Disabled="@(_loading || _busy is not null)">
-            <SvgIcon Icon="LucideIcon.RefreshCw" />
-            Refresh
-        </Button>
-        <Button Color="ButtonColor.Primary" @onclick="OpenCreateModal">
-            <SvgIcon Icon="LucideIcon.Plus" />
-            New Node
-        </Button>
-    </div>
-</div>
+<Flex Justify="@("space-between")" Align="FlexAlign.Center" Style="margin-bottom: 24px;">
+    <Space Align="SpaceAlign.Center" Size="@("small")">
+        <SpaceItem><SvgIcon Icon="LucideIcon.Server" /></SpaceItem>
+        <SpaceItem><h2 style="margin: 0;">Nodes</h2></SpaceItem>
+    </Space>
+    <Space>
+        <SpaceItem>
+            <Button OnClick="LoadNodesAsync" Disabled="@(_loading || _busy is not null)">
+                <SvgIcon Icon="LucideIcon.RefreshCw" />
+                Refresh
+            </Button>
+        </SpaceItem>
+        <SpaceItem>
+            <Button Type="ButtonType.Primary" OnClick="OpenCreateDrawer">
+                <SvgIcon Icon="LucideIcon.Plus" />
+                New Node
+            </Button>
+        </SpaceItem>
+    </Space>
+</Flex>
 
 @if (_error is not null)
 {
-    <div class="alert alert-danger alert-dismissible" role="alert">
-        @_error
-        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
-    </div>
+    <Alert Type="AlertType.Error" Message="@_error" Closable ShowIcon="true"
+           OnClose="@(() => _error = null)" Style="margin-bottom: 16px;" />
 }
 
 @if (_loading)
 {
-    <div class="d-flex justify-content-center py-5">
-        <Spinner />
-    </div>
+    <Flex Justify="@("center")" Style="padding: 40px 0;">
+        <Spin />
+    </Flex>
 }
 else if (_nodes.Count == 0)
 {
-    <p class="text-muted">No nodes yet. Create one to get started.</p>
+    <p style="color: var(--ant-color-text-secondary);">No nodes yet. Create one to get started.</p>
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>State</th>
-                    <th>VM Size</th>
-                    <th class="text-end">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var node in _nodes)
+    <Table TItem="NodeInfo" DataSource="@_nodes" Bordered>
+        <PropertyColumn Property="n => n.Name" Title="Name">
+            <span style="font-weight: 600;">@context.Name</span>
+        </PropertyColumn>
+        <PropertyColumn Property="n => n.State" Title="State">
+            <Tag Color="@StateTagColor(context.State)">@context.State</Tag>
+        </PropertyColumn>
+        <PropertyColumn Property="n => n.VmSize" Title="VM Size">
+            <span style="color: var(--ant-color-text-secondary); font-size: 0.875rem;">@(context.VmSize ?? "—")</span>
+        </PropertyColumn>
+        <ActionColumn Title="Actions">
+            <Space>
+                <SpaceItem>
+                    <Button Size="ButtonSize.Small"
+                            Disabled="@(context.State != NodeState.Running)"
+                            OnClick="@(() => Navigation.NavigateTo($"nodes/{context.Name}/kernels"))">
+                        <SvgIcon Icon="LucideIcon.Cpu" />
+                        Kernels
+                    </Button>
+                </SpaceItem>
+                @if (context.State is NodeState.Stopped)
                 {
-                    var name = node.Name;
-                    var busy = _busy == name;
-                    <tr>
-                        <td class="fw-semibold">@node.Name</td>
-                        <td><span class="badge @StateBadgeClass(node.State)">@node.State</span></td>
-                        <td class="text-muted small">@(node.VmSize ?? "—")</td>
-                        <td>
-                            <div class="d-flex gap-2 justify-content-end">
-                                <a href="nodes/@name/kernels"
-                                   class="btn btn-sm btn-outline-secondary @(node.State == NodeState.Running ? "" : "disabled")"
-                                   tabindex="@(node.State != NodeState.Running ? -1 : 0)"
-                                   aria-disabled="@(node.State != NodeState.Running)">
-                                    <SvgIcon Icon="LucideIcon.Cpu" />
-                                    Kernels
-                                </a>
-                                @if (node.State is NodeState.Stopped)
-                                {
-                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Success"
-                                            Loading="busy" Disabled="busy"
-                                            @onclick="() => StartNodeAsync(name)">
-                                        <SvgIcon Icon="LucideIcon.Play" />
-                                    </Button>
-                                }
-                                @if (node.State is NodeState.Running)
-                                {
-                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Warning"
-                                            Loading="busy" Disabled="busy"
-                                            @onclick="() => StopNodeAsync(name)">
-                                        <SvgIcon Icon="LucideIcon.CircleStop" />
-                                    </Button>
-                                }
-                                <Button Size="ButtonSize.Small" Color="ButtonColor.Danger"
-                                        Loading="busy" Disabled="busy || _busy is not null && _busy != name"
-                                        @onclick="() => ConfirmRemoveAsync(name)">
-                                    <SvgIcon Icon="LucideIcon.Trash2" />
-                                </Button>
-                            </div>
-                        </td>
-                    </tr>
+                    var name = context.Name;
+                    <SpaceItem>
+                        <Button Size="ButtonSize.Small" Type="ButtonType.Primary"
+                                Loading="@(_busy == name)" Disabled="@(_busy == name)"
+                                OnClick="@(() => StartNodeAsync(name))">
+                            <SvgIcon Icon="LucideIcon.Play" />
+                        </Button>
+                    </SpaceItem>
                 }
-            </tbody>
-        </table>
-    </div>
+                @if (context.State is NodeState.Running)
+                {
+                    var name = context.Name;
+                    <SpaceItem>
+                        <Button Size="ButtonSize.Small"
+                                Loading="@(_busy == name)" Disabled="@(_busy == name)"
+                                OnClick="@(() => StopNodeAsync(name))">
+                            <SvgIcon Icon="LucideIcon.CircleStop" />
+                        </Button>
+                    </SpaceItem>
+                }
+                @{
+                    var nodeName = context.Name;
+                    var nodeBusy = _busy == nodeName;
+                }
+                <SpaceItem>
+                    <Popconfirm Title="@($"Are you sure you want to remove '{context.Name}'?")"
+                                OkText="Remove"
+                                CancelText="Cancel"
+                                OkType="ButtonType.Primary"
+                                OkButtonProps="new ButtonProps { Danger = true }"
+                                OnConfirm="@(() => RemoveNodeAsync(context.Name))">
+                        <Button Size="ButtonSize.Small" Danger Type="ButtonType.Primary"
+                                Loading="@nodeBusy" Disabled="@(nodeBusy || (_busy is not null && _busy != nodeName))">
+                            <SvgIcon Icon="LucideIcon.Trash2" />
+                        </Button>
+                    </Popconfirm>
+                </SpaceItem>
+            </Space>
+        </ActionColumn>
+    </Table>
 }
 
-<Modal @ref="_createModal" Title="New Node" UseStaticBackdrop="true" CloseOnEscape="false">
-    <BodyTemplate>
-        <div class="mb-3">
-            <label class="form-label fw-semibold">Name</label>
-            <input class="form-control" @bind="_createName" @bind:event="oninput" placeholder="my-node" />
-        </div>
-        <div class="mb-3">
-            <label class="form-label fw-semibold">VM Size</label>
-            <input class="form-control" @bind="_createVmSize" @bind:event="oninput" placeholder="Standard_D2as_v5" />
-        </div>
-        @if (_createError is not null)
-        {
-            <div class="alert alert-danger">@_createError</div>
-        }
-    </BodyTemplate>
-    <FooterTemplate>
-        <Button Color="ButtonColor.Secondary" @onclick="CloseCreateModal">Cancel</Button>
-        <Button Color="ButtonColor.Primary" Loading="_creating"
-                Disabled="@(string.IsNullOrWhiteSpace(_createName) || string.IsNullOrWhiteSpace(_createVmSize))"
-                @onclick="CreateNodeAsync">
-            <SvgIcon Icon="LucideIcon.Plus" />
-            Create
-        </Button>
-    </FooterTemplate>
-</Modal>
-
-<ConfirmDialog @ref="_confirmDialog" />
+<Drawer @bind-Visible="_createOpen" Title='("New Node")' Placement="DrawerPlacement.Right" Width="400" OnClose="CloseCreateDrawer">
+    <div style="margin-bottom: 16px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 4px;">Name</label>
+        <Input @bind-Value="_createName" Placeholder="my-node" />
+    </div>
+    <div style="margin-bottom: 16px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 4px;">VM Size</label>
+        <Input @bind-Value="_createVmSize" Placeholder="Standard_D2as_v5" />
+    </div>
+    @if (_createError is not null)
+    {
+        <Alert Type="AlertType.Error" Message="@_createError" ShowIcon="true" Style="margin-bottom: 16px;" />
+    }
+    <Space>
+        <SpaceItem>
+            <Button OnClick="CloseCreateDrawer">Cancel</Button>
+        </SpaceItem>
+        <SpaceItem>
+            <Button Type="ButtonType.Primary" Loading="_creating"
+                    Disabled="@(string.IsNullOrWhiteSpace(_createName) || string.IsNullOrWhiteSpace(_createVmSize))"
+                    OnClick="CreateNodeAsync">
+                <SvgIcon Icon="LucideIcon.Plus" />
+                Create
+            </Button>
+        </SpaceItem>
+    </Space>
+</Drawer>
 
 @code {
+    @inject NavigationManager Navigation
+
     private List<NodeInfo> _nodes = [];
     private bool _loading = true;
     private string? _error;
     private string? _busy;
 
-    private Modal _createModal = default!;
-    private ConfirmDialog _confirmDialog = default!;
+    private bool _createOpen;
     private string _createName = "";
     private string _createVmSize = "";
     private bool _creating;
@@ -162,15 +170,15 @@ else
         }
     }
 
-    private async Task OpenCreateModal()
+    private void OpenCreateDrawer()
     {
         _createName = "";
         _createVmSize = "";
         _createError = null;
-        await _createModal.ShowAsync();
+        _createOpen = true;
     }
 
-    private async Task CloseCreateModal() => await _createModal.HideAsync();
+    private void CloseCreateDrawer() => _createOpen = false;
 
     private async Task CreateNodeAsync()
     {
@@ -180,7 +188,7 @@ else
         {
             var node = await NodeService.CreateNodeAsync(new DuckHouse.Ui.Shared.Nodes.CreateNodeRequest(_createName.Trim(), _createVmSize.Trim()));
             _nodes.Add(node);
-            await _createModal.HideAsync();
+            _createOpen = false;
         }
         catch (Exception ex)
         {
@@ -198,22 +206,8 @@ else
     private async Task StopNodeAsync(string name) =>
         await RunActionAsync(name, NodeService.StopNodeAsync, "stop");
 
-    private async Task ConfirmRemoveAsync(string name)
-    {
-        var confirmed = await _confirmDialog.ShowAsync(
-            title: "Remove Node",
-            message1: $"Are you sure you want to remove '{name}'?",
-            confirmDialogOptions: new ConfirmDialogOptions
-            {
-                YesButtonText = "Remove",
-                YesButtonColor = ButtonColor.Danger,
-                NoButtonText = "Cancel",
-                NoButtonColor = ButtonColor.Secondary
-            });
-
-        if (confirmed)
-            await RunActionAsync(name, NodeService.RemoveNodeAsync, "remove");
-    }
+    private async Task RemoveNodeAsync(string name) =>
+        await RunActionAsync(name, NodeService.RemoveNodeAsync, "remove");
 
     private async Task RunActionAsync(string name, Func<string, CancellationToken, Task> action, string verb)
     {
@@ -243,12 +237,11 @@ else
         }
     }
 
-    private static string StateBadgeClass(NodeState state) => state switch
+    private static string StateTagColor(NodeState state) => state switch
     {
-        NodeState.Running  => "bg-success",
-        NodeState.Stopped  => "bg-secondary",
-        NodeState.Failure  => "bg-danger",
-        _ => "bg-warning text-dark"
+        NodeState.Running => "success",
+        NodeState.Stopped => "default",
+        NodeState.Failure => "error",
+        _ => "warning"
     };
 }
-

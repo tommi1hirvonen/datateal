@@ -1,35 +1,48 @@
-<nav class="sidebar d-flex flex-column flex-shrink-0 p-3 border-end bg-body-tertiary">
-    <a href="/" class="d-flex align-items-center gap-2 mb-3 text-decoration-none text-body fw-semibold fs-5">
-        DuckHouse
-    </a>
-    <hr class="my-1" />
-    <ul class="nav nav-pills flex-column gap-1 mb-auto">
-        <li>
-            <NavLink class="nav-link text-body" href="" Match="NavLinkMatch.All">
-                <SvgIcon Icon="LucideIcon.House" />
-                Home
-            </NavLink>
-        </li>
-        <li>
-            <NavLink class="nav-link text-body" href="nodes">
-                <SvgIcon Icon="LucideIcon.Server" />
-                Nodes
-            </NavLink>
-        </li>
-        <li>
-            <NavLink class="nav-link text-body" href="notebook">
-                <SvgIcon Icon="LucideIcon.Notebook" />
-                Notebooks
-            </NavLink>
-        </li>
-    </ul>
-    <hr class="my-1" />
-    <ul class="nav nav-pills flex-column gap-1">
-        <li>
-            <NavLink class="nav-link text-body" href="settings">
-                <SvgIcon Icon="LucideIcon.Settings" />
-                Settings
-            </NavLink>
-        </li>
-    </ul>
-</nav>
+@inject NavigationManager Navigation
+
+<div style="padding: 16px; font-weight: 600; font-size: 1rem; color: var(--ant-color-text);">
+    DuckHouse
+</div>
+
+<Menu Mode="MenuMode.Inline"
+      Theme="MenuTheme.Light"
+      SelectedKeys="@_selectedKeys"
+      Style="border-right: none;">
+    <MenuItem Key="home" OnClick="@(() => Navigation.NavigateTo("/"))">
+        <SvgIcon Icon="LucideIcon.House" />
+        <span>Home</span>
+    </MenuItem>
+    <MenuItem Key="nodes" OnClick="@(() => Navigation.NavigateTo("/nodes"))">
+        <SvgIcon Icon="LucideIcon.Server" />
+        <span>Nodes</span>
+    </MenuItem>
+    <MenuItem Key="notebook" OnClick="@(() => Navigation.NavigateTo("/notebook"))">
+        <SvgIcon Icon="LucideIcon.Notebook" />
+        <span>Notebooks</span>
+    </MenuItem>
+    <MenuItem Key="settings" OnClick="@(() => Navigation.NavigateTo("/settings"))">
+        <SvgIcon Icon="LucideIcon.Settings" />
+        <span>Settings</span>
+    </MenuItem>
+</Menu>
+
+@code {
+    private string[] _selectedKeys = [];
+
+    protected override void OnInitialized() => UpdateSelectedKey();
+
+    protected override void OnParametersSet() => UpdateSelectedKey();
+
+    private void UpdateSelectedKey()
+    {
+        var path = new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+        _selectedKeys = path switch
+        {
+            "" or "/" => ["home"],
+            _ when path.StartsWith("/nodes") => ["nodes"],
+            _ when path.StartsWith("/notebook") => ["notebook"],
+            _ when path.StartsWith("/settings") => ["settings"],
+            _ => []
+        };
+    }
+}

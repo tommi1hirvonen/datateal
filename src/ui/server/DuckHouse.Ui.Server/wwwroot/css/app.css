@@ -1,0 +1,98 @@
+/* Lucide icons */
+.lucide {
+    width: 16px;
+    height: 16px;
+}
+
+.lucide-sm .lucide {
+    width: 14px;
+    height: 14px;
+}
+
+.ant-btn .lucide {
+    margin-top: 2.5px;
+    margin-bottom: 1.75px;
+    margin-left: 1px;
+    margin-right: 1px;
+    vertical-align: text-bottom;
+}
+
+/* Kernel session REPL */
+.kernel-pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 0;
+}
+
+/* DataFrame table (uses native <table> + Virtualize) */
+.df-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.df-table th,
+.df-table td {
+    padding: 4px 8px;
+    border: 1px solid var(--ant-color-border);
+    white-space: nowrap;
+}
+
+.df-table th {
+    background-color: var(--ant-color-bg-container-disabled);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.df-table tbody tr:nth-child(odd) {
+    background-color: var(--ant-color-fill-quaternary);
+}
+
+/* Monaco editor layout helpers */
+.editor-fill {
+    flex: 1 1 0%;
+    min-width: 0;
+}
+
+.editor-cell {
+    border: 1px solid var(--ant-color-border);
+    border-radius: 6px;
+    padding: 4px;
+    margin-bottom: 4px;
+}
+
+.editor-cell-mb2 {
+    border: 1px solid var(--ant-color-border);
+    border-radius: 6px;
+    padding: 4px;
+    margin-bottom: 8px;
+}
+
+/* Blazor error component */
+#blazor-error-ui {
+    bottom: 0;
+    display: none;
+    left: 0;
+    position: fixed;
+    width: 96vw;
+    z-index: 1050;
+    margin-bottom: 2rem;
+    margin-left: 2vw;
+    margin-right: 2vw;
+    background-color: var(--ant-color-error-bg);
+    color: var(--ant-color-error-text);
+    border: 1px solid var(--ant-color-error-border);
+    border-radius: 6px;
+    padding: 12px 16px;
+}
+
+#blazor-error-ui .dismiss {
+    float: right;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: inherit;
+}

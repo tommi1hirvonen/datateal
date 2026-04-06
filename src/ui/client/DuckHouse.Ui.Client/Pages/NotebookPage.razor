@@ -12,107 +12,119 @@
 
 <PageTitle>Notebook — DuckHouse</PageTitle>
 
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <div class="d-flex align-items-center gap-2">
-        <SvgIcon Icon="LucideIcon.Notebook" />
-        <h2 class="mb-0">
-            @if (_editingTitle)
-            {
-                <input class="form-control form-control-sm d-inline-block"
-                       style="width: 20ch;"
-                       value="@_notebook.Title"
-                       @onchange="@(e => { _notebook.Title = e.Value?.ToString() ?? "Untitled"; _notebook.IsDirty = true; _editingTitle = false; })"
-                       @onblur="@(() => _editingTitle = false)"
-                       @onkeydown="@(e => { if (e.Key == "Enter" || e.Key == "Escape") _editingTitle = false; })" />
-            }
-            else
-            {
-                <span style="cursor: pointer;" @onclick="@(() => _editingTitle = true)">
-                    @_notebook.Title@(_notebook.IsDirty ? " *" : "")
-                </span>
-            }
-        </h2>
-    </div>
+<Flex Justify="@("space-between")" Align="FlexAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+    <Space Align="SpaceAlign.Center" Size="@("small")">
+        <SpaceItem><SvgIcon Icon="LucideIcon.Notebook" /></SpaceItem>
+        <SpaceItem>
+            <h2 style="margin: 0;">
+                @if (_editingTitle)
+                {
+                    <Input Style="width: 20ch; font-size: inherit;"
+                           @bind-Value="_editingTitleValue"
+                           OnPressEnter="@(_ => CommitTitleEdit())"
+                           OnBlur="@(_ => CommitTitleEdit())" />
+                }
+                else
+                {
+                    <span style="cursor: pointer;" @onclick="StartEditTitle">
+                        @_notebook.Title@(_notebook.IsDirty ? " *" : "")
+                    </span>
+                }
+            </h2>
+        </SpaceItem>
+    </Space>
 
     @* File toolbar *@
-    <div class="d-flex gap-2 flex-wrap">
-        <label class="btn btn-sm btn-outline-secondary">
-            <SvgIcon Icon="LucideIcon.FolderOpen" /> Open
-            <InputFile style="display:none;" accept=".ipynb" OnChange="OnFileSelectedAsync" />
-        </label>
-        <Button Color="ButtonColor.Secondary" Size="ButtonSize.Small"
-                Disabled="@(!_notebook.IsDirty)"
-                @onclick="SaveAsync">
-            <SvgIcon Icon="LucideIcon.Save" /> Save
-        </Button>
-        <div class="vr"></div>
-        <Button Color="ButtonColor.Success" Size="ButtonSize.Small"
-                Disabled="@(!HasKernel || _runningAll)"
-                Loading="_runningAll"
-                @onclick="RunAllAsync">
-            <SvgIcon Icon="LucideIcon.Play" /> Run All
-        </Button>
-        <Button Color="ButtonColor.Warning" Size="ButtonSize.Small"
-                Disabled="@(!HasKernel || !AnyExecuting)"
-                @onclick="InterruptAsync">
-            <SvgIcon Icon="LucideIcon.CircleStop" /> Interrupt
-        </Button>
-        <Button Color="ButtonColor.Secondary" Size="ButtonSize.Small"
-                Disabled="@(!_notebook.Cells.Any())"
-                @onclick="ClearAllOutputs">
-            <SvgIcon Icon="LucideIcon.Eraser" /> Clear Outputs
-        </Button>
-    </div>
-</div>
+    <Space Size="@("small")" Style="flex-wrap: wrap;">
+        <SpaceItem>
+            <Button OnClick="OpenFileDialogAsync">
+                <SvgIcon Icon="LucideIcon.FolderOpen" /> Open
+            </Button>
+            <InputFile @ref="_fileInput" style="display:none;" accept=".ipynb" OnChange="OnFileSelectedAsync" />
+        </SpaceItem>
+        <SpaceItem>
+            <Button Disabled="@(!_notebook.IsDirty)" OnClick="SaveAsync">
+                <SvgIcon Icon="LucideIcon.Save" /> Save
+            </Button>
+        </SpaceItem>
+        <SpaceItem><Divider Type="DividerType.Vertical" /></SpaceItem>
+        <SpaceItem>
+            <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
+                    Disabled="@(!HasKernel || _runningAll)"
+                    Loading="_runningAll"
+                    OnClick="RunAllAsync">
+                <SvgIcon Icon="LucideIcon.Play" /> Run All
+            </Button>
+        </SpaceItem>
+        <SpaceItem>
+            <Button Size="ButtonSize.Small"
+                    Disabled="@(!HasKernel || !AnyExecuting)"
+                    OnClick="InterruptAsync">
+                <SvgIcon Icon="LucideIcon.CircleStop" /> Interrupt
+            </Button>
+        </SpaceItem>
+        <SpaceItem>
+            <Button Size="ButtonSize.Small"
+                    Disabled="@(!_notebook.Cells.Any())"
+                    OnClick="ClearAllOutputs">
+                <SvgIcon Icon="LucideIcon.Eraser" /> Clear Outputs
+            </Button>
+        </SpaceItem>
+    </Space>
+</Flex>
 
 @* Kernel connection toolbar *@
-<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-    <SvgIcon Icon="LucideIcon.Plug" />
-    <span class="small text-muted">Node:</span>
+<Space Align="SpaceAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap;" Size="@("small")">
+    <SpaceItem><SvgIcon Icon="LucideIcon.Plug" /></SpaceItem>
+    <SpaceItem><span style="font-size: 0.875rem; color: var(--ant-color-text-secondary);">Node:</span></SpaceItem>
     @if (_loadingNodes)
     {
-        <Spinner Size="SpinnerSize.Small" />
+        <SpaceItem><Spin Size="SpinSize.Small" /></SpaceItem>
     }
     else
     {
-        <select class="form-select form-select-sm" style="width: auto;"
-                disabled="@HasKernel"
-                @bind="_nodeName">
-            <option value="">— select node —</option>
-            @foreach (var node in _nodes.Where(n => n.State == NodeState.Running))
-            {
-                <option value="@node.Name">@node.Name</option>
-            }
-        </select>
+        <SpaceItem>
+            <select style="padding: 4px 8px; border: 1px solid var(--ant-color-border); border-radius: 6px; font-size: 0.875rem;"
+                    disabled="@HasKernel"
+                    @bind="_nodeName">
+                <option value="">— select node —</option>
+                @foreach (var node in _nodes.Where(n => n.State == NodeState.Running))
+                {
+                    <option value="@node.Name">@node.Name</option>
+                }
+            </select>
+        </SpaceItem>
     }
 
     @if (!HasKernel)
     {
-        <Button Color="ButtonColor.Primary" Size="ButtonSize.Small"
-                Disabled="@(string.IsNullOrEmpty(_nodeName) || _connecting)"
-                Loading="_connecting"
-                @onclick="ConnectAsync">
-            <SvgIcon Icon="LucideIcon.Plug" /> Connect
-        </Button>
+        <SpaceItem>
+            <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
+                    Disabled="@(string.IsNullOrEmpty(_nodeName) || _connecting)"
+                    Loading="_connecting"
+                    OnClick="ConnectAsync">
+                <SvgIcon Icon="LucideIcon.Plug" /> Connect
+            </Button>
+        </SpaceItem>
     }
     else
     {
-        <span class="badge @StatusBadgeClass(_kernel!.Status)">@_kernel!.Status</span>
-        <Button Color="ButtonColor.Secondary" Size="ButtonSize.Small"
-                Disabled="_disconnecting"
-                Loading="_disconnecting"
-                @onclick="DisconnectAsync">
-            <SvgIcon Icon="LucideIcon.X" /> Disconnect
-        </Button>
+        <SpaceItem><Tag Color="@StatusTagColor(_kernel!.Status)">@_kernel!.Status</Tag></SpaceItem>
+        <SpaceItem>
+            <Button Size="ButtonSize.Small"
+                    Disabled="_disconnecting"
+                    Loading="_disconnecting"
+                    OnClick="DisconnectAsync">
+                <SvgIcon Icon="LucideIcon.X" /> Disconnect
+            </Button>
+        </SpaceItem>
     }
-</div>
+</Space>
 
 @if (_error is not null)
 {
-    <div class="alert alert-danger alert-dismissible" role="alert">
-        @_error
-        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
-    </div>
+    <Alert Type="AlertType.Error" Message="@_error" Closable ShowIcon="true"
+           OnClose="@(() => _error = null)" Style="margin-bottom: 16px;" />
 }
 
 @* Cell list *@
@@ -145,7 +157,7 @@
 
 @if (_notebook.Cells.Count == 0)
 {
-    <div class="text-muted fst-italic small text-center py-4">
+    <div style="color: var(--ant-color-text-secondary); font-style: italic; font-size: 0.875rem; text-align: center; padding: 32px 0;">
         No cells yet — use the <strong>+</strong> buttons above to add your first cell.
     </div>
 }
@@ -162,9 +174,24 @@
     private bool _runningAll;
     private string? _error;
     private bool _editingTitle;
+    private string _editingTitleValue = "";
+    private InputFile _fileInput = default!;
 
     private bool HasKernel => !string.IsNullOrEmpty(_kernelId);
     private bool AnyExecuting => _notebook.Cells.Any(c => c.IsExecuting);
+
+    private void StartEditTitle()
+    {
+        _editingTitleValue = _notebook.Title;
+        _editingTitle = true;
+    }
+
+    private void CommitTitleEdit()
+    {
+        _notebook.Title = string.IsNullOrWhiteSpace(_editingTitleValue) ? "Untitled" : _editingTitleValue;
+        _notebook.IsDirty = true;
+        _editingTitle = false;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -377,6 +404,11 @@
                 : c.Source));
     }
 
+    private async Task OpenFileDialogAsync()
+    {
+        await JS.InvokeVoidAsync("clickElement", _fileInput.Element);
+    }
+
     private async Task OnFileSelectedAsync(InputFileChangeEventArgs args)
     {
         try
@@ -417,12 +449,13 @@
         }
     }
 
-    private static string StatusBadgeClass(KernelStatus status) => status switch
+    private static string StatusTagColor(KernelStatus status) => status switch
     {
-        KernelStatus.Idle                                 => "bg-success",
-        KernelStatus.Busy                                 => "bg-warning text-dark",
-        KernelStatus.Starting or KernelStatus.Restarting => "bg-info",
-        KernelStatus.Dead                                 => "bg-danger",
-        _                                                 => "bg-secondary"
+        KernelStatus.Idle                                 => "success",
+        KernelStatus.Busy                                 => "warning",
+        KernelStatus.Starting or KernelStatus.Restarting => "processing",
+        KernelStatus.Dead                                 => "error",
+        _                                                 => "default"
     };
 }
+

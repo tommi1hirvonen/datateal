@@ -1,18 +1,18 @@
 @using DuckHouse.Ui.Client.Notebook
 
-<div class="d-flex align-items-center gap-1 my-1 opacity-50" style="font-size: 0.75rem;">
-    <div class="flex-grow-1 border-top border-secondary-subtle"></div>
-    <button class="btn btn-outline-primary btn-xs px-2 py-0 d-flex align-items-center" @onclick="OnAddPython">
+<Flex Align="FlexAlign.Center" Style="gap: 4px; margin: 4px 0; opacity: 0.5; font-size: 0.75rem;">
+    <div style="flex: 1; height: 1px; background-color: var(--ant-color-border);"></div>
+    <Button Type="ButtonType.Dashed" Size="ButtonSize.Small" Style="padding: 0 8px;" OnClick="OnAddPython">
         <SvgIcon Icon="LucideIcon.Plus" /> Python
-    </button>
-    <button class="btn btn-outline-success btn-xs px-2 py-0 d-flex align-items-center" @onclick="OnAddSql">
+    </Button>
+    <Button Type="ButtonType.Dashed" Size="ButtonSize.Small" Style="padding: 0 8px;" OnClick="OnAddSql">
         <SvgIcon Icon="LucideIcon.Plus" /> SQL
-    </button>
-    <button class="btn btn-outline-secondary btn-xs px-2 py-0 d-flex align-items-center" @onclick="OnAddMarkdown">
+    </Button>
+    <Button Type="ButtonType.Dashed" Size="ButtonSize.Small" Style="padding: 0 8px;" OnClick="OnAddMarkdown">
         <SvgIcon Icon="LucideIcon.Plus" /> MD
-    </button>
-    <div class="flex-grow-1 border-top border-secondary-subtle"></div>
-</div>
+    </Button>
+    <div style="flex: 1; height: 1px; background-color: var(--ant-color-border);"></div>
+</Flex>
 
 @code {
     [Parameter] public EventCallback OnAddPython { get; set; }

@@ -18,6 +18,8 @@ builder.Services.AddControllers()
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
+builder.Services.AddAntDesign();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

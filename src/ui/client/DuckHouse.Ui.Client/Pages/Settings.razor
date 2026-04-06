@@ -4,46 +4,35 @@
 
 <PageTitle>Settings — DuckHouse</PageTitle>
 
-<div class="mb-4">
-    <h2 class="mb-0">Settings</h2>
+<div style="margin-bottom: 24px;">
+    <h2 style="margin: 0;">Settings</h2>
 </div>
 
-<div class="card" style="max-width: 480px;">
-    <div class="card-body">
-        <h6 class="card-subtitle mb-3 text-body-secondary">Appearance</h6>
+<Card Style="max-width: 480px;">
+    <p style="color: var(--ant-color-text-secondary); font-size: 0.875rem; font-weight: 600; margin-bottom: 12px;">Appearance</p>
 
-        <label class="form-label small fw-semibold">Theme</label>
-        <div class="btn-group d-flex" role="group" aria-label="Theme selection">
-            <button type="button"
-                    class="btn @(_theme == AppTheme.Light ? "btn-primary" : "btn-outline-secondary")"
-                    @onclick="() => SetThemeAsync(AppTheme.Light)">
-                <SvgIcon Icon="LucideIcon.Sun" />
-                Light
-            </button>
-            <button type="button"
-                    class="btn @(_theme == AppTheme.Dark ? "btn-primary" : "btn-outline-secondary")"
-                    @onclick="() => SetThemeAsync(AppTheme.Dark)">
-                <SvgIcon Icon="LucideIcon.Moon" />
-                Dark
-            </button>
-            <button type="button"
-                    class="btn @(_theme == AppTheme.Auto ? "btn-primary" : "btn-outline-secondary")"
-                    @onclick="() => SetThemeAsync(AppTheme.Auto)">
-                <SvgIcon Icon="LucideIcon.Monitor" />
-                Auto
-            </button>
-        </div>
-        <div class="form-text mt-2">
-            @if (_theme == AppTheme.Auto)
-            {
-                <span>Follows your system or browser color scheme preference.</span>
-            }
-        </div>
-    </div>
-</div>
+    <p style="font-size: 0.875rem; font-weight: 600; margin-bottom: 8px;">Theme</p>
+    <Segmented TValue="AppTheme"
+               Value="_theme"
+               ValueChanged="SetThemeAsync"
+               Options="_themeOptions" />
+    @if (_theme == AppTheme.Auto)
+    {
+        <p style="font-size: 0.75rem; color: var(--ant-color-text-secondary); margin-top: 8px;">
+            Follows your system or browser color scheme preference.
+        </p>
+    }
+</Card>
 
 @code {
     private AppTheme _theme = AppTheme.Auto;
+
+    private readonly SegmentedOption<AppTheme>[] _themeOptions =
+    [
+        new() { Value = AppTheme.Light, Label = "☀ Light" },
+        new() { Value = AppTheme.Dark,  Label = "☽ Dark" },
+        new() { Value = AppTheme.Auto,  Label = "⊙ Auto" },
+    ];
 
     protected override async Task OnInitializedAsync()
     {
@@ -56,3 +45,4 @@
         await ThemeService.SetThemeAsync(theme);
     }
 }
+

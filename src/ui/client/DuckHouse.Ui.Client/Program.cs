@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
-builder.Services.AddBlazorBootstrap();
+builder.Services.AddAntDesign();
 
 builder.Services.AddHttpClient<INodeService, NodeService>(
     client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));

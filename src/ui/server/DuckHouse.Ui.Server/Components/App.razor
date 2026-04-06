@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <base href="/"/>
     <ResourcePreloader/>
+    <link rel="stylesheet" href="_content/AntDesign/css/ant-design-blazor.css" />
     <link rel="stylesheet" href="@Assets["DuckHouse.Ui.Server.styles.css"]"/>
-    <link rel="stylesheet" href="@Assets["css/bootstrap.custom.css"]" />
-    <link rel="stylesheet" href="@Assets["_content/Blazor.Bootstrap/blazor.bootstrap.css"]" />
+    <link rel="stylesheet" href="@Assets["css/app.css"]" />
     <link rel="stylesheet" href="@Assets["_content/DuckHouse.Ui.Components/defaults.css"]" />
     <ImportMap/>
     <HeadOutlet @rendermode="InteractiveWebAssembly"/>
@@ -18,15 +18,15 @@
             var stored = localStorage.getItem('duckhouse-theme') || 'auto';
             var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             var effective = stored === 'dark' ? 'dark' : stored === 'light' ? 'light' : (prefersDark ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-bs-theme', effective);
+            if (effective === 'dark') {
+                document.documentElement.classList.add('ant-dark');
+            }
         })();
     </script>
 </head>
 
 <body>
     <Routes @rendermode="InteractiveWebAssembly"/>
-    <script src="@Assets["lib/bootstrap/js/bootstrap.bundle.min.js"]"></script>
-    <script src="@Assets["_content/Blazor.Bootstrap/blazor.bootstrap.js"]"></script>
     <script src="_content/BlazorMonaco/jsInterop.js"></script>
     <script src="_content/BlazorMonaco/lib/monaco-editor/min/vs/loader.js"></script>
     <script src="_content/BlazorMonaco/lib/monaco-editor/min/vs/editor/editor.main.js"></script>
@@ -37,7 +37,11 @@
             localStorage.setItem('duckhouse-theme', theme);
             var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             var effective = theme === 'dark' ? 'dark' : theme === 'light' ? 'light' : (prefersDark ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-bs-theme', effective);
+            if (effective === 'dark') {
+                document.documentElement.classList.add('ant-dark');
+            } else {
+                document.documentElement.classList.remove('ant-dark');
+            }
             var monacoTheme = effective === 'dark' ? 'vs-dark' : 'vs';
             if (typeof monaco !== 'undefined') {
                 monaco.editor.setTheme(monacoTheme);
@@ -47,7 +51,7 @@
             return localStorage.getItem('duckhouse-theme') || 'auto';
         };
         window.getDuckhouseMonacoTheme = function () {
-            return document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'vs-dark' : 'vs';
+            return document.documentElement.classList.contains('ant-dark') ? 'vs-dark' : 'vs';
         };
         window.setMonacoEditorLanguage = function (editorId, language) {
             const holder = window.blazorMonaco?.editors?.find(h => h.id === editorId);
@@ -78,6 +82,10 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        };
+
+        window.clickElement = function (element) {
+            element.click();
         };
     </script>
 </body>

@@ -8,80 +8,87 @@
 
 <PageTitle>Kernel Session — DuckHouse</PageTitle>
 
-<nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="nodes">Nodes</a></li>
-        <li class="breadcrumb-item"><a href="nodes/@Name/kernels">@Name</a></li>
-        <li class="breadcrumb-item active" aria-current="page">@ShortId</li>
-    </ol>
-</nav>
+<Breadcrumb Style="margin-bottom: 12px;">
+    <BreadcrumbItem OnClick="@(() => Navigation.NavigateTo("/nodes"))" Href="">Nodes</BreadcrumbItem>
+    <BreadcrumbItem OnClick="@(() => Navigation.NavigateTo($"/nodes/{Name}/kernels"))" Href="">@Name</BreadcrumbItem>
+    <BreadcrumbItem>@ShortId</BreadcrumbItem>
+</Breadcrumb>
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <div class="d-flex align-items-center gap-2">
-        <SvgIcon Icon="LucideIcon.Terminal" />
-        <h2 class="mb-0">Kernel Session</h2>
+<Flex Justify="@("space-between")" Align="FlexAlign.Center" Style="margin-bottom: 12px;">
+    <Space Align="SpaceAlign.Center" Size="@("small")">
+        <SpaceItem><SvgIcon Icon="LucideIcon.Terminal" /></SpaceItem>
+        <SpaceItem><h2 style="margin: 0;">Kernel Session</h2></SpaceItem>
         @if (_kernel is not null)
         {
-            <span class="badge @StatusBadgeClass(_kernel.Status)">@_kernel.Status</span>
+            <SpaceItem><Tag Color="@StatusTagColor(_kernel.Status)">@_kernel.Status</Tag></SpaceItem>
         }
-    </div>
-    <div class="d-flex gap-2">
+    </Space>
+    <Space>
         @if (_executing)
         {
-            <Button Color="ButtonColor.Warning" Size="ButtonSize.Small"
-                    Loading="_actionBusy" Disabled="_actionBusy"
-                    @onclick="InterruptAsync">
-                <SvgIcon Icon="LucideIcon.CircleStop" />
-                Interrupt
-            </Button>
+            <SpaceItem>
+                <Button Size="ButtonSize.Small"
+                        Loading="_actionBusy" Disabled="_actionBusy"
+                        OnClick="InterruptAsync">
+                    <SvgIcon Icon="LucideIcon.CircleStop" />
+                    Interrupt
+                </Button>
+            </SpaceItem>
         }
-        <Button Color="ButtonColor.Success" Size="ButtonSize.Small"
-                Loading="_actionBusy" Disabled="_actionBusy || _executing"
-                @onclick="RestartAsync">
-            <SvgIcon Icon="LucideIcon.RotateCw" />
-            Restart
-        </Button>
-        <Button Color="ButtonColor.Danger" Size="ButtonSize.Small"
-                Loading="_actionBusy" Disabled="_actionBusy"
-                @onclick="ConfirmDeleteAsync">
-            <SvgIcon Icon="LucideIcon.Trash2" />
-            Delete
-        </Button>
-    </div>
-</div>
+        <SpaceItem>
+            <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
+                    Loading="_actionBusy" Disabled="@(_actionBusy || _executing)"
+                    OnClick="RestartAsync">
+                <SvgIcon Icon="LucideIcon.RotateCw" />
+                Restart
+            </Button>
+        </SpaceItem>
+        <SpaceItem>
+            <Popconfirm Title="@($"Are you sure you want to delete kernel '{ShortId}'? The session history will be lost.")"
+                        OkText="Delete"
+                        CancelText="Cancel"
+                        OkType="ButtonType.Primary"
+                        OkButtonProps="new ButtonProps { Danger = true }"
+                        OnConfirm="DeleteAsync">
+                <Button Danger Type="ButtonType.Primary" Size="ButtonSize.Small"
+                        Loading="_actionBusy" Disabled="_actionBusy">
+                    <SvgIcon Icon="LucideIcon.Trash2" />
+                    Delete
+                </Button>
+            </Popconfirm>
+        </SpaceItem>
+    </Space>
+</Flex>
 
 @if (_error is not null)
 {
-    <div class="alert alert-danger alert-dismissible" role="alert">
-        @_error
-        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
-    </div>
+    <Alert Type="AlertType.Error" Message="@_error" Closable ShowIcon="true"
+           OnClose="@(() => _error = null)" Style="margin-bottom: 16px;" />
 }
 
 @if (_loading)
 {
-    <div class="d-flex justify-content-center py-5">
-        <Spinner />
-    </div>
+    <Flex Justify="@("center")" Style="padding: 40px 0;">
+        <Spin />
+    </Flex>
 }
 else if (_kernelNotFound)
 {
-    <div class="alert alert-warning">
-        Kernel <code>@KernelId</code> was not found on node <strong>@Name</strong>.
-    </div>
+    <Alert Type="AlertType.Warning" ShowIcon="true"
+           Message="@($"Kernel {KernelId} was not found on node {Name}.")" />
 }
 else
 {
-    <div class="mb-3">
+    <div style="margin-bottom: 12px;">
         @if (_history.Count == 0)
         {
-            <p class="text-muted fst-italic small">No executions yet.</p>
+            <p style="color: var(--ant-color-text-secondary); font-style: italic; font-size: 0.875rem;">No executions yet.</p>
         }
         @foreach (var entry in _history)
         {
-            <div class="d-flex gap-2 mb-1 align-items-start">
-                <span class="text-primary font-monospace small text-nowrap pt-1">In [@(entry.ExecutionCount?.ToString() ?? " ")]:</span>
-                <CodeCell Value="@entry.Code" ReadOnly="true" Class="flex-grow-1" />
+            <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                <span style="color: var(--ant-color-primary); font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">In [@(entry.ExecutionCount?.ToString() ?? " ")]:</span>
+                <CodeCell Value="@entry.Code" ReadOnly="true" Class="editor-fill" />
             </div>
 
             @foreach (var output in entry.Result.Outputs)
@@ -89,9 +96,9 @@ else
                 @if (output.Type == "stream")
                 {
                     bool isStderr = output.Name == "stderr";
-                    <div class="d-flex gap-2 mb-1 align-items-start">
-                        <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
-                        <pre class="kernel-pre font-monospace small flex-grow-1 border-start ps-2 @(isStderr ? "border-warning text-warning" : "border-secondary text-body")">@output.Text</pre>
+                    <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                        <span style="visibility: hidden; font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">In [ ]:</span>
+                        <pre class="kernel-pre" style="font-family: monospace; font-size: 0.875rem; flex: 1 1 0%; border-left: 3px solid @(isStderr ? "var(--ant-color-warning)" : "var(--ant-color-border)"); padding-left: 8px; color: @(isStderr ? "var(--ant-color-warning)" : "inherit");">@output.Text</pre>
                     </div>
                 }
                 else if (output.Type is "execute_result" or "display_data")
@@ -102,9 +109,9 @@ else
                          && output.Data.TryGetValue(DataFrameOutput.MimeType, out var dfRaw)
                          && DataFrameOutput.TryParse(dfRaw) is { } dfOutput)
                     {
-                        <div class="d-flex gap-2 mb-1 align-items-start">
-                            <span class="text-info font-monospace small text-nowrap pt-1">@outLabel</span>
-                            <div class="flex-grow-1 border-start border-info ps-2" style="min-width: 0;">
+                        <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                            <span style="color: var(--ant-color-info); font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">@outLabel</span>
+                            <div style="flex: 1 1 0%; border-left: 3px solid var(--ant-color-info); padding-left: 8px; min-width: 0;">
                                 <DataFrameView Data="dfOutput" />
                             </div>
                         </div>
@@ -116,16 +123,16 @@ else
 
                         @if (htmlText is not null)
                         {
-                            <div class="d-flex gap-2 mb-1 align-items-start">
-                                <span class="text-info font-monospace small text-nowrap pt-1">@outLabel</span>
-                                <div class="flex-grow-1 border-start border-info ps-2 small">@((MarkupString)htmlText)</div>
+                            <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                                <span style="color: var(--ant-color-info); font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">@outLabel</span>
+                                <div style="flex: 1 1 0%; border-left: 3px solid var(--ant-color-info); padding-left: 8px; font-size: 0.875rem;">@((MarkupString)htmlText)</div>
                             </div>
                         }
                         else if (plainText is not null)
                         {
-                            <div class="d-flex gap-2 mb-1 align-items-start">
-                                <span class="text-info font-monospace small text-nowrap pt-1">@outLabel</span>
-                                <pre class="kernel-pre font-monospace small flex-grow-1 border-start border-info ps-2">@plainText</pre>
+                            <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                                <span style="color: var(--ant-color-info); font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">@outLabel</span>
+                                <pre class="kernel-pre" style="font-family: monospace; font-size: 0.875rem; flex: 1 1 0%; border-left: 3px solid var(--ant-color-info); padding-left: 8px;">@plainText</pre>
                             </div>
                         }
                     }
@@ -134,47 +141,49 @@ else
 
             @if (entry.Result.Error is { } err)
             {
-                <div class="d-flex gap-2 mb-1 align-items-start">
-                    <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
-                    <div class="flex-grow-1 border-start border-danger ps-2 bg-danger bg-opacity-10 rounded-end p-2">
-                        <div class="text-danger fw-bold small mb-1">@err.Ename: @err.Evalue</div>
-                        <pre class="kernel-pre font-monospace small mb-0 text-danger-emphasis">@string.Join("\n", err.Traceback.Select(StripAnsi))</pre>
+                <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                    <span style="visibility: hidden; font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">In [ ]:</span>
+                    <div style="flex: 1 1 0%; border-left: 3px solid var(--ant-color-error); padding-left: 8px; background-color: var(--ant-color-error-bg); border-radius: 0 4px 4px 0; padding: 8px 8px 8px 12px;">
+                        <div style="color: var(--ant-color-error); font-weight: 700; font-size: 0.875rem; margin-bottom: 4px;">@err.Ename: @err.Evalue</div>
+                        <pre class="kernel-pre" style="font-family: monospace; font-size: 0.875rem; margin: 0; color: var(--ant-color-error-text);">@string.Join("\n", err.Traceback.Select(StripAnsi))</pre>
                     </div>
                 </div>
             }
 
-            <div class="d-flex gap-2 mb-1 align-items-start">
-                <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
-                <div class="d-flex align-items-center gap-2">
+            <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                <span style="visibility: hidden; font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">In [ ]:</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
                     <ExecutionTimer DurationMs="entry.Result.DurationMs" />
                     @if (ExtractRowCount(entry.Result) is { } rowCount)
                     {
                         bool atCap = rowCount == DataFrameOutput.RowCap;
-                        <span class="text-muted small">· @rowCount.ToString("N0")@(atCap ? "+" : "") rows</span>
+                        <span style="color: var(--ant-color-text-secondary); font-size: 0.875rem;">· @rowCount.ToString("N0")@(atCap ? "+" : "") rows</span>
                     }
                 </div>
             </div>
 
-            <hr class="my-2 border-secondary opacity-25" />
+            <Divider Style="margin: 8px 0; opacity: 0.4;" />
         }
 
         @if (_executingCode is not null)
         {
-            <div class="d-flex gap-2 mb-1 align-items-start">
-                <span class="text-primary font-monospace small text-nowrap pt-1">In [ ]:</span>
-                <CodeCell Value="@_executingCode" ReadOnly="true" Class="flex-grow-1" />
+            <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                <span style="color: var(--ant-color-primary); font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">In [ ]:</span>
+                <CodeCell Value="@_executingCode" ReadOnly="true" Class="editor-fill" />
             </div>
-            <div class="d-flex gap-2 mb-1 align-items-start">
-                <span class="invisible font-monospace small text-nowrap pt-1">In [ ]:</span>
-                <div class="d-flex align-items-center gap-2">
-                    <ExecutionTimer IsRunning="true" />
-                    <Button Color="ButtonColor.Warning" Size="ButtonSize.ExtraSmall"
-                            Loading="_actionBusy" Disabled="_actionBusy"
-                            @onclick="InterruptAsync">
-                        <SvgIcon Icon="LucideIcon.CircleStop" />
-                        Interrupt
-                    </Button>
-                </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                <span style="visibility: hidden; font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">In [ ]:</span>
+                <Space Align="SpaceAlign.Center">
+                    <SpaceItem><ExecutionTimer IsRunning="true" /></SpaceItem>
+                    <SpaceItem>
+                        <Button Size="ButtonSize.Small"
+                                Loading="_actionBusy" Disabled="_actionBusy"
+                                OnClick="InterruptAsync">
+                            <SvgIcon Icon="LucideIcon.CircleStop" />
+                            Interrupt
+                        </Button>
+                    </SpaceItem>
+                </Space>
             </div>
         }
     </div>
@@ -186,24 +195,24 @@ else
                     ReadOnly="@(_isDead || _executing)"
                     OnExecute="ExecuteAsync"
                     PriorContext="@(() => string.Join("\n", _history.Select(h => h.Code)))"
-                    Class="border rounded p-1 mb-2" />
-    <div class="d-flex align-items-center gap-2">
-        <Button Color="ButtonColor.Primary"
-                Loading="_executing"
-                Disabled="_executing || _isDead || string.IsNullOrWhiteSpace(_code)"
-                @onclick="ExecuteAsync">
-            <SvgIcon Icon="LucideIcon.SendHorizontal" />
-            Run
-        </Button>
-        <span class="text-muted small">or Ctrl+Enter</span>
+                    Class="editor-cell-mb2" />
+    <Space Align="SpaceAlign.Center">
+        <SpaceItem>
+            <Button Type="ButtonType.Primary"
+                    Loading="_executing"
+                    Disabled="@(_executing || _isDead || string.IsNullOrWhiteSpace(_code))"
+                    OnClick="ExecuteAsync">
+                <SvgIcon Icon="LucideIcon.SendHorizontal" />
+                Run
+            </Button>
+        </SpaceItem>
+        <SpaceItem><span style="color: var(--ant-color-text-secondary); font-size: 0.875rem;">or Ctrl+Enter</span></SpaceItem>
         @if (_isDead)
         {
-            <span class="badge bg-danger ms-2">Kernel is dead — restart to continue</span>
+            <SpaceItem><Tag Color='("error")'>Kernel is dead — restart to continue</Tag></SpaceItem>
         }
-    </div>
+    </Space>
 }
-
-<ConfirmDialog @ref="_confirmDialog" />
 
 @code {
     [Parameter] public string Name { get; set; } = "";
@@ -220,8 +229,6 @@ else
     private bool _executing;
     private string? _executingCode;
     private bool _actionBusy;
-
-    private ConfirmDialog _confirmDialog = default!;
 
     private string ShortId => KernelId.Length > 8 ? KernelId[..8] + "…" : KernelId;
     private bool _isDead => _kernel?.Status == KernelStatus.Dead;
@@ -322,21 +329,8 @@ else
         }
     }
 
-    private async Task ConfirmDeleteAsync()
+    private async Task DeleteAsync()
     {
-        var confirmed = await _confirmDialog.ShowAsync(
-            title: "Delete Kernel",
-            message1: $"Are you sure you want to delete kernel '{ShortId}'? The session history will be lost.",
-            confirmDialogOptions: new ConfirmDialogOptions
-            {
-                YesButtonText = "Delete",
-                YesButtonColor = ButtonColor.Danger,
-                NoButtonText = "Cancel",
-                NoButtonColor = ButtonColor.Secondary
-            });
-
-        if (!confirmed) return;
-
         _actionBusy = true;
         _error = null;
         try
@@ -396,12 +390,13 @@ else
     private static string StripAnsi(string text) =>
         Regex.Replace(text, @"\x1B\[[0-9;]*[a-zA-Z]", "");
 
-    private static string StatusBadgeClass(KernelStatus status) => status switch
+    private static string StatusTagColor(KernelStatus status) => status switch
     {
-        KernelStatus.Idle                                     => "bg-success",
-        KernelStatus.Busy                                     => "bg-warning text-dark",
-        KernelStatus.Starting or KernelStatus.Restarting     => "bg-info",
-        KernelStatus.Dead                                     => "bg-danger",
-        _                                                     => "bg-secondary"
+        KernelStatus.Idle                                     => "success",
+        KernelStatus.Busy                                     => "warning",
+        KernelStatus.Starting or KernelStatus.Restarting     => "processing",
+        KernelStatus.Dead                                     => "error",
+        _                                                     => "default"
     };
 }
+

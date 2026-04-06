@@ -1,14 +1,12 @@
 @using DuckHouse.Core.Kernels
 
-<div class="overflow-auto border rounded" style="max-height: 400px; max-width: 100%;">
-    <table class="table table-sm table-bordered table-striped mb-0">
-        <thead style="position: sticky; top: 0; z-index: 1; background-color: var(--bs-body-bg);">
+<div style="overflow: auto; border: 1px solid var(--ant-color-border); border-radius: 6px; max-height: 400px; max-width: 100%;">
+    <table class="df-table">
+        <thead>
             <tr>
                 @foreach (var col in Data.Columns)
                 {
-                    <th class="@(IsNumeric(col) ? "text-end" : "") text-nowrap small fw-semibold">
-                        @col.Name
-                    </th>
+                    <th style="@(IsNumeric(col) ? "text-align: right;" : "")">@col.Name</th>
                 }
             </tr>
         </thead>
@@ -19,7 +17,7 @@
                     {
                         var col = Data.Columns[i];
                         var cell = i < row.Count ? row[i] : null;
-                        <td class="@(IsNumeric(col) ? "text-end" : "") text-nowrap font-monospace small">
+                        <td style="font-family: monospace; @(IsNumeric(col) ? "text-align: right;" : "")">
                             @FormatCell(cell)
                         </td>
                     }
@@ -31,7 +29,7 @@
 
 @if (FooterLabel is { } label)
 {
-    <p class="text-muted small mb-0 mt-1">@label</p>
+    <p style="color: var(--ant-color-text-secondary); font-size: 0.875rem; margin-bottom: 0; margin-top: 4px;">@label</p>
 }
 
 @code {
