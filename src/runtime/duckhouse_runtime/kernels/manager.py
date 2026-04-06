@@ -156,6 +156,7 @@ class KernelConnection:
         if self.kc is None:
             raise RuntimeError("Kernel client is not initialized")
         await self.kc.wait_for_ready(timeout=30)
+        await self._setup_formatters()
         self.status = "idle"
         self.last_activity = datetime.now(timezone.utc)
 
