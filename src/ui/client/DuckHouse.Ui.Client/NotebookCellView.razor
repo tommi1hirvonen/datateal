@@ -126,6 +126,46 @@
     @* ── Outputs (code cells only) ── *@
     @if (Cell.CellType == NotebookCellType.Code)
     {
+        @if (Cell.IsExecuting || Cell.DurationMs.HasValue)
+        {
+            <div class="d-flex align-items-end gap-2 mb-1">
+                <span class="invisible font-monospace small text-nowrap">In [ ]:</span>
+                @if (!Cell.IsExecuting)
+                {
+                    @if (Cell.Error is not null)
+                    {
+                        <span class="lucide-sm text-danger">
+                            <SvgIcon Icon="LucideIcon.OctagonX" />
+                        </span>
+                    }
+                    else if (HasStderr)
+                    {
+                        <span class="lucide-sm text-warning">
+                            <SvgIcon Icon="LucideIcon.TriangleAlert" />
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="lucide-sm text-success">
+                            <SvgIcon Icon="LucideIcon.CircleCheck" />
+                        </span>
+                    }
+                }
+                else
+                {
+                    <span class="lucide-sm text-secondary">
+                        <SvgIcon Icon="LucideIcon.RefreshCw" />
+                    </span>
+                }
+                <ExecutionTimer IsRunning="@Cell.IsExecuting" DurationMs="@(Cell.IsExecuting ? null : Cell.DurationMs)" />
+                @if (!Cell.IsExecuting && ExtractRowCount() is { } rowCount)
+                {
+                    bool atCap = rowCount == DataFrameOutput.RowCap;
+                    <span class="text-muted small">· @rowCount.ToString("N0")@(atCap ? "+" : "") rows</span>
+                }
+            </div>
+        }
+
         @foreach (var output in Cell.Outputs)
         {
             @if (output.Type == "stream")
@@ -184,19 +224,7 @@
                 </div>
             </div>
         }
-
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="invisible font-monospace small text-nowrap">In [ ]:</span>
-            <ExecutionTimer IsRunning="@Cell.IsExecuting" DurationMs="@(Cell.IsExecuting ? null : Cell.DurationMs)" />
-            @if (!Cell.IsExecuting && ExtractRowCount() is { } rowCount)
-            {
-                bool atCap = rowCount == DataFrameOutput.RowCap;
-                <span class="text-muted small">· @rowCount.ToString("N0")@(atCap ? "+" : "") rows</span>
-            }
-        </div>
     }
-
-    <hr class="my-2 border-secondary opacity-25" />
 </div>
 
 @code {
@@ -217,6 +245,8 @@
     [Parameter] public EventCallback OnCellChanged { get; set; }
 
     private bool HasKernel => !string.IsNullOrEmpty(NodeName) && !string.IsNullOrEmpty(KernelId);
+
+    private bool HasStderr => Cell.Outputs.Any(o => o.Type == "stream" && o.Name == "stderr");
 
     private string CellTypeValue => Cell.CellType == NotebookCellType.Markdown
         ? "markdown"
