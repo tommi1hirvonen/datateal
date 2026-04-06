@@ -131,6 +131,8 @@
                       CanMoveDown="@(index < _notebook.Cells.Count - 1)"
                       PriorContext="@(() => PriorContextFor(index))"
                       OnExecute="@(() => _ = ExecuteCellAsync(cell))"
+                      OnRunAbove="@(() => _ = RunAboveAsync(cell))"
+                      OnRunBelow="@(() => _ = RunBelowAsync(cell))"
                       OnInterrupt="InterruptAsync"
                       OnDelete="@(() => DeleteCell(cell))"
                       OnMoveUp="@(() => MoveCell(index, -1))"
@@ -191,6 +193,7 @@
         {
             _connecting = false;
         }
+        StateHasChanged();
     }
 
     private async Task DisconnectAsync()
@@ -268,6 +271,54 @@
             {
                 await ExecuteCellAsync(cell);
                 if (cell.Error is not null) break;
+            }
+        }
+        finally
+        {
+            _runningAll = false;
+        }
+    }
+
+    private async Task RunAboveAsync(NotebookCell targetCell)
+    {
+        var cells = _notebook.Cells
+            .Take(_notebook.Cells.IndexOf(targetCell))
+            .Where(c => c.CellType == NotebookCellType.Code)
+            .ToList();
+
+        foreach (var c in cells) c.ClearOutput();
+
+        _runningAll = true;
+        try
+        {
+            foreach (var c in cells)
+            {
+                await ExecuteCellAsync(c);
+                if (c.Error is not null) break;
+            }
+        }
+        finally
+        {
+            _runningAll = false;
+        }
+    }
+
+    private async Task RunBelowAsync(NotebookCell targetCell)
+    {
+        var cells = _notebook.Cells
+            .Skip(_notebook.Cells.IndexOf(targetCell))
+            .Where(c => c.CellType == NotebookCellType.Code)
+            .ToList();
+
+        foreach (var c in cells) c.ClearOutput();
+
+        _runningAll = true;
+        try
+        {
+            foreach (var c in cells)
+            {
+                await ExecuteCellAsync(c);
+                if (c.Error is not null) break;
             }
         }
         finally

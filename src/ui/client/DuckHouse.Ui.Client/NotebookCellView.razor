@@ -26,7 +26,9 @@
             {
                 @if (Cell.IsExecuting)
                 {
-                    <Button Size="ButtonSize.ExtraSmall" Color="ButtonColor.Warning"
+                    <Button Size="ButtonSize.ExtraSmall"
+                            Color="ButtonColor.Warning"
+                            TooltipTitle="Interrupt execution"
                             @onclick="OnInterrupt">
                         <SvgIcon Icon="LucideIcon.CircleStop" />
                     </Button>
@@ -35,10 +37,24 @@
                 {
                     <Button Size="ButtonSize.ExtraSmall"
                             Color="ButtonColor.Primary"
+                            TooltipTitle="Run cell"
                             Disabled="@(!HasKernel)"
-                            @onclick="OnExecute"
-                            TooltipTitle="Run cell (Ctrl+Enter)">
+                            @onclick="OnExecute">
                         <SvgIcon Icon="LucideIcon.Play" />
+                    </Button>
+                    <Button Size="ButtonSize.ExtraSmall"
+                            Color="ButtonColor.Secondary"
+                            TooltipTitle="Run above cells"
+                            Disabled="@(!HasKernel || !CanMoveUp)"
+                            @onclick="OnRunAbove">
+                        <SvgIcon Icon="LucideIcon.ArrowUp" />
+                    </Button>
+                    <Button Size="ButtonSize.ExtraSmall"
+                            Color="ButtonColor.Secondary"
+                            TooltipTitle="Run cell and below"
+                            Disabled="@(!HasKernel)"
+                            @onclick="OnRunBelow">
+                        <SvgIcon Icon="LucideIcon.ArrowDownFromLine" />
                     </Button>
                 }
             }
@@ -251,6 +267,8 @@
     [Parameter] public bool CanMoveDown { get; set; }
     [Parameter] public Func<string>? PriorContext { get; set; }
     [Parameter] public EventCallback OnExecute { get; set; }
+    [Parameter] public EventCallback OnRunAbove { get; set; }
+    [Parameter] public EventCallback OnRunBelow { get; set; }
     [Parameter] public EventCallback OnInterrupt { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
     [Parameter] public EventCallback OnMoveUp { get; set; }
