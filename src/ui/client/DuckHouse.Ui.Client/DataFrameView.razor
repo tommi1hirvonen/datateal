@@ -1,22 +1,22 @@
 @using DuckHouse.Core.Kernels
 
+<div class="df-view">
 <Table TItem="Dictionary<string, object>"
        DataSource="@_dictRows"
        Size="TableSize.Small"
        Bordered
-       HidePagination="true"
-       ScrollY="400px"
-       Style="max-width: 100%;">
+       HidePagination="true">
     @foreach (var col in Data.Columns)
     {
         var colName = col.Name;
         <PropertyColumn Title="@colName"
                         Property="@(r => r[colName])"
                         Align="@(IsNumeric(col) ? ColumnAlign.Right : ColumnAlign.Left)">
-            <span style="font-family: monospace;">@FormatCell(context[colName])</span>
+            <span style="font-family: monospace; white-space: nowrap;">@FormatCell(context[colName])</span>
         </PropertyColumn>
     }
 </Table>
+</div>
 
 @if (FooterLabel is { } label)
 {

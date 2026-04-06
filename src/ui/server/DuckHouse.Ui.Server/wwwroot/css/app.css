@@ -5,6 +5,22 @@
     margin-bottom: 0;
 }
 
+/* DataFrame table */
+.df-view {
+    overflow: auto;
+    max-height: 400px;
+}
+
+.df-view .ant-table-cell {
+    white-space: nowrap;
+}
+
+.df-view .ant-table-thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
 /* Monaco editor layout helpers */
 .editor-fill {
     flex: 1 1 0%;
