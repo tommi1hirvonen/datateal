@@ -267,7 +267,10 @@
         _runningAll = true;
         try
         {
-            foreach (var cell in _notebook.Cells.Where(c => c.CellType == NotebookCellType.Code).ToList())
+            var cells = _notebook.Cells.Where(c => c.CellType == NotebookCellType.Code).ToList();
+            foreach (var c in cells) c.ClearOutput();
+
+            foreach (var cell in cells)
             {
                 await ExecuteCellAsync(cell);
                 if (cell.Error is not null) break;
