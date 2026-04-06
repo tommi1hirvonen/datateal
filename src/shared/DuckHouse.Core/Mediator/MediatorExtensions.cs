@@ -6,7 +6,7 @@ public static class MediatorExtensions
 {
     public static IServiceCollection AddMediator<TScanEntryPoint>(this IServiceCollection services)
     {
-        services.AddScoped<IMediator, MediatorImpl>();
+        services.AddSingleton<IMediator, MediatorImpl>();
         services.AddRequestHandlers<TScanEntryPoint>();
         return services;
     }

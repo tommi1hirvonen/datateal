@@ -11,9 +11,13 @@ class KernelInfo(BaseModel):
     last_activity: datetime
 
 
+class ExecutionHandle(BaseModel):
+    execution_id: str
+
+
 class ExecuteRequest(BaseModel):
     code: str
-    timeout: float = 60.0
+    timeout: Optional[float] = None  # None means no timeout
 
 
 class Output(BaseModel):
@@ -36,6 +40,11 @@ class ExecutionResult(BaseModel):
     outputs: list[Output]
     error: Optional[ErrorInfo] = None
     duration_ms: float
+
+
+class PollExecutionResponse(BaseModel):
+    is_complete: bool
+    result: Optional[ExecutionResult] = None
 
 
 class CompleteRequest(BaseModel):

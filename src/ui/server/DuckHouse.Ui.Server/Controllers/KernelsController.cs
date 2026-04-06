@@ -34,8 +34,15 @@ public class KernelsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{kernelId}/execute")]
-    public async Task<ExecutionResult> Execute(string nodeName, string kernelId, SharedKernels.ExecuteKernelRequest body, CancellationToken ct) =>
-        await mediator.SendAsync(new Cmd.ExecuteKernelRequest(nodeName, kernelId, body.Code, body.Timeout), ct);
+    public async Task<IActionResult> Execute(string nodeName, string kernelId, SharedKernels.ExecuteKernelRequest body, CancellationToken ct)
+    {
+        var handle = await mediator.SendAsync(new Cmd.ExecuteKernelRequest(nodeName, kernelId, body.Code, body.Timeout), ct);
+        return Accepted(handle);
+    }
+
+    [HttpGet("{kernelId}/executions/{executionId}")]
+    public async Task<PollExecutionResponse> PollExecution(string nodeName, string kernelId, string executionId, CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.PollExecutionRequest(nodeName, kernelId, executionId), ct);
 
     [HttpPost("{kernelId}/restart")]
     public async Task<KernelInfo> RestartKernel(string nodeName, string kernelId, CancellationToken ct) =>

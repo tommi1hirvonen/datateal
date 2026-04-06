@@ -10,9 +10,11 @@ from duckhouse_runtime.kernels.models import (
     Diagnostic,
     ErrorInfo,
     ExecuteRequest,
+    ExecutionHandle,
     ExecutionResult,
     KernelInfo,
     Output,
+    PollExecutionResponse,
 )
 
 router = APIRouter(prefix="/kernels", tags=["kernels"])
@@ -52,26 +54,45 @@ async def delete_kernel(kernel_id: str):
         raise HTTPException(status_code=404, detail="Kernel not found")
 
 
-@router.post("/{kernel_id}/execute", response_model=ExecutionResult)
+@router.post("/{kernel_id}/execute", response_model=ExecutionHandle, status_code=202)
 async def execute(kernel_id: str, body: ExecuteRequest):
     conn = registry.get(kernel_id)
     if not conn:
         raise HTTPException(status_code=404, detail="Kernel not found")
     if conn.status == "dead":
         raise HTTPException(status_code=409, detail="Kernel is dead")
+    execution_id = conn.start_execute(body.code, body.timeout)
+    return ExecutionHandle(execution_id=execution_id)
+
+
+@router.get("/{kernel_id}/executions/{execution_id}", response_model=PollExecutionResponse)
+def poll_execution(kernel_id: str, execution_id: str):
+    conn = registry.get(kernel_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Kernel not found")
     try:
-        result = await conn.execute(body.code, body.timeout)
-        outputs = [Output(**o) for o in result["outputs"]]
-        error = ErrorInfo(**result["error"]) if result["error"] else None
-        return ExecutionResult(
-            status=result["status"],
-            execution_count=result["execution_count"],
-            outputs=outputs,
-            error=error,
-            duration_ms=result["duration_ms"],
-        )
+        poll = conn.get_execution(execution_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Execution not found")
     except TimeoutError:
         raise HTTPException(status_code=408, detail="Execution timed out")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    if not poll["is_complete"]:
+        return PollExecutionResponse(is_complete=False)
+
+    raw = poll["result"]
+    outputs = [Output(**o) for o in raw["outputs"]]
+    error = ErrorInfo(**raw["error"]) if raw["error"] else None
+    result = ExecutionResult(
+        status=raw["status"],
+        execution_count=raw["execution_count"],
+        outputs=outputs,
+        error=error,
+        duration_ms=raw["duration_ms"],
+    )
+    return PollExecutionResponse(is_complete=True, result=result)
 
 
 @router.post("/{kernel_id}/restart", response_model=KernelInfo)

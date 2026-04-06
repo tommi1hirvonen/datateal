@@ -46,6 +46,10 @@ class KernelConnection:
         self.created_at = datetime.now(timezone.utc)
         self.last_activity = datetime.now(timezone.utc)
         self._lock = asyncio.Lock()
+        # Async execution registry: execution_id → Task
+        self._execution_tasks: dict[str, asyncio.Task] = {}
+        # Completed results: execution_id → raw result dict or Exception
+        self._execution_results: dict[str, dict | Exception] = {}
 
     async def start(self) -> None:
         await self.km.start_kernel()
@@ -88,39 +92,89 @@ class KernelConnection:
         msg_id = self.kc.execute(setup_code, silent=True, store_history=False)
         await self._wait_for_idle(msg_id)
 
-    async def execute(self, code: str, timeout: float = 60.0) -> dict:
-        async with self._lock:
-            if self.kc is None:
-                raise RuntimeError("Kernel client is not initialized")
-            self.status = "busy"
-            self.last_activity = datetime.now(timezone.utc)
-            try:
-                start = time.monotonic()
-                msg_id = self.kc.execute(code)
-                result = await self._collect_output(msg_id, timeout)
-                result["duration_ms"] = (time.monotonic() - start) * 1000
-                return result
-            finally:
-                self.status = "idle"
-                self.last_activity = datetime.now(timezone.utc)
+    def start_execute(self, code: str, timeout: Optional[float] = None) -> str:
+        """Queue a kernel execution and return an execution_id immediately.
 
-    async def _collect_output(self, msg_id: str, timeout: float) -> dict:
+        The actual execution runs in a background asyncio Task.  The kernel
+        may be busy with a prior execution; the task will wait for the lock.
+        Use get_execution() to poll for the result.
+        """
+        execution_id = str(uuid.uuid4())
+
+        async def _run() -> None:
+            async with self._lock:
+                if self.kc is None:
+                    self._execution_results[execution_id] = RuntimeError("Kernel client is not initialized")
+                    return
+                self.status = "busy"
+                self.last_activity = datetime.now(timezone.utc)
+                try:
+                    start = time.monotonic()
+                    msg_id = self.kc.execute(code)
+                    result = await self._collect_output(msg_id, timeout)
+                    result["duration_ms"] = (time.monotonic() - start) * 1000
+                    self._execution_results[execution_id] = result
+                except Exception as exc:
+                    self._execution_results[execution_id] = exc
+                finally:
+                    self.status = "idle"
+                    self.last_activity = datetime.now(timezone.utc)
+
+        task = asyncio.create_task(_run())
+        self._execution_tasks[execution_id] = task
+        return execution_id
+
+    def get_execution(self, execution_id: str) -> dict:
+        """Return poll status for a previously started execution.
+
+        Returns a dict suitable for serialisation as PollExecutionResponse.
+        Raises KeyError if the execution_id is not found (404).
+        Raises the stored exception if the execution failed.
+        On first successful retrieval the result is removed from memory.
+        """
+        if execution_id not in self._execution_tasks:
+            raise KeyError(execution_id)
+
+        if execution_id not in self._execution_results:
+            # Task is still running (or waiting for the lock).
+            return {"is_complete": False}
+
+        # Task is done — retrieve and remove from memory.
+        result = self._execution_results.pop(execution_id)
+        self._execution_tasks.pop(execution_id, None)
+
+        if isinstance(result, Exception):
+            raise result
+
+        return {"is_complete": True, "result": result}
+
+    def _cancel_all_executions(self) -> None:
+        """Cancel all pending/running execution tasks and clear the registry."""
+        for task in self._execution_tasks.values():
+            task.cancel()
+        self._execution_tasks.clear()
+        self._execution_results.clear()
+
+    async def _collect_output(self, msg_id: str, timeout: Optional[float]) -> dict:
         if self.kc is None:
             raise RuntimeError("Kernel client is not initialized")
         outputs = []
         error = None
         execution_count = None
         loop = asyncio.get_running_loop()
-        deadline = loop.time() + timeout
+        deadline = (loop.time() + timeout) if timeout is not None else None
 
         while True:
-            remaining = deadline - loop.time()
-            if remaining <= 0:
-                raise TimeoutError("Execution timed out")
-            try:
-                msg = await asyncio.wait_for(self.kc.get_iopub_msg(), timeout=remaining)
-            except asyncio.TimeoutError:
-                raise TimeoutError("Execution timed out")
+            if deadline is not None:
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    raise TimeoutError("Execution timed out")
+                try:
+                    msg = await asyncio.wait_for(self.kc.get_iopub_msg(), timeout=remaining)
+                except asyncio.TimeoutError:
+                    raise TimeoutError("Execution timed out")
+            else:
+                msg = await self.kc.get_iopub_msg()
 
             if msg.get("parent_header", {}).get("msg_id") != msg_id:
                 continue
@@ -151,6 +205,7 @@ class KernelConnection:
         await self.km.interrupt_kernel()
 
     async def restart(self) -> None:
+        self._cancel_all_executions()
         self.status = "restarting"
         await self.km.restart_kernel()
         if self.kc is None:
@@ -161,6 +216,7 @@ class KernelConnection:
         self.last_activity = datetime.now(timezone.utc)
 
     async def shutdown(self) -> None:
+        self._cancel_all_executions()
         if self.kc is None:
             raise RuntimeError("Kernel client is not initialized")
         self.kc.stop_channels()

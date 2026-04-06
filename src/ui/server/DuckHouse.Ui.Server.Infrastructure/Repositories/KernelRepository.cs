@@ -32,12 +32,15 @@ internal class KernelRepository(HttpClient httpClient) : IKernelRepository
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<ExecutionResult> ExecuteAsync(string nodeName, string kernelId, ExecuteRequest request, CancellationToken cancellationToken = default)
+    public async Task<ExecutionHandle> StartExecuteAsync(string nodeName, string kernelId, ExecuteRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync($"/nodes/{nodeName}/kernels/{kernelId}/execute", request, JsonOptions, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ExecutionResult>(JsonOptions, cancellationToken))!;
+        return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, cancellationToken))!;
     }
+
+    public async Task<PollExecutionResponse> PollExecutionAsync(string nodeName, string kernelId, string executionId, CancellationToken cancellationToken = default) =>
+        (await httpClient.GetFromJsonAsync<PollExecutionResponse>($"/nodes/{nodeName}/kernels/{kernelId}/executions/{executionId}", JsonOptions, cancellationToken))!;
 
     public async Task<KernelInfo> RestartKernelAsync(string nodeName, string kernelId, CancellationToken cancellationToken = default)
     {

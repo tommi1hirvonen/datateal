@@ -1,3 +1,3 @@
 namespace DuckHouse.Core.Kernels;
 
-public record ExecuteRequest(string Code, double Timeout = 60.0);
+public record ExecuteRequest(string Code, double? Timeout = null);

@@ -249,7 +249,18 @@ else
         _executingCode = codeToRun;
         try
         {
-            var result = await KernelService.ExecuteAsync(Name, KernelId, new ExecuteKernelRequest(codeToRun));
+            var handle = await KernelService.StartExecuteAsync(Name, KernelId, new ExecuteKernelRequest(codeToRun));
+
+            // Poll every second until the execution completes.
+            PollExecutionResponse poll;
+            do
+            {
+                await Task.Delay(1000);
+                poll = await KernelService.PollExecutionAsync(Name, KernelId, handle.ExecutionId);
+                StateHasChanged(); // keep the running timer ticking
+            } while (!poll.IsComplete);
+
+            var result = poll.Result!;
             _history.Add(new HistoryEntry(result.ExecutionCount, codeToRun, result));
             _kernel = await KernelService.GetKernelAsync(Name, KernelId);
         }

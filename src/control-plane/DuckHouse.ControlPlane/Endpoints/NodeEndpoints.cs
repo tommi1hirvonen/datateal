@@ -2,7 +2,6 @@ using DuckHouse.ControlPlane.Application.Mediator.Commands;
 using DuckHouse.ControlPlane.Application.Mediator.Queries;
 using DuckHouse.Core.Kernels;
 using DuckHouse.Core.Mediator;
-
 namespace DuckHouse.ControlPlane.Endpoints;
 
 public static class NodeEndpoints
@@ -79,8 +78,15 @@ public static class NodeEndpoints
         .WithName("DeleteKernel");
 
         kernels.MapPost("/{kernelId}/execute", async (string name, string kernelId, ExecuteRequest request, IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.SendAsync(new ExecuteKernelRequest(name, kernelId, request.Code, request.Timeout), ct)))
-            .WithName("ExecuteKernel");
+        {
+            var handle = await mediator.SendAsync(new ExecuteKernelRequest(name, kernelId, request.Code, request.Timeout), ct);
+            return Results.Accepted(value: handle);
+        })
+        .WithName("ExecuteKernel");
+
+        kernels.MapGet("/{kernelId}/executions/{executionId}", async (string name, string kernelId, string executionId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.SendAsync(new PollExecutionRequest(name, kernelId, executionId), ct)))
+            .WithName("PollExecution");
 
         kernels.MapPost("/{kernelId}/restart", async (string name, string kernelId, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.SendAsync(new RestartKernelRequest(name, kernelId), ct)))

@@ -71,14 +71,21 @@ public sealed class KubernetesRuntimeClient : INodeRuntimeClient
         await SendAsync(request, cancellationToken);
     }
 
-    public async Task<ExecutionResult> ExecuteAsync(string nodeName, string kernelId, ExecuteRequest request, CancellationToken cancellationToken = default)
+    public async Task<ExecutionHandle> StartExecuteAsync(string nodeName, string kernelId, ExecuteRequest request, CancellationToken cancellationToken = default)
     {
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, ProxyUri(nodeName, $"kernels/{kernelId}/execute"))
         {
             Content = JsonContent.Create(request, options: _jsonOptions),
         };
         var response = await SendAsync(httpRequest, cancellationToken);
-        return (await response.Content.ReadFromJsonAsync<ExecutionResult>(_jsonOptions, cancellationToken))!;
+        return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(_jsonOptions, cancellationToken))!;
+    }
+
+    public async Task<PollExecutionResponse> PollExecutionAsync(string nodeName, string kernelId, string executionId, CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, ProxyUri(nodeName, $"kernels/{kernelId}/executions/{executionId}"));
+        var response = await SendAsync(request, cancellationToken);
+        return (await response.Content.ReadFromJsonAsync<PollExecutionResponse>(_jsonOptions, cancellationToken))!;
     }
 
     public async Task<KernelInfo> RestartKernelAsync(string nodeName, string kernelId, CancellationToken cancellationToken = default)

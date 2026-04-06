@@ -67,7 +67,7 @@ public static class ServiceExtensions
                 });
             });
             services.AddSingleton(sp => (Kubernetes)sp.GetRequiredService<IKubernetes>());
-            services.AddScoped<INodeService, AksNodeService>();
+            services.AddSingleton<INodeService, AksNodeService>();
         }
         else
         {
@@ -81,10 +81,10 @@ public static class ServiceExtensions
                 return new Kubernetes(config);
             });
             services.AddSingleton(sp => (Kubernetes)sp.GetRequiredService<IKubernetes>());
-            services.AddScoped<INodeService, LocalNodeService>();
+            services.AddSingleton<INodeService, LocalNodeService>();
         }
 
-        services.AddScoped<INodeRuntimeClient>(sp =>
+        services.AddSingleton<INodeRuntimeClient>(sp =>
             new KubernetesRuntimeClient(
                 sp.GetRequiredService<Kubernetes>(),
                 sp.GetService<ITokenProvider>()));
