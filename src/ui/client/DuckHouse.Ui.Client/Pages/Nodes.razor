@@ -7,19 +7,21 @@
 
 <Flex Justify="@("space-between")" Align="FlexAlign.Center" Style="margin-bottom: 24px;">
     <Space Align="SpaceAlign.Center" Size="@("small")">
-        <SpaceItem><SvgIcon Icon="LucideIcon.Server" /></SpaceItem>
+        <SpaceItem><Icon Type="@IconType.Outline.CloudServer" /></SpaceItem>
         <SpaceItem><h2 style="margin: 0;">Nodes</h2></SpaceItem>
     </Space>
     <Space>
         <SpaceItem>
-            <Button OnClick="LoadNodesAsync" Disabled="@(_loading || _busy is not null)">
-                <SvgIcon Icon="LucideIcon.RefreshCw" />
+            <Button OnClick="LoadNodesAsync"
+                    Disabled="@(_loading || _busy is not null)"
+                    Icon=@IconType.Outline.Reload>
                 Refresh
             </Button>
         </SpaceItem>
         <SpaceItem>
-            <Button Type="ButtonType.Primary" OnClick="OpenCreateDrawer">
-                <SvgIcon Icon="LucideIcon.Plus" />
+            <Button Type="ButtonType.Primary"
+                    Icon="@IconType.Outline.Plus"
+                    OnClick="OpenCreateDrawer">
                 New Node
             </Button>
         </SpaceItem>
@@ -59,8 +61,8 @@ else
                 <SpaceItem>
                     <Button Size="ButtonSize.Small"
                             Disabled="@(context.State != NodeState.Running)"
+                            Icon="@IconType.Outline.Code"
                             OnClick="@(() => Navigation.NavigateTo($"nodes/{context.Name}/kernels"))">
-                        <SvgIcon Icon="LucideIcon.Cpu" />
                         Kernels
                     </Button>
                 </SpaceItem>
@@ -70,9 +72,8 @@ else
                     <SpaceItem>
                         <Button Size="ButtonSize.Small" Type="ButtonType.Primary"
                                 Loading="@(_busy == name)" Disabled="@(_busy == name)"
-                                OnClick="@(() => StartNodeAsync(name))">
-                            <SvgIcon Icon="LucideIcon.Play" />
-                        </Button>
+                                Icon="@IconType.Outline.PlayCircle"
+                                OnClick="@(() => StartNodeAsync(name))" />
                     </SpaceItem>
                 }
                 @if (context.State is NodeState.Running)
@@ -81,9 +82,8 @@ else
                     <SpaceItem>
                         <Button Size="ButtonSize.Small"
                                 Loading="@(_busy == name)" Disabled="@(_busy == name)"
-                                OnClick="@(() => StopNodeAsync(name))">
-                            <SvgIcon Icon="LucideIcon.CircleStop" />
-                        </Button>
+                                Icon="@IconType.Outline.PauseCircle"
+                                OnClick="@(() => StopNodeAsync(name))" />
                     </SpaceItem>
                 }
                 @{
@@ -98,9 +98,8 @@ else
                                 OkButtonProps="new ButtonProps { Danger = true }"
                                 OnConfirm="@(() => RemoveNodeAsync(context.Name))">
                         <Button Size="ButtonSize.Small" Danger Type="ButtonType.Primary"
-                                Loading="@nodeBusy" Disabled="@(nodeBusy || (_busy is not null && _busy != nodeName))">
-                            <SvgIcon Icon="LucideIcon.Trash2" />
-                        </Button>
+                                Loading="@nodeBusy" Disabled="@(nodeBusy || (_busy is not null && _busy != nodeName))"
+                                Icon="@IconType.Outline.Delete" />
                     </Popconfirm>
                 </SpaceItem>
             </Space>
@@ -128,8 +127,8 @@ else
         <SpaceItem>
             <Button Type="ButtonType.Primary" Loading="_creating"
                     Disabled="@(string.IsNullOrWhiteSpace(_createName) || string.IsNullOrWhiteSpace(_createVmSize))"
+                    Icon="@IconType.Outline.Plus"
                     OnClick="CreateNodeAsync">
-                <SvgIcon Icon="LucideIcon.Plus" />
                 Create
             </Button>
         </SpaceItem>

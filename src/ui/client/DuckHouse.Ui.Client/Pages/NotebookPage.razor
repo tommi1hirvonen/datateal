@@ -14,7 +14,7 @@
 
 <Flex Justify="@("space-between")" Align="FlexAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
     <Space Align="SpaceAlign.Center" Size="@("small")">
-        <SpaceItem><SvgIcon Icon="LucideIcon.Notebook" /></SpaceItem>
+        <SpaceItem><Icon Type="@IconType.Outline.FileText" /></SpaceItem>
         <SpaceItem>
             <h2 style="margin: 0;">
                 @if (_editingTitle)
@@ -37,14 +37,14 @@
     @* File toolbar *@
     <Space Size="@("small")" Style="flex-wrap: wrap;">
         <SpaceItem>
-            <Button OnClick="OpenFileDialogAsync">
-                <SvgIcon Icon="LucideIcon.FolderOpen" /> Open
+            <Button OnClick="OpenFileDialogAsync" Icon="@IconType.Outline.FolderOpen">
+                Open
             </Button>
             <InputFile @ref="_fileInput" style="display:none;" accept=".ipynb" OnChange="OnFileSelectedAsync" />
         </SpaceItem>
         <SpaceItem>
-            <Button Disabled="@(!_notebook.IsDirty)" OnClick="SaveAsync">
-                <SvgIcon Icon="LucideIcon.Save" /> Save
+            <Button Disabled="@(!_notebook.IsDirty)" Icon="@IconType.Outline.Save" OnClick="SaveAsync">
+                Save
             </Button>
         </SpaceItem>
         <SpaceItem><Divider Type="DividerType.Vertical" /></SpaceItem>
@@ -52,22 +52,25 @@
             <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
                     Disabled="@(!HasKernel || _runningAll)"
                     Loading="_runningAll"
+                    Icon="@IconType.Outline.PlayCircle"
                     OnClick="RunAllAsync">
-                <SvgIcon Icon="LucideIcon.Play" /> Run All
+                Run All
             </Button>
         </SpaceItem>
         <SpaceItem>
             <Button Size="ButtonSize.Small"
                     Disabled="@(!HasKernel || !AnyExecuting)"
+                    Icon="@IconType.Outline.PauseCircle"
                     OnClick="InterruptAsync">
-                <SvgIcon Icon="LucideIcon.CircleStop" /> Interrupt
+                Interrupt
             </Button>
         </SpaceItem>
         <SpaceItem>
             <Button Size="ButtonSize.Small"
                     Disabled="@(!_notebook.Cells.Any())"
+                    Icon="@IconType.Outline.Clear"
                     OnClick="ClearAllOutputs">
-                <SvgIcon Icon="LucideIcon.Eraser" /> Clear Outputs
+                Clear Outputs
             </Button>
         </SpaceItem>
     </Space>
@@ -75,7 +78,7 @@
 
 @* Kernel connection toolbar *@
 <Space Align="SpaceAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap;" Size="@("small")">
-    <SpaceItem><SvgIcon Icon="LucideIcon.Plug" /></SpaceItem>
+    <SpaceItem><Icon Type="@IconType.Outline.Api" /></SpaceItem>
     <SpaceItem><span style="font-size: 0.875rem; color: var(--ant-color-text-secondary);">Node:</span></SpaceItem>
     @if (_loadingNodes)
     {
@@ -102,8 +105,9 @@
             <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
                     Disabled="@(string.IsNullOrEmpty(_nodeName) || _connecting)"
                     Loading="_connecting"
+                    Icon="@IconType.Outline.Api"
                     OnClick="ConnectAsync">
-                <SvgIcon Icon="LucideIcon.Plug" /> Connect
+                Connect
             </Button>
         </SpaceItem>
     }
@@ -114,8 +118,9 @@
             <Button Size="ButtonSize.Small"
                     Disabled="_disconnecting"
                     Loading="_disconnecting"
+                    Icon="@IconType.Outline.Disconnect"
                     OnClick="DisconnectAsync">
-                <SvgIcon Icon="LucideIcon.X" /> Disconnect
+                Disconnect
             </Button>
         </SpaceItem>
     }

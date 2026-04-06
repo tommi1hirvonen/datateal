@@ -28,9 +28,8 @@
                     <SpaceItem>
                         <Tooltip Title="Interrupt execution">
                             <Button Size="ButtonSize.Small"
-                                    OnClick="OnInterrupt">
-                                <SvgIcon Icon="LucideIcon.CircleStop" />
-                            </Button>
+                                    OnClick="OnInterrupt"
+                                    Icon="@IconType.Outline.PauseCircle" />
                         </Tooltip>
                     </SpaceItem>
                 }
@@ -40,27 +39,24 @@
                         <Tooltip Title="Run cell">
                             <Button Size="ButtonSize.Small" Type="ButtonType.Primary"
                                     Disabled="@(!HasKernel)"
-                                    OnClick="OnExecute">
-                                <SvgIcon Icon="LucideIcon.Play" />
-                            </Button>
+                                    Icon="@IconType.Outline.PlayCircle"
+                                    OnClick="OnExecute" />
                         </Tooltip>
                     </SpaceItem>
                     <SpaceItem>
                         <Tooltip Title="Run above cells">
                             <Button Size="ButtonSize.Small"
                                     Disabled="@(!HasKernel || !CanMoveUp)"
-                                    OnClick="OnRunAbove">
-                                <SvgIcon Icon="LucideIcon.ArrowUp" />
-                            </Button>
+                                    Icon="@IconType.Outline.ArrowUp"
+                                    OnClick="OnRunAbove" />
                         </Tooltip>
                     </SpaceItem>
                     <SpaceItem>
                         <Tooltip Title="Run cell and below">
                             <Button Size="ButtonSize.Small"
                                     Disabled="@(!HasKernel)"
-                                    OnClick="OnRunBelow">
-                                <SvgIcon Icon="LucideIcon.ArrowDownFromLine" />
-                            </Button>
+                                    Icon="@IconType.Outline.VerticalAlignBottom"
+                                    OnClick="OnRunBelow" />
                         </Tooltip>
                     </SpaceItem>
                 }
@@ -72,9 +68,8 @@
                     <SpaceItem>
                         <Tooltip Title="Stop editing markdown">
                             <Button Size="ButtonSize.Small"
-                                    OnClick="StopEditingMarkdown">
-                                <SvgIcon Icon="LucideIcon.Check" />
-                            </Button>
+                                    Icon="@IconType.Outline.Check"
+                                    OnClick="StopEditingMarkdown" />
                         </Tooltip>
                     </SpaceItem>
                 }
@@ -83,9 +78,8 @@
                     <SpaceItem>
                         <Tooltip Title="Start editing markdown">
                             <Button Size="ButtonSize.Small"
-                                    OnClick="StartEditingMarkdown">
-                                <SvgIcon Icon="LucideIcon.Pen" />
-                            </Button>
+                                    Icon="@IconType.Outline.Edit"
+                                    OnClick="StartEditingMarkdown" />
                         </Tooltip>
                     </SpaceItem>
                 }
@@ -94,26 +88,23 @@
                 <Tooltip Title="Move cell up">
                     <Button Size="ButtonSize.Small"
                             Disabled="@(!CanMoveUp)"
-                            OnClick="OnMoveUp">
-                        <SvgIcon Icon="LucideIcon.ChevronUp" />
-                    </Button>
+                            Icon="@IconType.Outline.Up"
+                            OnClick="OnMoveUp" />
                 </Tooltip>
             </SpaceItem>
             <SpaceItem>
                 <Tooltip Title="Move cell down">
                     <Button Size="ButtonSize.Small"
                             Disabled="@(!CanMoveDown)"
-                            OnClick="OnMoveDown">
-                        <SvgIcon Icon="LucideIcon.ChevronDown" />
-                    </Button>
+                            Icon="@IconType.Outline.Down"
+                            OnClick="OnMoveDown" />
                 </Tooltip>
             </SpaceItem>
             <SpaceItem>
                 <Tooltip Title="Delete cell">
                     <Button Size="ButtonSize.Small" Danger Type="ButtonType.Primary"
-                            OnClick="OnDelete">
-                        <SvgIcon Icon="LucideIcon.X" />
-                    </Button>
+                            Icon="@IconType.Outline.Close"
+                            OnClick="OnDelete" />
                 </Tooltip>
             </SpaceItem>
         </Space>
@@ -179,28 +170,20 @@
                 {
                     @if (Cell.Error is not null)
                     {
-                        <span class="lucide-sm" style="color: var(--ant-color-error);">
-                            <SvgIcon Icon="LucideIcon.OctagonX" />
-                        </span>
+                        <Icon Type="@IconType.Outline.CloseCircle" Style="color: var(--ant-color-error);" />
                     }
                     else if (HasStderr)
                     {
-                        <span class="lucide-sm" style="color: var(--ant-color-warning);">
-                            <SvgIcon Icon="LucideIcon.TriangleAlert" />
-                        </span>
+                        <Icon Type="@IconType.Outline.Warning" Style="color: var(--ant-color-warning);" />
                     }
                     else
                     {
-                        <span class="lucide-sm" style="color: var(--ant-color-success);">
-                            <SvgIcon Icon="LucideIcon.CircleCheck" />
-                        </span>
+                        <Icon Type="@IconType.Outline.CheckCircle" Style="color: var(--ant-color-success);" />
                     }
                 }
                 else
                 {
-                    <span class="lucide-sm" style="color: var(--ant-color-text-secondary);">
-                        <SvgIcon Icon="LucideIcon.RefreshCw" />
-                    </span>
+                    <Icon Type="@IconType.Outline.Sync" Style="color: var(--ant-color-text-secondary);" />
                 }
                 <ExecutionTimer IsRunning="@Cell.IsExecuting" DurationMs="@(Cell.IsExecuting ? null : Cell.DurationMs)" />
                 @if (!Cell.IsExecuting && ExtractRowCount() is { } rowCount)

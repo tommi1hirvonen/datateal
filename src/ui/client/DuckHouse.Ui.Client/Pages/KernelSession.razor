@@ -16,7 +16,7 @@
 
 <Flex Justify="@("space-between")" Align="FlexAlign.Center" Style="margin-bottom: 12px;">
     <Space Align="SpaceAlign.Center" Size="@("small")">
-        <SpaceItem><SvgIcon Icon="LucideIcon.Terminal" /></SpaceItem>
+        <SpaceItem><Icon Type="@IconType.Outline.Code" /></SpaceItem>
         <SpaceItem><h2 style="margin: 0;">Kernel Session</h2></SpaceItem>
         @if (_kernel is not null)
         {
@@ -29,8 +29,8 @@
             <SpaceItem>
                 <Button Size="ButtonSize.Small"
                         Loading="_actionBusy" Disabled="_actionBusy"
+                        Icon="@IconType.Outline.PauseCircle"
                         OnClick="InterruptAsync">
-                    <SvgIcon Icon="LucideIcon.CircleStop" />
                     Interrupt
                 </Button>
             </SpaceItem>
@@ -38,8 +38,8 @@
         <SpaceItem>
             <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
                     Loading="_actionBusy" Disabled="@(_actionBusy || _executing)"
+                    Icon="@IconType.Outline.Sync"
                     OnClick="RestartAsync">
-                <SvgIcon Icon="LucideIcon.RotateCw" />
                 Restart
             </Button>
         </SpaceItem>
@@ -51,8 +51,8 @@
                         OkButtonProps="new ButtonProps { Danger = true }"
                         OnConfirm="DeleteAsync">
                 <Button Danger Type="ButtonType.Primary" Size="ButtonSize.Small"
-                        Loading="_actionBusy" Disabled="_actionBusy">
-                    <SvgIcon Icon="LucideIcon.Trash2" />
+                        Loading="_actionBusy" Disabled="_actionBusy"
+                        Icon="@IconType.Outline.Delete">
                     Delete
                 </Button>
             </Popconfirm>
@@ -178,8 +178,8 @@ else
                     <SpaceItem>
                         <Button Size="ButtonSize.Small"
                                 Loading="_actionBusy" Disabled="_actionBusy"
+                                Icon="@IconType.Outline.PauseCircle"
                                 OnClick="InterruptAsync">
-                            <SvgIcon Icon="LucideIcon.CircleStop" />
                             Interrupt
                         </Button>
                     </SpaceItem>
@@ -201,8 +201,8 @@ else
             <Button Type="ButtonType.Primary"
                     Loading="_executing"
                     Disabled="@(_executing || _isDead || string.IsNullOrWhiteSpace(_code))"
+                    Icon="@IconType.Outline.PlayCircle"
                     OnClick="ExecuteAsync">
-                <SvgIcon Icon="LucideIcon.SendHorizontal" />
                 Run
             </Button>
         </SpaceItem>

@@ -13,20 +13,20 @@
 
 <Flex Justify="@("space-between")" Align="FlexAlign.Center" Style="margin-bottom: 24px;">
     <Space Align="SpaceAlign.Center" Size="@("small")">
-        <SpaceItem><SvgIcon Icon="LucideIcon.Cpu" /></SpaceItem>
+        <SpaceItem><Icon Type="@IconType.Outline.Code" /></SpaceItem>
         <SpaceItem><h2 style="margin: 0;">Kernels</h2></SpaceItem>
     </Space>
     <Space>
         <SpaceItem>
-            <Button OnClick="LoadKernelsAsync" Disabled="@(_loading || _busy is not null)">
-                <SvgIcon Icon="LucideIcon.RefreshCw" />
+            <Button OnClick="LoadKernelsAsync" Disabled="@(_loading || _busy is not null)"
+                    Icon="@IconType.Outline.Reload">
                 Refresh
             </Button>
         </SpaceItem>
         <SpaceItem>
             <Button Type="ButtonType.Primary" Loading="_creating" Disabled="_creating"
+                    Icon="@IconType.Outline.Plus"
                     OnClick="CreateKernelAsync">
-                <SvgIcon Icon="LucideIcon.Plus" />
                 New Kernel
             </Button>
         </SpaceItem>
@@ -73,8 +73,8 @@ else
             <Space>
                 <SpaceItem>
                     <Button Size="ButtonSize.Small" Disabled="@isDead"
+                            Icon="@IconType.Outline.Export"
                             OnClick="@(() => Navigation.NavigateTo($"nodes/{Name}/kernels/{id}"))">
-                        <SvgIcon Icon="LucideIcon.ExternalLink" />
                         Open
                     </Button>
                 </SpaceItem>
@@ -83,9 +83,8 @@ else
                     <SpaceItem>
                         <Button Size="ButtonSize.Small" Type="ButtonType.Primary"
                                 Loading="@busy" Disabled="@busy"
-                                OnClick="@(() => RestartKernelAsync(id))">
-                            <SvgIcon Icon="LucideIcon.RotateCw" />
-                        </Button>
+                                Icon="@IconType.Outline.Sync"
+                                OnClick="@(() => RestartKernelAsync(id))" />
                     </SpaceItem>
                 }
                 @if (context.Status == KernelStatus.Busy)
@@ -93,9 +92,8 @@ else
                     <SpaceItem>
                         <Button Size="ButtonSize.Small"
                                 Loading="@busy" Disabled="@busy"
-                                OnClick="@(() => InterruptKernelAsync(id))">
-                            <SvgIcon Icon="LucideIcon.CircleStop" />
-                        </Button>
+                                Icon="@IconType.Outline.PauseCircle"
+                                OnClick="@(() => InterruptKernelAsync(id))" />
                     </SpaceItem>
                 }
                 <SpaceItem>
@@ -106,9 +104,8 @@ else
                                 OkButtonProps="new ButtonProps { Danger = true }"
                                 OnConfirm="@(() => DeleteKernelAsync(id))">
                         <Button Size="ButtonSize.Small" Danger Type="ButtonType.Primary"
-                                Loading="@busy" Disabled="@(busy || (_busy is not null && _busy != id))">
-                            <SvgIcon Icon="LucideIcon.Trash2" />
-                        </Button>
+                                Loading="@busy" Disabled="@(busy || (_busy is not null && _busy != id))"
+                                Icon="@IconType.Outline.Delete" />
                     </Popconfirm>
                 </SpaceItem>
             </Space>
