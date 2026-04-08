@@ -23,8 +23,6 @@
   </Folder>
   <Folder Name="/ui/client/">
       <Project Path="ui/client/DuckHouse.Ui.Client.Components/DuckHouse.Ui.Client.Components.csproj" />
-      <Project Path="ui/client/DuckHouse.Ui.Client.Icons/DuckHouse.Ui.Client.Icons.csproj" />
-      <Project Path="ui/client/DuckHouse.Ui.Client.SourceGeneration/DuckHouse.Ui.Client.SourceGeneration.csproj" />
       <Project Path="ui/client/DuckHouse.Ui.Client/DuckHouse.Ui.Client.csproj" />
     </Folder>
 </Solution>

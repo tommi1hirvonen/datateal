@@ -19,7 +19,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\DuckHouse.Ui.Client.Components\DuckHouse.Ui.Client.Components.csproj" />
-      <ProjectReference Include="..\DuckHouse.Ui.Client.Icons\DuckHouse.Ui.Client.Icons.csproj" />
       <ProjectReference Include="..\..\DuckHouse.Ui.Shared\DuckHouse.Ui.Shared.csproj" />
     </ItemGroup>
 

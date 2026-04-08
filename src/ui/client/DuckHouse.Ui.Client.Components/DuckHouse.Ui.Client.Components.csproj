@@ -15,12 +15,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DuckHouse.Ui.Client.Icons\DuckHouse.Ui.Client.Icons.csproj" />
-    <ProjectReference Include="..\DuckHouse.Ui.Client.Icons\DuckHouse.Ui.Client.Icons.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="..\DuckHouse.Ui.Client.SourceGeneration\DuckHouse.Ui.Client.SourceGeneration.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="Icons/**">
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
