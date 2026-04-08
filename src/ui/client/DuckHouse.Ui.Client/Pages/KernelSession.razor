@@ -5,6 +5,7 @@
 @using System.Text.RegularExpressions
 @inject IKernelService KernelService
 @inject NavigationManager Navigation
+@implements IAsyncDisposable
 
 <PageTitle>Kernel session — DuckHouse</PageTitle>
 
@@ -242,6 +243,7 @@ else
     private bool _executing;
     private string? _executingCode;
     private bool _actionBusy;
+    private readonly CancellationTokenSource _pollingCts = new();
 
     private string ShortId => KernelId.Length > 8 ? KernelId[..8] + "…" : KernelId;
     private bool _isDead => _kernel?.Status == KernelStatus.Dead;
@@ -251,6 +253,7 @@ else
         try
         {
             _kernel = await KernelService.GetKernelAsync(Name, KernelId);
+            _ = PollKernelStatusAsync(_pollingCts.Token);
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -264,6 +267,36 @@ else
         {
             _loading = false;
         }
+    }
+
+    private async Task PollKernelStatusAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                if (_executing || _actionBusy) continue;
+                try
+                {
+                    _kernel = await KernelService.GetKernelAsync(Name, KernelId, cancellationToken);
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    _kernel = _kernel is not null ? _kernel with { Status = KernelStatus.Dead } : null;
+                    _error = "The kernel was evicted, likely due to inactivity.";
+                    await InvokeAsync(StateHasChanged);
+                    break;
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch { /* ignore transient errors — will retry on next tick */ }
+            }
+        }
+        catch (OperationCanceledException) { }
     }
 
     private async Task ExecuteAsync()
@@ -413,5 +446,11 @@ else
         KernelStatus.Dead                                     => "error",
         _                                                     => "default"
     };
+
+    public async ValueTask DisposeAsync()
+    {
+        await _pollingCts.CancelAsync();
+        _pollingCts.Dispose();
+    }
 }
 

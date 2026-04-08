@@ -191,6 +191,7 @@
     private bool _editingTitle;
     private string _editingTitleValue = "";
     private InputFile _fileInput = default!;
+    private CancellationTokenSource? _kernelPollingCts;
 
     private bool HasKernel => !string.IsNullOrEmpty(_kernelId);
     private bool AnyExecuting => _notebook.Cells.Any(c => c.IsExecuting);
@@ -226,6 +227,8 @@
             var kernel = await KernelService.CreateKernelAsync(_nodeName);
             _kernelId = kernel.Id;
             _kernel = kernel;
+            _kernelPollingCts = new CancellationTokenSource();
+            _ = PollKernelStatusAsync(_kernelPollingCts.Token);
         }
         catch (Exception ex)
         {
@@ -245,6 +248,7 @@
         _error = null;
         try
         {
+            await StopKernelPollingAsync();
             await KernelService.DeleteKernelAsync(_nodeName, _kernelId!);
             _kernelId = null;
             _kernel = null;
@@ -256,6 +260,48 @@
         finally
         {
             _disconnecting = false;
+        }
+    }
+
+    private async Task PollKernelStatusAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                if (AnyExecuting || string.IsNullOrEmpty(_kernelId) || string.IsNullOrEmpty(_nodeName))
+                    continue;
+                try
+                {
+                    _kernel = await KernelService.GetKernelAsync(_nodeName, _kernelId, cancellationToken);
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    _kernelId = null;
+                    _kernel = null;
+                    _error = "The kernel was evicted, likely due to inactivity. Please reconnect.";
+                    await InvokeAsync(StateHasChanged);
+                    break;
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch { /* ignore transient errors — will retry on next tick */ }
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task StopKernelPollingAsync()
+    {
+        if (_kernelPollingCts is not null)
+        {
+            await _kernelPollingCts.CancelAsync();
+            _kernelPollingCts.Dispose();
+            _kernelPollingCts = null;
         }
     }
 
@@ -435,6 +481,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        await StopKernelPollingAsync();
         if (HasKernel && !string.IsNullOrEmpty(_nodeName))
         {
             try { await KernelService.DeleteKernelAsync(_nodeName, _kernelId!); }
