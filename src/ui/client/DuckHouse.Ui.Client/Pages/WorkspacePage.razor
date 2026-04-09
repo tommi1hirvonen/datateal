@@ -100,6 +100,10 @@ else
                 {
                     <Space Size="SpaceSize.Small">
                         <SpaceItem>
+                            <Button Size="ButtonSize.Small" Icon="@IconType.Outline.FolderOpen"
+                                    OnClick="() => StartMoveFolder(context.Folder!)">Move</Button>
+                        </SpaceItem>
+                        <SpaceItem>
                             <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Edit"
                                     OnClick="() => StartRenameFolder(context.Folder!)">Rename</Button>
                         </SpaceItem>
@@ -167,6 +171,14 @@ else
     <Input @bind-Value="_renameNotebookName" Placeholder="Notebook title" />
 </Modal>
 
+@* Move folder picker *@
+<FolderPickerModal Visible="_moveFolderTarget is not null"
+                   Title="@("Move folder to…")"
+                   OkText="@("Move here")"
+                   ExcludeId="_moveFolderTarget?.Id"
+                   OnConfirm="ConfirmMoveFolderAsync"
+                   OnCancel="@(() => _moveFolderTarget = null)" />
+
 @* Move notebook folder picker *@
 <FolderPickerModal Visible="_moveNotebookTarget is not null"
                    Title="@("Move notebook to folder")"
@@ -204,6 +216,9 @@ else
     // Rename notebook
     private NotebookSummary? _renameNotebookTarget;
     private string _renameNotebookName = "";
+
+    // Move folder
+    private FolderSummary? _moveFolderTarget;
 
     // Move notebook
     private NotebookSummary? _moveNotebookTarget;
@@ -314,6 +329,23 @@ else
     }
 
     private void CancelRenameFolder() => _renameFolderTarget = null;
+
+    // ── Move Folder ───────────────────────────────────────────────────
+
+    private void StartMoveFolder(FolderSummary folder) => _moveFolderTarget = folder;
+
+    private async Task ConfirmMoveFolderAsync(Guid? folderId)
+    {
+        if (_moveFolderTarget is null) return;
+        var target = _moveFolderTarget;
+        _moveFolderTarget = null;
+        try
+        {
+            await WorkspaceService.UpdateFolderAsync(target.Id, new UpdateFolderRequest(target.Name, folderId));
+            await LoadAsync();
+        }
+        catch (Exception ex) { _error = $"Failed to move folder: {ex.Message}"; }
+    }
 
     // ── Rename Notebook ───────────────────────────────────────────────
 

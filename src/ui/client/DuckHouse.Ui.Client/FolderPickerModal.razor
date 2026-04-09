@@ -53,6 +53,7 @@
     [Parameter] public bool Visible { get; set; }
     [Parameter] public string Title { get; set; } = "Choose folder";
     [Parameter] public string OkText { get; set; } = "Select";
+    [Parameter] public Guid? ExcludeId { get; set; }
     [Parameter] public EventCallback<Guid?> OnConfirm { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
 
@@ -83,7 +84,7 @@
             var listing = _currentFolderId.HasValue
                 ? await WorkspaceService.GetFolderAsync(_currentFolderId.Value)
                 : await WorkspaceService.GetRootAsync();
-            _folders = listing.Folders.ToList();
+            _folders = listing.Folders.Where(f => f.Id != ExcludeId).ToList();
         }
         finally { _loading = false; }
     }
