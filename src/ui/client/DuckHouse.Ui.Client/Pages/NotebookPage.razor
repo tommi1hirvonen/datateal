@@ -103,6 +103,22 @@
     </Space>
 </Flex>
 
+@* Workspace breadcrumb — only visible when the notebook is saved in the workspace *@
+@if (_workspaceNotebookId.HasValue && _breadcrumbs.Count > 0)
+{
+    <Breadcrumb Style="margin-bottom: 8px;">
+        @foreach (var crumb in _breadcrumbs)
+        {
+            <BreadcrumbItem>
+                <a @onclick="() => NavigateToWorkspace(crumb.Id)" @onclick:preventDefault style="cursor: pointer;">
+                    @crumb.Name
+                </a>
+            </BreadcrumbItem>
+        }
+        <BreadcrumbItem>@_notebook.Title</BreadcrumbItem>
+    </Breadcrumb>
+}
+
 @* Kernel connection toolbar *@
 <Space Align="SpaceAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap;" Size="SpaceSize.Small">
     <SpaceItem>
@@ -207,6 +223,8 @@
 
     private NotebookDocument _notebook = new();
     private Guid? _workspaceNotebookId;
+    private Guid? _workspaceNotebookFolderId;
+    private List<(Guid? Id, string Name)> _breadcrumbs = [];
     private string? _nodeName;
     private string? _kernelId;
     private KernelInfo? _kernel;
@@ -222,6 +240,9 @@
 
     private bool HasKernel => !string.IsNullOrEmpty(_kernelId);
     private bool AnyExecuting => _notebook.Cells.Any(c => c.IsExecuting);
+
+    private void NavigateToWorkspace(Guid? folderId) =>
+        Navigation.NavigateTo(folderId is null ? "/workspace" : $"/workspace?folder={folderId}");
 
     private void StartEditTitle()
     {
@@ -249,6 +270,17 @@
                     _notebook = NotebookSerializer.Deserialize(detail.Content);
                     _notebook.IsDirty = false;
                     _workspaceNotebookId = detail.Id;
+                    _workspaceNotebookFolderId = detail.FolderId;
+
+                    if (detail.FolderId is not null)
+                    {
+                        var ancestors = await WorkspaceService.GetFolderAncestorsAsync(detail.FolderId.Value);
+                        _breadcrumbs = [(null, "Workspace"), ..ancestors.Select(f => ((Guid?)f.Id, f.Name))];
+                    }
+                    else
+                    {
+                        _breadcrumbs = [(null, "Workspace")];
+                    }
                 }
                 else
                 {
@@ -522,7 +554,7 @@
             if (_workspaceNotebookId.HasValue)
             {
                 await WorkspaceService.UpdateNotebookAsync(_workspaceNotebookId.Value,
-                    new UpdateNotebookRequest(_notebook.Title, json));
+                    new UpdateNotebookRequest(_notebook.Title, json, _workspaceNotebookFolderId));
             }
             else
             {
