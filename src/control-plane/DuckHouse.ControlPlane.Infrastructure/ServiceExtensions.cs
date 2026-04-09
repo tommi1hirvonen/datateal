@@ -2,7 +2,9 @@ using Azure.Core;
 using Azure.Identity;
 using Azure.ResourceManager;
 using Azure.ResourceManager.ContainerService;
+using DuckHouse.ControlPlane.Core.Repositories;
 using DuckHouse.ControlPlane.Core.Services;
+using DuckHouse.ControlPlane.Infrastructure.Data;
 using DuckHouse.ControlPlane.Infrastructure.Nodes.Aks;
 using DuckHouse.ControlPlane.Infrastructure.Nodes.Kernels;
 using DuckHouse.ControlPlane.Infrastructure.Nodes.Local;
@@ -88,6 +90,8 @@ public static class ServiceExtensions
             new KubernetesRuntimeClient(
                 sp.GetRequiredService<Kubernetes>(),
                 sp.GetService<ITokenProvider>()));
+
+        services.AddScoped<INodeConfigRepository, NodeConfigRepository>();
 
         return services;
     }

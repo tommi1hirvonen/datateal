@@ -1,6 +1,8 @@
 using DuckHouse.Core.Kernels;
 using DuckHouse.Core.Nodes;
+using DuckHouse.ControlPlane.Core.Repositories;
 using DuckHouse.ControlPlane.Core.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -10,6 +12,7 @@ namespace DuckHouse.ControlPlane.Application.InactivityEviction;
 internal sealed class InactivityEvictionService(
     INodeService nodeService,
     INodeRuntimeClient runtimeClient,
+    IServiceScopeFactory scopeFactory,
     IOptions<InactivityEvictionOptions> options,
     ILogger<InactivityEvictionService> logger) : BackgroundService
 {
@@ -29,18 +32,18 @@ internal sealed class InactivityEvictionService(
         }
 
         logger.LogInformation(
-            "Inactivity eviction started. KernelIdleTimeout={KernelTimeout}, NodeIdleTimeout={NodeTimeout}, CheckInterval={Interval}",
-            opts.KernelIdleTimeout, opts.NodeIdleTimeout, opts.CheckInterval);
+            "Inactivity eviction started. CheckInterval={Interval}",
+            opts.CheckInterval);
 
         using var timer = new PeriodicTimer(opts.CheckInterval);
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            await RunSweepAsync(opts, stoppingToken);
+            await RunSweepAsync(stoppingToken);
         }
     }
 
-    private async Task RunSweepAsync(InactivityEvictionOptions opts, CancellationToken cancellationToken)
+    private async Task RunSweepAsync(CancellationToken cancellationToken)
     {
         IReadOnlyList<NodeInfo> nodes;
         try
@@ -55,6 +58,9 @@ internal sealed class InactivityEvictionService(
 
         var now = DateTimeOffset.UtcNow;
 
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var nodeConfigRepo = scope.ServiceProvider.GetRequiredService<INodeConfigRepository>();
+
         foreach (var node in nodes)
         {
             if (node.State != NodeState.Running)
@@ -62,7 +68,7 @@ internal sealed class InactivityEvictionService(
 
             try
             {
-                await ProcessNodeAsync(node.Name, now, opts, cancellationToken);
+                await ProcessNodeAsync(node.Name, now, nodeConfigRepo, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -79,9 +85,16 @@ internal sealed class InactivityEvictionService(
     private async Task ProcessNodeAsync(
         string nodeName,
         DateTimeOffset now,
-        InactivityEvictionOptions opts,
+        INodeConfigRepository nodeConfigRepo,
         CancellationToken cancellationToken)
     {
+        var nodeConfig = await nodeConfigRepo.GetAsync(nodeName, cancellationToken);
+
+        // Fall back to global defaults if no per-node config exists
+        // (e.g., nodes created before the DB was introduced).
+        var kernelIdleTimeout = nodeConfig?.KernelIdleTimeout ?? options.Value.KernelIdleTimeout;
+        var nodeIdleTimeout = nodeConfig?.NodeIdleTimeout ?? options.Value.NodeIdleTimeout;
+
         var kernels = await runtimeClient.ListKernelsAsync(nodeName, cancellationToken);
 
         // Update the node's high-water-mark activity from current kernel state.
@@ -105,7 +118,7 @@ internal sealed class InactivityEvictionService(
             if (kernel.Status != KernelStatus.Idle)
                 continue;
 
-            if (now - kernel.LastActivity > opts.KernelIdleTimeout)
+            if (now - kernel.LastActivity > kernelIdleTimeout)
             {
                 logger.LogInformation(
                     "Deleting idle kernel {KernelId} on node {NodeName} (idle for {Idle}).",
@@ -128,7 +141,7 @@ internal sealed class InactivityEvictionService(
         bool anyActive = remainingKernels.Any(k => k.Status is KernelStatus.Busy or KernelStatus.Starting or KernelStatus.Restarting);
         if (!anyActive && remainingKernels.Count == 0 && _nodeLastActivity.TryGetValue(nodeName, out var lastActivity))
         {
-            if (now - lastActivity > opts.NodeIdleTimeout)
+            if (now - lastActivity > nodeIdleTimeout)
             {
                 logger.LogInformation(
                     "Stopping idle node {NodeName} (no kernels, last activity {Idle} ago).",

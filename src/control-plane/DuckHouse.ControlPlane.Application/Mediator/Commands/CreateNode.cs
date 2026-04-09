@@ -1,13 +1,40 @@
+using DuckHouse.ControlPlane.Application.InactivityEviction;
+using DuckHouse.ControlPlane.Core.Nodes;
+using DuckHouse.ControlPlane.Core.Repositories;
+using DuckHouse.ControlPlane.Core.Services;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Core.Nodes;
-using DuckHouse.ControlPlane.Core.Services;
+using Microsoft.Extensions.Options;
 
 namespace DuckHouse.ControlPlane.Application.Mediator.Commands;
 
-public record CreateNodeRequest(string Name, string? VmSize) : IRequest<NodeInfo>;
+public record CreateNodeRequest(
+    string Name,
+    string? VmSize = null,
+    TimeSpan? KernelIdleTimeout = null,
+    TimeSpan? NodeIdleTimeout = null) : IRequest<NodeInfo>;
 
-internal class CreateNodeHandler(INodeService nodeService) : IRequestHandler<CreateNodeRequest, NodeInfo>
+internal class CreateNodeHandler(
+    INodeService nodeService,
+    INodeConfigRepository nodeConfigRepository,
+    IOptions<InactivityEvictionOptions> evictionOptions) : IRequestHandler<CreateNodeRequest, NodeInfo>
 {
-    public Task<NodeInfo> Handle(CreateNodeRequest request, CancellationToken cancellationToken) =>
-        nodeService.CreateNodeAsync(new DuckHouse.Core.Nodes.CreateNodeRequest(request.Name, request.VmSize), cancellationToken);
+    public async Task<NodeInfo> Handle(CreateNodeRequest request, CancellationToken cancellationToken)
+    {
+        var node = await nodeService.CreateNodeAsync(
+            new DuckHouse.Core.Nodes.CreateNodeRequest(request.Name, request.VmSize),
+            cancellationToken);
+
+        var opts = evictionOptions.Value;
+        var config = new NodeConfig
+        {
+            NodeName = request.Name,
+            KernelIdleTimeout = request.KernelIdleTimeout ?? opts.KernelIdleTimeout,
+            NodeIdleTimeout = request.NodeIdleTimeout ?? opts.NodeIdleTimeout,
+        };
+
+        await nodeConfigRepository.UpsertAsync(config, cancellationToken);
+
+        return node;
+    }
 }

@@ -25,9 +25,18 @@ internal class NodeRepository(HttpClient httpClient) : INodeRepository
         return await response.Content.ReadFromJsonAsync<NodeInfo>(JsonOptions, cancellationToken);
     }
 
-    public async Task<NodeInfo> CreateNodeAsync(string name, string vmSize, CancellationToken cancellationToken = default)
+    public async Task<NodeInfo> CreateNodeAsync(
+        string name,
+        string vmSize,
+        TimeSpan? kernelIdleTimeout = null,
+        TimeSpan? nodeIdleTimeout = null,
+        CancellationToken cancellationToken = default)
     {
-        var response = await httpClient.PostAsJsonAsync("/nodes", new CreateNodeRequest(name, vmSize), JsonOptions, cancellationToken);
+        var response = await httpClient.PostAsJsonAsync(
+            "/nodes",
+            new CreateNodeRequest(name, vmSize, kernelIdleTimeout, nodeIdleTimeout),
+            JsonOptions,
+            cancellationToken);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<NodeInfo>(JsonOptions, cancellationToken))!;
     }

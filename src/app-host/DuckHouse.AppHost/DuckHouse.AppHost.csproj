@@ -12,4 +12,8 @@
     <ProjectReference Include="..\..\ui\server\DuckHouse.Ui.Server\DuckHouse.Ui.Server.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+  </ItemGroup>
+
 </Project>
