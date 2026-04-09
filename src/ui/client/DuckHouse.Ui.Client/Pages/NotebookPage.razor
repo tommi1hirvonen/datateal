@@ -350,6 +350,10 @@
             }
         }
 
+        // Generate a timestamped placeholder title for new (unsaved) notebooks
+        if (Id == Guid.Empty)
+            _notebook.Title = $"Untitled {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+
         _loadingNodes = true;
         try { _nodes = await NodeService.GetNodesAsync(); }
         catch (Exception ex) { _error = $"Failed to load nodes: {ex.Message}"; }

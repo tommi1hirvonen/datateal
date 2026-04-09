@@ -163,15 +163,6 @@ else
     <Input @bind-Value="_renameNotebookName" Placeholder="Notebook title" />
 </Modal>
 
-@* New notebook modal *@
-<Modal Title="@("New Notebook")"
-       Visible="_addingNotebook"
-       OnOk="ConfirmNewNotebookAsync"
-       OnCancel="CancelNewNotebook"
-       OkText="@("Create")">
-    <Input @bind-Value="_newNotebookTitle" Placeholder="Notebook title" />
-</Modal>
-
 @code {
     [Parameter, SupplyParameterFromQuery(Name = "folder")]
     public Guid? Folder { get; set; }
@@ -194,10 +185,6 @@ else
     private bool _addingFolder;
     private string _newFolderName = "";
     private AntDesign.Input<string>? _newFolderInput;
-
-    // New notebook
-    private bool _addingNotebook;
-    private string _newNotebookTitle = "";
 
     // Rename folder
     private FolderSummary? _renameFolderTarget;
@@ -287,31 +274,7 @@ else
 
     // ── New Notebook ──────────────────────────────────────────────────
 
-    private void StartNewNotebook()
-    {
-        _newNotebookTitle = "Untitled";
-        _addingNotebook = true;
-    }
-
-    private async Task ConfirmNewNotebookAsync()
-    {
-        var title = _newNotebookTitle.Trim();
-        if (string.IsNullOrEmpty(title)) title = "Untitled";
-        try
-        {
-            var notebook = await WorkspaceService.CreateNotebookAsync(
-                new CreateNotebookRequest(title, EmptyNotebookContent(title), Folder));
-            _addingNotebook = false;
-            Navigation.NavigateTo($"/notebook/{notebook.Id}");
-        }
-        catch (Exception ex) { _error = $"Failed to create notebook: {ex.Message}"; }
-    }
-
-    private void CancelNewNotebook()
-    {
-        _addingNotebook = false;
-        _newNotebookTitle = "";
-    }
+    private void StartNewNotebook() => Navigation.NavigateTo("/notebook");
 
     // ── Rename Folder ─────────────────────────────────────────────────
 
@@ -400,20 +363,5 @@ else
              : diff.TotalHours < 24    ? $"{(int)diff.TotalHours}h ago"
              : diff.TotalDays < 7      ? $"{(int)diff.TotalDays}d ago"
              : dt.ToLocalTime().ToString("yyyy-MM-dd");
-    }
-
-    private static string EmptyNotebookContent(string title)
-    {
-        return $$"""
-            {
-              "nbformat": 4,
-              "nbformat_minor": 5,
-              "metadata": {
-                "kernelspec": { "display_name": "DuckHouse", "language": "python", "name": "duckhouse" },
-                "duckhouse": { "version": "1", "title": "{{title}}" }
-              },
-              "cells": []
-            }
-            """;
     }
 }
