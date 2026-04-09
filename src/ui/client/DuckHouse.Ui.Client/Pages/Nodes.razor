@@ -60,6 +60,12 @@ else
         <PropertyColumn Property="n => n.VmSize" Title="VM Size">
             <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">@(context.VmSize ?? "—")</Text>
         </PropertyColumn>
+        <PropertyColumn Property="n => n.KernelIdleTimeout" Title="Kernel Idle">
+            <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">@FormatDuration(context.KernelIdleTimeout)</Text>
+        </PropertyColumn>
+        <PropertyColumn Property="n => n.NodeIdleTimeout" Title="Node Idle">
+            <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">@FormatDuration(context.NodeIdleTimeout)</Text>
+        </PropertyColumn>
         <ActionColumn Title="Actions">
             <Space>
                 <SpaceItem>
@@ -117,7 +123,7 @@ else
     </Table>
 }
 
-<Drawer @bind-Visible="_createOpen" Title='("New node")' Placement="DrawerPlacement.Right" Width="400" OnClose="CloseCreateDrawer">
+<Drawer @bind-Visible="_createOpen" Title='("New node")' Placement="DrawerPlacement.Right" Width="440" OnClose="CloseCreateDrawer">
     <div style="margin-bottom: 16px;">
         <label style="display: block; font-weight: 600; margin-bottom: 4px;">Name</label>
         <Input @bind-Value="_createName" Placeholder="my-node" />
@@ -125,6 +131,22 @@ else
     <div style="margin-bottom: 16px;">
         <label style="display: block; font-weight: 600; margin-bottom: 4px;">VM Size</label>
         <Input @bind-Value="_createVmSize" Placeholder="Standard_D2as_v5" />
+    </div>
+    <div style="margin-bottom: 4px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 4px;">
+            Kernel Idle Timeout
+            <Text Type="TextElementType.Secondary" Style="font-weight: normal; margin-left: 4px;">(minutes)</Text>
+        </label>
+        <AntDesign.InputNumber TValue="int?" @bind-Value="_createKernelIdleMinutes" Min="1" Style="width: 100%;" Placeholder="Default" />
+        <Text Type="TextElementType.Secondary" Style="font-size: 0.8rem;">How long a kernel can be idle before it is deleted. Leave blank to use the server default.</Text>
+    </div>
+    <div style="margin-bottom: 16px; margin-top: 12px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 4px;">
+            Node Idle Timeout
+            <Text Type="TextElementType.Secondary" Style="font-weight: normal; margin-left: 4px;">(minutes)</Text>
+        </label>
+        <AntDesign.InputNumber TValue="int?" @bind-Value="_createNodeIdleMinutes" Min="1" Style="width: 100%;" Placeholder="Default" />
+        <Text Type="TextElementType.Secondary" Style="font-size: 0.8rem;">How long a node with no kernels can be idle before it is stopped. Leave blank to use the server default.</Text>
     </div>
     @if (_createError is not null)
     {
@@ -156,6 +178,8 @@ else
     private bool _createOpen;
     private string _createName = "";
     private string _createVmSize = "";
+    private int? _createKernelIdleMinutes;
+    private int? _createNodeIdleMinutes;
     private bool _creating;
     private string? _createError;
 
@@ -183,6 +207,8 @@ else
     {
         _createName = "";
         _createVmSize = "";
+        _createKernelIdleMinutes = null;
+        _createNodeIdleMinutes = null;
         _createError = null;
         _createOpen = true;
     }
@@ -195,7 +221,12 @@ else
         _creating = true;
         try
         {
-            var node = await NodeService.CreateNodeAsync(new DuckHouse.Ui.Shared.Nodes.CreateNodeRequest(_createName.Trim(), _createVmSize.Trim()));
+            var request = new DuckHouse.Ui.Shared.Nodes.CreateNodeRequest(
+                _createName.Trim(),
+                _createVmSize.Trim(),
+                _createKernelIdleMinutes is > 0 ? TimeSpan.FromMinutes(_createKernelIdleMinutes.Value) : null,
+                _createNodeIdleMinutes is > 0 ? TimeSpan.FromMinutes(_createNodeIdleMinutes.Value) : null);
+            var node = await NodeService.CreateNodeAsync(request);
             _nodes.Add(node);
             _createOpen = false;
         }
@@ -253,4 +284,17 @@ else
         NodeState.Failure => "error",
         _ => "warning"
     };
+
+    private static string FormatDuration(TimeSpan? ts)
+    {
+        if (ts is null) return "—";
+        var t = ts.Value;
+        if (t.TotalHours >= 1)
+        {
+            var h = (int)t.TotalHours;
+            var m = t.Minutes;
+            return m > 0 ? $"{h} h {m} min" : $"{h} h";
+        }
+        return $"{(int)t.TotalMinutes} min";
+    }
 }
