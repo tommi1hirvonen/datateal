@@ -660,5 +660,10 @@
     {
         _dotNetRef?.Dispose();
         await StopKernelPollingAsync();
+        if (HasKernel && !string.IsNullOrEmpty(_nodeName))
+        {
+            try { await KernelService.DeleteKernelAsync(_nodeName, _kernelId!); }
+            catch { /* best effort */ }
+        }
     }
 }
