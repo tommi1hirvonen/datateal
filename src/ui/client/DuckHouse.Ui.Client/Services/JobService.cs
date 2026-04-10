@@ -62,6 +62,26 @@ internal class JobService(HttpClient httpClient) : IJobService
             $"api/orchestrator/jobs/{jobId}/runs", JsonOptions, ct) ?? [];
     }
 
+    public async Task<JobRunDetail?> GetRunAsync(Guid runId, CancellationToken ct)
+    {
+        var response = await httpClient.GetAsync($"api/orchestrator/runs/{runId}", ct);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JobRunDetail>(JsonOptions, ct);
+    }
+
+    public async Task CancelRunAsync(Guid runId, CancellationToken ct)
+    {
+        var response = await httpClient.PostAsync($"api/orchestrator/runs/{runId}/cancel", null, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<IReadOnlyList<CellOutputDto>> GetCellOutputsAsync(Guid runId, Guid taskRunId, CancellationToken ct)
+    {
+        return await httpClient.GetFromJsonAsync<IReadOnlyList<CellOutputDto>>(
+            $"api/orchestrator/runs/{runId}/tasks/{taskRunId}/cells", JsonOptions, ct) ?? [];
+    }
+
     public async Task<IReadOnlyList<ScheduleDto>> GetSchedulesAsync(Guid jobId, CancellationToken ct)
     {
         return await httpClient.GetFromJsonAsync<IReadOnlyList<ScheduleDto>>(

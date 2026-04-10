@@ -169,7 +169,10 @@
                 <div style="margin-top: 16px;">
                     <Table TItem="JobRunSummary" DataSource="_runs" Size="@TableSize.Small" Loading="_runsLoading">
                         <PropertyColumn Property="c => c.Status" Title="Status">
-                            <Tag Color="@GetStatusColor(context.Status)">@context.Status</Tag>
+                            <a @onclick="@(() => Navigation.NavigateTo($"/runs/{context.Id}"))"
+                               @onclick:preventDefault style="cursor: pointer;">
+                                <Tag Color="@GetStatusColor(context.Status)">@context.Status</Tag>
+                            </a>
                         </PropertyColumn>
                         <PropertyColumn Property="c => c.Trigger" Title="Trigger">
                             @context.Trigger

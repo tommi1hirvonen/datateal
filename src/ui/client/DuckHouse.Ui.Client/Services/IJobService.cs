@@ -14,6 +14,11 @@ public interface IJobService
 
     // Runs
     Task<IReadOnlyList<JobRunSummary>> GetRunsAsync(Guid jobId, CancellationToken ct = default);
+    Task<JobRunDetail?> GetRunAsync(Guid runId, CancellationToken ct = default);
+    Task CancelRunAsync(Guid runId, CancellationToken ct = default);
+
+    // Cell outputs
+    Task<IReadOnlyList<CellOutputDto>> GetCellOutputsAsync(Guid runId, Guid taskRunId, CancellationToken ct = default);
 
     // Schedules
     Task<IReadOnlyList<ScheduleDto>> GetSchedulesAsync(Guid jobId, CancellationToken ct = default);

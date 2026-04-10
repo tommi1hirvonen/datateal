@@ -1,0 +1,184 @@
+@page "/runs/{Id:guid}"
+
+@using DuckHouse.Ui.Shared.Orchestration
+@inject IJobService JobService
+@inject NavigationManager Navigation
+
+<PageTitle>Job Run — DuckHouse</PageTitle>
+
+<div style="padding: 24px;">
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
+               Style="margin-bottom: 16px;" />
+    }
+
+    <Spin Spinning="_loading">
+        @if (_run is not null)
+        {
+            <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                <Space Align="SpaceAlign.Center" Size="SpaceSize.Small">
+                    <SpaceItem>
+                        <Button OnClick="@(() => Navigation.NavigateTo($"/jobs/{_run.JobId}"))">
+                            <Icon Type="@IconType.Outline.ArrowLeft" /> Back to Job
+                        </Button>
+                    </SpaceItem>
+                    <SpaceItem>
+                        <h2 style="margin: 0;">Run: @_run.JobName</h2>
+                    </SpaceItem>
+                    <SpaceItem>
+                        <Tag Color="@GetStatusColor(_run.Status)">@_run.Status</Tag>
+                    </SpaceItem>
+                </Space>
+                <Space>
+                    @if (_run.Status is "Running" or "Pending")
+                    {
+                        <SpaceItem>
+                            <Popconfirm Title="Cancel this run?" OnConfirm="CancelAsync">
+                                <Button Danger>
+                                    <Icon Type="@IconType.Outline.Stop" /> Cancel
+                                </Button>
+                            </Popconfirm>
+                        </SpaceItem>
+                        <SpaceItem>
+                            <Button OnClick="RefreshAsync">
+                                <Icon Type="@IconType.Outline.Reload" /> Refresh
+                            </Button>
+                        </SpaceItem>
+                    }
+                </Space>
+            </Flex>
+
+            <div style="margin-bottom: 16px;">
+                <Space Size="@("large")">
+                    <SpaceItem>
+                        <span style="color: #888;">Trigger:</span> @_run.Trigger
+                    </SpaceItem>
+                    <SpaceItem>
+                        <span style="color: #888;">Created:</span> @_run.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
+                    </SpaceItem>
+                    @if (_run.StartedAt.HasValue)
+                    {
+                        <SpaceItem>
+                            <span style="color: #888;">Started:</span> @_run.StartedAt.Value.ToString("HH:mm:ss")
+                        </SpaceItem>
+                    }
+                    @if (_run.CompletedAt.HasValue)
+                    {
+                        <SpaceItem>
+                            <span style="color: #888;">Completed:</span> @_run.CompletedAt.Value.ToString("HH:mm:ss")
+                        </SpaceItem>
+                    }
+                </Space>
+            </div>
+
+            <h3>Tasks</h3>
+            <Table TItem="TaskRunDto" DataSource="_run.TaskRuns" Size="@TableSize.Small">
+                <PropertyColumn Property="c => c.TaskName" Title="Task">
+                    @context.TaskName
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.TaskType" Title="Type">
+                    <Tag Color="@GetTaskTypeColor(context.TaskType)">@context.TaskType</Tag>
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.Status" Title="Status">
+                    <Tag Color="@GetStatusColor(context.Status)">@context.Status</Tag>
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.AttemptNumber" Title="Attempt" />
+                <PropertyColumn Property="c => c.DurationMs" Title="Duration">
+                    @(context.DurationMs.HasValue ? $"{context.DurationMs.Value:F0}ms" : "—")
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.NodeName" Title="Node">
+                    @(context.NodeName ?? "—")
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.ErrorMessage" Title="Error">
+                    @if (!string.IsNullOrEmpty(context.ErrorMessage))
+                    {
+                        <span style="color: #ff4d4f; font-size: 12px;" title="@context.ErrorMessage">
+                            @(context.ErrorMessage.Length > 60
+                                ? context.ErrorMessage[..60] + "..."
+                                : context.ErrorMessage)
+                        </span>
+                    }
+                    else
+                    {
+                        <span>—</span>
+                    }
+                </PropertyColumn>
+                <ActionColumn Title="">
+                    @if (context.TaskType.Equals("Notebook", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <Button Size="@ButtonSize.Small"
+                                OnClick="@(() => Navigation.NavigateTo($"/runs/{Id}/tasks/{context.Id}/notebook"))">
+                            <Icon Type="@IconType.Outline.FileText" /> Notebook
+                        </Button>
+                    }
+                </ActionColumn>
+            </Table>
+        }
+    </Spin>
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private JobRunDetail? _run;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _run = await JobService.GetRunAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load run: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RefreshAsync() => await LoadAsync();
+
+    private async Task CancelAsync()
+    {
+        try
+        {
+            await JobService.CancelRunAsync(Id);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to cancel: {ex.Message}";
+        }
+    }
+
+    private static string GetStatusColor(string status) => status.ToLowerInvariant() switch
+    {
+        "succeeded" => "green",
+        "failed" => "red",
+        "running" => "blue",
+        "pending" or "waiting" => "default",
+        "cancelled" => "orange",
+        "skipped" => "default",
+        "retrying" => "gold",
+        _ => "default",
+    };
+
+    private static string GetTaskTypeColor(string taskType) => taskType.ToLowerInvariant() switch
+    {
+        "notebook" => "blue",
+        "sqlquery" or "sql" => "purple",
+        "subjob" => "orange",
+        _ => "default",
+    };
+}

@@ -21,6 +21,10 @@
         <Icon Type="@IconType.Outline.Apartment" />
         <span>Jobs</span>
     </MenuItem>
+    <MenuItem Key="node-pools" OnClick="@(() => Navigation.NavigateTo("/node-pools"))">
+        <Icon Type="@IconType.Outline.Cluster" />
+        <span>Node Pools</span>
+    </MenuItem>
     <MenuItem Key="settings" OnClick="@(() => Navigation.NavigateTo("/settings"))">
         <Icon Type="@IconType.Outline.Setting" />
         <span>Settings</span>
@@ -60,6 +64,8 @@
             _ when path.StartsWith("/notebook") => ["notebook"],
             _ when path.StartsWith("/query") => ["notebook"],
             _ when path.StartsWith("/jobs") => ["jobs"],
+            _ when path.StartsWith("/runs") => ["jobs"],
+            _ when path.StartsWith("/node-pools") => ["node-pools"],
             _ when path.StartsWith("/settings") => ["settings"],
             _ => []
         };

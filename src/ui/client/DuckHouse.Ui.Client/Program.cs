@@ -13,6 +13,8 @@ builder.Services.AddHttpClient<IWorkspaceService, WorkspaceService>(
     client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 builder.Services.AddHttpClient<IJobService, JobService>(
     client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
+builder.Services.AddHttpClient<INodePoolService, NodePoolService>(
+    client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 
 builder.Services.AddScoped<IThemeService, ThemeService>();
 
