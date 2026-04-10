@@ -101,17 +101,24 @@
         <SpaceItem>
             <Select TItemValue="string"
                     TItem="NodeInfo"
-                    DataSource="@_nodes.Where(n => n.State == NodeState.Running).ToList()"
+                    DataSource="@_nodes.ToList()"
                     @bind-Value="@_nodeName"
                     ItemValue="n => n.Name"
                     ItemLabel="n => n.Name"
                     Placeholder="— select node —"
                     AllowClear
                     Disabled="@(_connecting || HasKernel)"
-                    Style="min-width: 150px;" />
+                    DropdownMatchSelectWidth="false"
+                    Style="min-width: 150px;">
+                <ItemTemplate>
+                    @{ var node = (NodeInfo)context!; }
+                    <span>@node.Name</span>
+                    <Tag Color="@NodeStateTagColor(node.State)" Style="margin-left: 6px; font-size: 0.75rem;">@node.State</Tag>
+                </ItemTemplate>
+            </Select>
         </SpaceItem>
     }
-    
+
     @if (!HasKernel)
     {
         <SpaceItem>
@@ -120,7 +127,7 @@
                     Loading="_connecting"
                     Icon="@IconType.Outline.Api"
                     OnClick="ConnectAsync">
-                Connect
+                @(SelectedNode?.State == NodeState.Running ? "Connect" : "Start and connect")
             </Button>
         </SpaceItem>
     }
@@ -450,6 +457,8 @@
 
     // ── Kernel connection ─────────────────────────────────────────────
 
+    private NodeInfo? SelectedNode => _nodes.FirstOrDefault(n => n.Name == _nodeName);
+
     private async Task ConnectAsync()
     {
         if (string.IsNullOrEmpty(_nodeName)) return;
@@ -457,6 +466,25 @@
         _error = null;
         try
         {
+            // Start node first if it isn't already running
+            if (SelectedNode?.State != NodeState.Running)
+            {
+                await NodeService.StartNodeAsync(_nodeName);
+                var deadline = DateTime.UtcNow.AddMinutes(10);
+                while (DateTime.UtcNow < deadline)
+                {
+                    await Task.Delay(3000);
+                    var updated = await NodeService.GetNodeAsync(_nodeName);
+                    if (updated is null) throw new Exception("Node not found.");
+                    _nodes = _nodes.Select(n => n.Name == _nodeName ? updated : n).ToList();
+                    StateHasChanged();
+                    if (updated.State == NodeState.Running) break;
+                    if (updated.State == NodeState.Failure) throw new Exception("Node failed to start.");
+                }
+                if (SelectedNode?.State != NodeState.Running)
+                    throw new Exception("Node did not reach Running state in time.");
+            }
+
             var kernel = await KernelService.CreateKernelAsync(_nodeName);
             _kernelId = kernel.Id;
             _kernel = kernel;
@@ -465,7 +493,7 @@
             if (_workspaceQueryId.HasValue)
                 await JS.InvokeVoidAsync("setItemNodePref", _workspaceQueryId.Value.ToString(), _nodeName);
         }
-        catch (Exception ex) { _error = $"Failed to create kernel: {ex.Message}"; }
+        catch (Exception ex) { _error = $"Failed to connect: {ex.Message}"; }
         finally { _connecting = false; }
         StateHasChanged();
     }
@@ -627,6 +655,14 @@
         KernelStatus.Starting => "orange",
         KernelStatus.Dead => "red",
         _ => "default",
+    };
+
+    private static string NodeStateTagColor(NodeState state) => state switch
+    {
+        NodeState.Running => "success",
+        NodeState.Stopped => "default",
+        NodeState.Failure => "error",
+        _ => "warning",
     };
 
     private static string StripAnsi(string text) =>
