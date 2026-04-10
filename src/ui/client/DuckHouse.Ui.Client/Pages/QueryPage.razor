@@ -96,13 +96,18 @@
     {
         <SpaceItem><Spin Size="SpinSize.Small" /></SpaceItem>
     }
+    else if (HasKernel)
+    {
+        <SpaceItem>
+            <Text Strong Style="font-size: 0.875rem;">@_nodeName</Text>
+        </SpaceItem>
+    }
     else
     {
         <SpaceItem>
             <SimpleSelect Value="@(_nodeName ?? string.Empty)"
                           OnSelectedItemChanged="@((string v) => _nodeName = string.IsNullOrEmpty(v) ? null : v)"
                           Placeholder="— select node —"
-                          Disabled="@HasKernel"
                           AllowClear
                           Style="min-width: 150px;">
                 <SelectOptions>
@@ -357,6 +362,26 @@
         try { _nodes = await NodeService.GetNodesAsync(); }
         catch (Exception ex) { _error = $"Failed to load nodes: {ex.Message}"; }
         finally { _loadingNodes = false; }
+
+        // Restore last-used node preference
+        if (_workspaceQueryId.HasValue)
+        {
+            try
+            {
+                var storedNode = await JS.InvokeAsync<string>("getItemNodePref", _workspaceQueryId.Value.ToString());
+                if (!string.IsNullOrEmpty(storedNode))
+                {
+                    var match = _nodes.FirstOrDefault(n => n.Name == storedNode);
+                    if (match is not null)
+                    {
+                        _nodeName = match.Name;
+                        if (match.State == NodeState.Running)
+                            await ConnectAsync();
+                    }
+                }
+            }
+            catch { /* JS interop failure is non-fatal */ }
+        }
     }
 
     // ── Title editing ─────────────────────────────────────────────────
@@ -445,6 +470,8 @@
             _kernel = kernel;
             _kernelPollingCts = new CancellationTokenSource();
             _ = PollKernelStatusAsync(_kernelPollingCts.Token);
+            if (_workspaceQueryId.HasValue)
+                await JS.InvokeVoidAsync("setItemNodePref", _workspaceQueryId.Value.ToString(), _nodeName);
         }
         catch (Exception ex) { _error = $"Failed to create kernel: {ex.Message}"; }
         finally { _connecting = false; }
