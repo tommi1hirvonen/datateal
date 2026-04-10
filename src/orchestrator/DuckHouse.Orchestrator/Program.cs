@@ -1,4 +1,5 @@
 using DuckHouse.Orchestrator.Application;
+using DuckHouse.Orchestrator.Endpoints;
 using DuckHouse.Orchestrator.Infrastructure;
 using DuckHouse.Orchestrator.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +40,10 @@ app.UseExceptionHandler();
 app.UseHttpsRedirection();
 
 app.MapDefaultEndpoints();
+
+app.MapJobEndpoints();
+app.MapRunEndpoints();
+app.MapNodePoolEndpoints();
 
 app.Run();
 
