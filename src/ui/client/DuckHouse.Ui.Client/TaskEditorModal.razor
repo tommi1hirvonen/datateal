@@ -1,4 +1,5 @@
 @using DuckHouse.Ui.Client.Models
+@using DuckHouse.Ui.Client.Validation
 @using DuckHouse.Ui.Shared.Orchestration
 @inject INodePoolService NodePoolService
 @inject IJobService JobService
@@ -35,9 +36,13 @@
                 @if (_taskType == "Notebook")
                 {
                     <div>
-                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Notebook</label>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Notebook <span style="color: #ff4d4f;">*</span></label>
                         <WorkspaceItemPicker ItemType="Notebook"
                                              @bind-SelectedId="_notebookId" />
+                        @if (_notebookId is null)
+                        {
+                            <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">A notebook must be selected.</div>
+                        }
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 4px; font-weight: 500;">Node Pool</label>
@@ -55,9 +60,13 @@
                 else if (_taskType == "SqlQuery")
                 {
                     <div>
-                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Query</label>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Query <span style="color: #ff4d4f;">*</span></label>
                         <WorkspaceItemPicker ItemType="Query"
                                              @bind-SelectedId="_queryId" />
+                        @if (_queryId is null)
+                        {
+                            <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">A query must be selected.</div>
+                        }
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 4px; font-weight: 500;">Node Pool</label>
@@ -75,7 +84,7 @@
                 else if (_taskType == "SubJob")
                 {
                     <div>
-                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Job</label>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Job <span style="color: #ff4d4f;">*</span></label>
                         <Select TItem="JobOption"
                                 TItemValue="Guid?"
                                 DataSource="_jobOptions"
@@ -86,6 +95,10 @@
                                 AllowClear
                                 Style="width: 100%;"
                                 Placeholder="Select job" />
+                        @if (_subJobId is null)
+                        {
+                            <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">A sub-job must be selected.</div>
+                        }
                     </div>
                 }
             </div>
@@ -101,11 +114,21 @@
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: 500;">Retry Interval</label>
-                    <Input @bind-Value="_retryInterval" Placeholder="00:00:30" />
+                    <Input @bind-Value="_retryInterval" Placeholder="00:00:30"
+                           Status="@(ValidationHelper.ValidateTimeSpan(_retryInterval, required: true) is not null ? "error" : "")" />
+                    @if (ValidationHelper.ValidateTimeSpan(_retryInterval, required: true) is { } retryErr)
+                    {
+                        <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@retryErr</div>
+                    }
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: 500;">Timeout</label>
-                    <Input @bind-Value="_timeout" Placeholder="01:00:00 (optional)" />
+                    <Input @bind-Value="_timeout" Placeholder="01:00:00 (optional)"
+                           Status="@(ValidationHelper.ValidateTimeSpan(_timeout, required: false) is not null ? "error" : "")" />
+                    @if (ValidationHelper.ValidateTimeSpan(_timeout, required: false) is { } timeoutErr)
+                    {
+                        <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@timeoutErr</div>
+                    }
                 </div>
             </div>
         </div>
@@ -119,12 +142,22 @@
             @foreach (var (param, index) in _parameters.Select((p, i) => (p, i)))
             {
                 var idx = index;
-                <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">
-                    <Input @bind-Value="param.Key" Placeholder="Key" Style="flex: 1;" />
-                    <Input @bind-Value="param.Value" Placeholder="Value" Style="flex: 1;" />
-                    <Button Danger Size="@ButtonSize.Small" OnClick="() => _parameters.RemoveAt(idx)">
-                        <Icon Type="@IconType.Outline.Delete" />
-                    </Button>
+                var keyErr = _taskType == "Notebook" ? ValidationHelper.ValidatePythonIdentifier(param.Key) : null;
+                <div style="margin-bottom: 8px;">
+                    <div style="display: flex; gap: 8px; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <Input @bind-Value="param.Key" Placeholder="Key"
+                                   Status="@(keyErr is not null ? "error" : "")" />
+                            @if (keyErr is not null)
+                            {
+                                <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@keyErr</div>
+                            }
+                        </div>
+                        <Input @bind-Value="param.Value" Placeholder="Value" Style="flex: 1;" />
+                        <Button Danger Size="@ButtonSize.Small" OnClick="() => _parameters.RemoveAt(idx)">
+                            <Icon Type="@IconType.Outline.Delete" />
+                        </Button>
+                    </div>
                 </div>
             }
             <Button Size="@ButtonSize.Small" OnClick="() => _parameters.Add(new EditableTaskParameter())">
@@ -164,7 +197,7 @@
     @* Footer *@
     <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 10px 16px; border-top: 1px solid #d9d9d9; background: #fff; display: flex; justify-content: flex-end; gap: 8px;">
         <Button OnClick="HandleCancel">Cancel</Button>
-        <Button Type="@ButtonType.Primary" OnClick="HandleSave">Save</Button>
+        <Button Type="@ButtonType.Primary" OnClick="HandleSave" Disabled="@HasValidationErrors()">Save</Button>
     </div>
 </Drawer>
 
@@ -260,6 +293,18 @@
         _queryId = null;
         _subJobId = null;
         _nodePoolRef = null;
+    }
+
+    private bool HasValidationErrors()
+    {
+        if (string.IsNullOrWhiteSpace(_name)) return true;
+        if (_taskType == "Notebook" && _notebookId is null) return true;
+        if (_taskType == "SqlQuery" && _queryId is null) return true;
+        if (_taskType == "SubJob" && _subJobId is null) return true;
+        if (ValidationHelper.ValidateTimeSpan(_retryInterval, required: true) is not null) return true;
+        if (ValidationHelper.ValidateTimeSpan(_timeout, required: false) is not null) return true;
+        if (_taskType == "Notebook" && _parameters.Any(p => ValidationHelper.ValidatePythonIdentifier(p.Key) is not null)) return true;
+        return false;
     }
 
     private async Task HandleSave()

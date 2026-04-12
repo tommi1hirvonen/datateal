@@ -1,6 +1,7 @@
 @page "/jobs/{Id:guid}"
 
 @using DuckHouse.Ui.Shared.Orchestration
+@using DuckHouse.Ui.Client.Validation
 @inject IJobService JobService
 @inject NavigationManager Navigation
 
@@ -238,11 +239,16 @@
                Visible="_showScheduleModal"
                OnOk="ConfirmAddSchedule"
                OnCancel="() => _showScheduleModal = false"
-               OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_newCron) })">
+               OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_newCron) || ValidationHelper.ValidateCronExpression(_newCron) is not null })">
             <div style="display: flex; flex-direction: column; gap: 16px;">
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: 500;">Cron Expression</label>
-                    <Input @bind-Value="_newCron" Placeholder="0 6 * * *" />
+                    <Input @bind-Value="_newCron" Placeholder="0 6 * * *"
+                           Status="@(ValidationHelper.ValidateCronExpression(_newCron) is not null ? "error" : "")" />
+                    @if (ValidationHelper.ValidateCronExpression(_newCron) is { } cronErr)
+                    {
+                        <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@cronErr</div>
+                    }
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: 500;">Time Zone</label>

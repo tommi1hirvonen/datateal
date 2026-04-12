@@ -37,6 +37,10 @@ public class NodeManager(
 
         var nodeName = $"job-{jobRunId.ToString()[..8]}-{nodePoolRef}".ToLowerInvariant();
 
+        if (nodeName.Length > 63)
+            throw new InvalidOperationException(
+                $"Generated node name '{nodeName}' exceeds the 63-character Kubernetes limit. " +
+                $"Node pool name '{nodePoolRef}' must be {63 - 13} characters or fewer.");
         logger.LogInformation("Provisioning node '{NodeName}' for pool '{PoolRef}' (VM: {VmSize})",
             nodeName, nodePoolRef, config.VmSize);
 

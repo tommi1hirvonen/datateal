@@ -1,14 +1,20 @@
 @using DuckHouse.Ui.Client.Models
+@using DuckHouse.Ui.Client.Validation
 
 <Modal Title="@(_isEdit ? "Edit Parameter" : "Add Parameter")"
        Visible="Visible"
        OnOk="HandleSave"
        OnCancel="HandleCancel"
-       OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_name) })">
+       OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_name) || ValidationHelper.ValidatePythonIdentifier(_name) is not null })">
     <div style="display: flex; flex-direction: column; gap: 16px;">
         <div>
             <label style="display: block; margin-bottom: 4px; font-weight: 500;">Name</label>
-            <Input @bind-Value="_name" Placeholder="parameter_name" />
+            <Input @bind-Value="_name" Placeholder="parameter_name"
+                   Status="@(ValidationHelper.ValidatePythonIdentifier(_name) is not null ? "error" : "")" />
+            @if (ValidationHelper.ValidatePythonIdentifier(_name) is { } paramNameErr)
+            {
+                <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@paramNameErr</div>
+            }
         </div>
         <div>
             <label style="display: block; margin-bottom: 4px; font-weight: 500;">Default Value</label>

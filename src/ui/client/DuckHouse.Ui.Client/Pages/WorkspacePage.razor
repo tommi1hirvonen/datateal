@@ -69,7 +69,8 @@ else
                    Placeholder="Folder name"
                    Style="width: 220px;"
                    OnPressEnter="@(_ => ConfirmNewFolderAsync())" />
-            <Button Size="ButtonSize.Small" Type="ButtonType.Primary" OnClick="ConfirmNewFolderAsync">Create</Button>
+            <Button Size="ButtonSize.Small" Type="ButtonType.Primary" OnClick="ConfirmNewFolderAsync"
+                    Disabled="@string.IsNullOrWhiteSpace(_newFolderName)">Create</Button>
             <Button Size="ButtonSize.Small" OnClick="CancelNewFolder">Cancel</Button>
         </Flex>
     }
@@ -212,7 +213,8 @@ else
        Visible="_renameFolderTarget is not null"
        OnOk="ConfirmRenameFolderAsync"
        OnCancel="CancelRenameFolder"
-       OkText="@("Rename")">
+       OkText="@("Rename")"
+       OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_renameFolderName) })">
     <Input @bind-Value="_renameFolderName" Placeholder="Folder name" />
 </Modal>
 
@@ -221,7 +223,8 @@ else
        Visible="_renameNotebookTarget is not null"
        OnOk="ConfirmRenameNotebookAsync"
        OnCancel="CancelRenameNotebook"
-       OkText="@("Rename")">
+       OkText="@("Rename")"
+       OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_renameNotebookName) })">
     <Input @bind-Value="_renameNotebookName" Placeholder="Notebook title" />
 </Modal>
 
@@ -230,7 +233,8 @@ else
        Visible="_renameQueryTarget is not null"
        OnOk="ConfirmRenameQueryAsync"
        OnCancel="CancelRenameQuery"
-       OkText="@("Rename")">
+       OkText="@("Rename")"
+       OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_renameQueryName) })">
     <Input @bind-Value="_renameQueryName" Placeholder="Query title" />
 </Modal>
 

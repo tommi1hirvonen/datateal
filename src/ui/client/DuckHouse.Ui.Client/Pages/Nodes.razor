@@ -1,6 +1,7 @@
 @page "/nodes"
 
 @using DuckHouse.Core.Nodes
+@using DuckHouse.Ui.Client.Validation
 @inject INodeService NodeService
 
 <PageTitle>Nodes — DuckHouse</PageTitle>
@@ -126,7 +127,12 @@ else
 <Drawer @bind-Visible="_createOpen" Title='("New node")' Placement="DrawerPlacement.Right" Width="440" OnClose="CloseCreateDrawer">
     <div style="margin-bottom: 16px;">
         <label style="display: block; font-weight: 600; margin-bottom: 4px;">Name</label>
-        <Input @bind-Value="_createName" Placeholder="my-node" />
+        <Input @bind-Value="_createName" Placeholder="my-node"
+               Status="@(ValidationHelper.ValidateKubernetesName(_createName) is not null ? "error" : "")" />
+        @if (ValidationHelper.ValidateKubernetesName(_createName) is { } nameErr)
+        {
+            <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@nameErr</div>
+        }
     </div>
     <div style="margin-bottom: 16px;">
         <label style="display: block; font-weight: 600; margin-bottom: 4px;">VM Size</label>
@@ -158,7 +164,7 @@ else
         </SpaceItem>
         <SpaceItem>
             <Button Type="ButtonType.Primary" Loading="_creating"
-                    Disabled="@(string.IsNullOrWhiteSpace(_createName) || string.IsNullOrWhiteSpace(_createVmSize))"
+                    Disabled="@(string.IsNullOrWhiteSpace(_createName) || string.IsNullOrWhiteSpace(_createVmSize) || ValidationHelper.ValidateKubernetesName(_createName) is not null)"
                     Icon="@IconType.Outline.Plus"
                     OnClick="CreateNodeAsync">
                 Create

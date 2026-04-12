@@ -1,6 +1,7 @@
 @page "/node-pools"
 
 @using DuckHouse.Ui.Shared.Orchestration
+@using DuckHouse.Ui.Client.Validation
 @inject INodePoolService NodePoolService
 
 <PageTitle>Node Pools — DuckHouse</PageTitle>
@@ -59,11 +60,16 @@
            Visible="_showModal"
            OnOk="ConfirmSave"
            OnCancel="() => _showModal = false"
-           OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_formName) || string.IsNullOrWhiteSpace(_formVmSize) })">
+           OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_formName) || string.IsNullOrWhiteSpace(_formVmSize) || ValidationHelper.ValidateNodePoolName(_formName) is not null })">
         <div style="display: flex; flex-direction: column; gap: 16px;">
             <div>
                 <label style="display: block; margin-bottom: 4px; font-weight: 500;">Name</label>
-                <Input @bind-Value="_formName" Placeholder="analytics-node" />
+                <Input @bind-Value="_formName" Placeholder="analytics-node"
+                       Status="@(ValidationHelper.ValidateNodePoolName(_formName) is not null ? "error" : "")" />
+                @if (ValidationHelper.ValidateNodePoolName(_formName) is { } poolNameErr)
+                {
+                    <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@poolNameErr</div>
+                }
             </div>
             <div>
                 <label style="display: block; margin-bottom: 4px; font-weight: 500;">VM Size</label>
