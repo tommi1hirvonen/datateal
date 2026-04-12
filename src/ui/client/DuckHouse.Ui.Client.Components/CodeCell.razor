@@ -26,6 +26,7 @@
 
     private readonly string _id = $"code-cell-{Guid.NewGuid():N}";
     private StandaloneCodeEditor _editor = default!;
+    private bool _editorInitialized;
     private bool _suppressChange;
     private bool _lastReadOnly;
     private string _lastLanguage = "";
@@ -90,12 +91,28 @@
 
     private async Task OnEditorInitAsync()
     {
+        _editorInitialized = true;
+        // Record the state that was baked into construction options
+        _lastLanguage = Language;
+        _lastReadOnly = ReadOnly;
+        // Sync value in case it changed between construction and editor init
+        _suppressChange = true;
+        try
+        {
+            var current = await _editor.GetValue();
+            if (current != Value)
+                await _editor.SetValue(Value);
+        }
+        finally
+        {
+            _suppressChange = false;
+        }
         await OnEditorReady.InvokeAsync();
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_editor is null) return;
+        if (_editor is null || !_editorInitialized) return;
 
         if (_lastReadOnly != ReadOnly)
         {
