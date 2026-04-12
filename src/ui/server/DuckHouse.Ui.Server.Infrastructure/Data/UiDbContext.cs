@@ -1,12 +1,14 @@
+namespace DuckHouse.Ui.Server.Infrastructure.Data;
+
+using DuckHouse.Ui.Server.Core.RuntimePackages;
 using DuckHouse.Ui.Server.Core.Workspace;
 using Microsoft.EntityFrameworkCore;
-
-namespace DuckHouse.Ui.Server.Infrastructure.Data;
 
 public class UiDbContext(DbContextOptions<UiDbContext> options) : DbContext(options)
 {
     public DbSet<Folder> Folders => Set<Folder>();
     public DbSet<WorkspaceItem> WorkspaceItems => Set<WorkspaceItem>();
+    public DbSet<WheelPackage> WheelPackages => Set<WheelPackage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +42,15 @@ public class UiDbContext(DbContextOptions<UiDbContext> options) : DbContext(opti
         modelBuilder.Entity<Query>(entity =>
         {
             entity.Property(e => e.LastResultStatus).HasMaxLength(16);
+        });
+
+        modelBuilder.Entity<WheelPackage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(256).IsRequired();
+            entity.Property(e => e.FileName).HasMaxLength(512).IsRequired();
+            entity.Property(e => e.Data).IsRequired();
+            entity.HasIndex(e => e.Name).IsUnique();
         });
     }
 }

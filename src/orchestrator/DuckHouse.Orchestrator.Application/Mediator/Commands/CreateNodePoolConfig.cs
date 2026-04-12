@@ -10,7 +10,8 @@ public record CreateNodePoolConfigRequest(
     TimeSpan? KernelIdleTimeout,
     TimeSpan? NodeIdleTimeout,
     string? KernelRequirements,
-    string? Description) : IRequest<NodePoolConfig>;
+    string? Description,
+    List<Guid>? WheelPackageIds = null) : IRequest<NodePoolConfig>;
 
 internal class CreateNodePoolConfigHandler(INodePoolConfigRepository repository)
     : IRequestHandler<CreateNodePoolConfigRequest, NodePoolConfig>
@@ -34,6 +35,7 @@ internal class CreateNodePoolConfigHandler(INodePoolConfigRepository repository)
             NodeIdleTimeout = request.NodeIdleTimeout,
             KernelRequirements = request.KernelRequirements,
             Description = request.Description,
+            WheelPackageIds = request.WheelPackageIds,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };

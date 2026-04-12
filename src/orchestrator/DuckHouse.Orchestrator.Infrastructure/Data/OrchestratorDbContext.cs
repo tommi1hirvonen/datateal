@@ -2,14 +2,19 @@ using System.Text.Json;
 using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace DuckHouse.Orchestrator.Infrastructure.Data;
 
 public class OrchestratorDbContext(DbContextOptions<OrchestratorDbContext> options) : DbContext(options)
 {
-    private static readonly Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<Dictionary<string, string>?, string?> DictJsonConverter = new(
+    private static readonly ValueConverter<Dictionary<string, string>?, string?> DictJsonConverter = new(
         v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
         v => v == null ? null : JsonSerializer.Deserialize<Dictionary<string, string>>(v, (JsonSerializerOptions?)null));
+
+    private static readonly ValueConverter<List<Guid>?, string?> GuidListJsonConverter = new(
+        v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+        v => v == null ? null : JsonSerializer.Deserialize<List<Guid>>(v, (JsonSerializerOptions?)null));
 
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<JobParameter> JobParameters => Set<JobParameter>();
@@ -88,6 +93,7 @@ public class OrchestratorDbContext(DbContextOptions<OrchestratorDbContext> optio
             entity.Property(e => e.Name).HasMaxLength(128).IsRequired();
             entity.HasIndex(e => e.Name).IsUnique();
             entity.Property(e => e.VmSize).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.WheelPackageIds).HasColumnType("jsonb").HasConversion(GuidListJsonConverter);
         });
 
         modelBuilder.Entity<JobRun>(entity =>

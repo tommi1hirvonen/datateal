@@ -24,6 +24,7 @@ public static class ServiceExtensions
 
         services.AddScoped<IControlPlaneClient, ControlPlaneClient>();
         services.AddScoped<IWorkspaceReader, WorkspaceReader>();
+        services.AddScoped<IWheelPackageReader, WheelPackageReader>();
 
         return services;
     }

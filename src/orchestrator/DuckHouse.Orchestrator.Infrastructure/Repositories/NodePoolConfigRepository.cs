@@ -37,6 +37,7 @@ internal class NodePoolConfigRepository(OrchestratorDbContext db) : INodePoolCon
         existing.NodeIdleTimeout = config.NodeIdleTimeout;
         existing.KernelRequirements = config.KernelRequirements;
         existing.Description = config.Description;
+        existing.WheelPackageIds = config.WheelPackageIds;
         existing.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);

@@ -1,0 +1,156 @@
+@page "/packages"
+
+@using DuckHouse.Ui.Shared.Packages
+@inject IWheelPackageService WheelPackageService
+
+<PageTitle>Packages — DuckHouse</PageTitle>
+
+<Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 24px;" Gap="FlexGap.Small">
+    <Space Align="SpaceAlign.End" Size="SpaceSize.Middle">
+        <SpaceItem>
+            <Icon Height="24px" Width="24px" Type="@IconType.Outline.CodeSandbox" />
+        </SpaceItem>
+        <SpaceItem>
+            <h2 style="margin: 0;">Wheel Packages</h2>
+        </SpaceItem>
+    </Space>
+    <Space>
+        <SpaceItem>
+            <Button OnClick="LoadAsync"
+                    Disabled="_loading"
+                    Icon="@IconType.Outline.Reload">
+                Refresh
+            </Button>
+        </SpaceItem>
+        <SpaceItem>
+            <InputFile id="wheelFileInput" OnChange="OnFileSelected" accept=".whl" style="display: none;" />
+            <Button Type="ButtonType.Primary"
+                    Icon="@IconType.Outline.Upload"
+                    Loading="_uploading"
+                    OnClick="@(() => ClickFileInput())">
+                Upload .whl
+            </Button>
+        </SpaceItem>
+    </Space>
+</Flex>
+
+@if (_error is not null)
+{
+    <Alert Type="AlertType.Error" Message="@_error" Closable ShowIcon="true"
+           OnClose="@(() => _error = null)" Style="margin-bottom: 16px;" />
+}
+
+@if (_loading)
+{
+    <Flex Justify="@("center")" Style="padding: 40px 0;">
+        <Spin />
+    </Flex>
+}
+else if (_packages.Count == 0)
+{
+    <p><Text Type="TextElementType.Secondary">No packages yet. Upload a .whl file to get started.</Text></p>
+}
+else
+{
+    <Table TItem="WheelPackageDto" DataSource="@_packages" Bordered PageSize="int.MaxValue" PaginationPosition="none">
+        <PropertyColumn Property="p => p.Name" Title="Name">
+            <span style="font-weight: 600;">@context.Name</span>
+        </PropertyColumn>
+        <PropertyColumn Property="p => p.FileName" Title="Filename">
+            <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">@context.FileName</Text>
+        </PropertyColumn>
+        <PropertyColumn Property="p => p.Size" Title="Size">
+            <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">@FormatSize(context.Size)</Text>
+        </PropertyColumn>
+        <PropertyColumn Property="p => p.UploadedAt" Title="Uploaded">
+            <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">@context.UploadedAt.ToString("yyyy-MM-dd HH:mm")</Text>
+        </PropertyColumn>
+        <ActionColumn Title="Actions">
+            <Popconfirm Title="@($"Delete package '{context.Name}'?")"
+                        OkText="Delete"
+                        CancelText="Cancel"
+                        OkType="ButtonType.Primary"
+                        OkButtonProps="new ButtonProps { Danger = true }"
+                        OnConfirm="@(() => DeleteAsync(context.Id))">
+                <Button Size="ButtonSize.Small" Danger Type="ButtonType.Primary"
+                        Icon="@IconType.Outline.Delete">
+                    Delete
+                </Button>
+            </Popconfirm>
+        </ActionColumn>
+    </Table>
+}
+
+@code {
+    @inject IJSRuntime JS
+
+    private List<WheelPackageDto> _packages = [];
+    private bool _loading = true;
+    private bool _uploading;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _packages = [.. await WheelPackageService.GetPackagesAsync()];
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load packages: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        _uploading = true;
+        try
+        {
+            var file = e.File;
+            await WheelPackageService.UploadPackageAsync(file);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        _error = null;
+        try
+        {
+            await WheelPackageService.DeletePackageAsync(id);
+            _packages.RemoveAll(p => p.Id == id);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Delete failed: {ex.Message}";
+        }
+    }
+
+    private Task ClickFileInput() =>
+        JS.InvokeVoidAsync("clickElement", "wheelFileInput").AsTask();
+
+    private static string FormatSize(long bytes) =>
+        bytes switch
+        {
+            < 1024 => $"{bytes} B",
+            < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+            _ => $"{bytes / 1024.0 / 1024.0:F1} MB"
+        };
+}

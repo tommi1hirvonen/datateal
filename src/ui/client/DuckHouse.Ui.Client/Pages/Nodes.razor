@@ -2,7 +2,9 @@
 
 @using DuckHouse.Core.Nodes
 @using DuckHouse.Ui.Client.Validation
+@using DuckHouse.Ui.Shared.Packages
 @inject INodeService NodeService
+@inject IWheelPackageService WheelPackageService
 
 <PageTitle>Nodes — DuckHouse</PageTitle>
 
@@ -159,6 +161,19 @@ else
         <TextArea @bind-Value="_createKernelReqs" Rows="3" Placeholder="@("scipy>=1.14\nscikit-learn>=1.6")" />
         <Text Type="TextElementType.Secondary" Style="font-size: 0.8rem;">One package per line. Installed in the kernel venv at node startup.</Text>
     </div>
+    <div style="margin-bottom: 16px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 4px;">Wheel Packages</label>
+        <Select Mode="SelectMode.Multiple"
+                TItem="WheelPackageDto"
+                TItemValue="Guid"
+                DataSource="_availablePackages"
+                LabelName="@nameof(WheelPackageDto.Name)"
+                ValueName="@nameof(WheelPackageDto.Id)"
+                @bind-Values="_createWheelPackageIds"
+                Placeholder="Select packages to install"
+                Style="width: 100%;" />
+        <Text Type="TextElementType.Secondary" Style="font-size: 0.8rem;">Custom .whl packages installed in the kernel venv at startup.</Text>
+    </div>
     @if (_createError is not null)
     {
         <Alert Type="AlertType.Error" Message="@_createError" ShowIcon="true" Style="margin-bottom: 16px;" />
@@ -192,10 +207,22 @@ else
     private int? _createKernelIdleMinutes;
     private int? _createNodeIdleMinutes;
     private string? _createKernelReqs;
+    private IEnumerable<Guid> _createWheelPackageIds = [];
     private bool _creating;
     private string? _createError;
 
-    protected override async Task OnInitializedAsync() => await LoadNodesAsync();
+    private List<WheelPackageDto> _availablePackages = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadNodesAsync(), LoadPackagesAsync());
+    }
+
+    private async Task LoadPackagesAsync()
+    {
+        try { _availablePackages = [.. await WheelPackageService.GetPackagesAsync()]; }
+        catch { /* non-fatal; packages selector will be empty */ }
+    }
 
     private async Task LoadNodesAsync()
     {
@@ -222,6 +249,7 @@ else
         _createKernelIdleMinutes = null;
         _createNodeIdleMinutes = null;
         _createKernelReqs = null;
+        _createWheelPackageIds = [];
         _createError = null;
         _createOpen = true;
     }
@@ -239,7 +267,8 @@ else
                 _createVmSize.Trim(),
                 _createKernelIdleMinutes is > 0 ? TimeSpan.FromMinutes(_createKernelIdleMinutes.Value) : null,
                 _createNodeIdleMinutes is > 0 ? TimeSpan.FromMinutes(_createNodeIdleMinutes.Value) : null,
-                string.IsNullOrWhiteSpace(_createKernelReqs) ? null : _createKernelReqs.Trim());
+                string.IsNullOrWhiteSpace(_createKernelReqs) ? null : _createKernelReqs.Trim(),
+                _createWheelPackageIds.Any() ? [.. _createWheelPackageIds] : null);
             var node = await NodeService.CreateNodeAsync(request);
             _nodes.Add(node);
             _createOpen = false;

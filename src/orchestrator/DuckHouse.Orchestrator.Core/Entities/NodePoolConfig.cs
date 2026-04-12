@@ -9,6 +9,7 @@ public class NodePoolConfig
     public TimeSpan? NodeIdleTimeout { get; set; }
     public string? KernelRequirements { get; set; }
     public string? Description { get; set; }
+    public List<Guid>? WheelPackageIds { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

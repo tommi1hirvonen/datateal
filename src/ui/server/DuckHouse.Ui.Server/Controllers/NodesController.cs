@@ -1,5 +1,6 @@
 using DuckHouse.Core.Nodes;
 using DuckHouse.Core.Mediator;
+using DuckHouse.Ui.Server.Core.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using Cmd = DuckHouse.Ui.Server.Application.Mediator.Commands;
 using Qry = DuckHouse.Ui.Server.Application.Mediator.Queries;
@@ -9,7 +10,7 @@ namespace DuckHouse.Ui.Server.Controllers;
 
 [ApiController]
 [Route("api/nodes")]
-public class NodesController(IMediator mediator) : ControllerBase
+public class NodesController(IMediator mediator, IWheelPackageRepository wheelPackageRepository) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<NodeInfo>> GetNodes(CancellationToken ct) =>
@@ -25,8 +26,21 @@ public class NodesController(IMediator mediator) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateNode(SharedNodes.CreateNodeRequest body, CancellationToken ct)
     {
+        IReadOnlyList<WheelContent>? wheelContents = null;
+        if (body.WheelPackageIds is { Count: > 0 })
+        {
+            var packages = await wheelPackageRepository.GetByIdsAsync(body.WheelPackageIds, ct);
+            var missing = body.WheelPackageIds.Except(packages.Select(p => p.Id)).ToList();
+            if (missing.Count > 0)
+                return BadRequest($"Wheel package(s) not found: {string.Join(", ", missing)}");
+
+            wheelContents = packages
+                .Select(p => new WheelContent(p.FileName, p.Data))
+                .ToList();
+        }
+
         var node = await mediator.SendAsync(
-            new Cmd.CreateNodeRequest(body.Name, body.VmSize, body.KernelIdleTimeout, body.NodeIdleTimeout, body.KernelRequirements), ct);
+            new Cmd.CreateNodeRequest(body.Name, body.VmSize, body.KernelIdleTimeout, body.NodeIdleTimeout, body.KernelRequirements, wheelContents), ct);
         return CreatedAtAction(nameof(GetNode), new { name = node.Name }, node);
     }
 

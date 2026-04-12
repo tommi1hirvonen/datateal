@@ -17,6 +17,7 @@ public class RunCoordinator(
     INodePoolConfigRepository nodePoolConfigRepo,
     IControlPlaneClient controlPlane,
     IWorkspaceReader workspaceReader,
+    IWheelPackageReader wheelPackageReader,
     IMediator mediator,
     ILoggerFactory loggerFactory)
 {
@@ -40,7 +41,7 @@ public class RunCoordinator(
 
         // Create a node manager for this run
         var nodeManager = new NodeManager(
-            controlPlane, nodePoolConfigRepo, jobRunId,
+            controlPlane, nodePoolConfigRepo, wheelPackageReader, jobRunId,
             loggerFactory.CreateLogger<NodeManager>());
 
         var taskExecutor = new TaskExecutor(

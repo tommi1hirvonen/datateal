@@ -13,6 +13,7 @@ namespace DuckHouse.Orchestrator.Application.Engine;
 public class NodeManager(
     IControlPlaneClient controlPlane,
     INodePoolConfigRepository nodePoolConfigRepo,
+    IWheelPackageReader wheelPackageReader,
     Guid jobRunId,
     ILogger logger)
 {
@@ -44,10 +45,18 @@ public class NodeManager(
         logger.LogInformation("Provisioning node '{NodeName}' for pool '{PoolRef}' (VM: {VmSize})",
             nodeName, nodePoolRef, config.VmSize);
 
+        IReadOnlyList<WheelContent>? wheelContents = null;
+        if (config.WheelPackageIds is { Count: > 0 })
+        {
+            wheelContents = await wheelPackageReader.GetWheelContentsAsync(config.WheelPackageIds, ct);
+        }
+
         await controlPlane.CreateNodeAsync(
             nodeName, config.VmSize,
             config.KernelIdleTimeout, config.NodeIdleTimeout,
-            config.KernelRequirements, ct);
+            config.KernelRequirements,
+            wheelContents,
+            ct);
 
         // Poll until node is running
         var deadline = DateTime.UtcNow + NodeReadyTimeout;

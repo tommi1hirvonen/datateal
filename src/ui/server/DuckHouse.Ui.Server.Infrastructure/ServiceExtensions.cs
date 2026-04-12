@@ -19,5 +19,6 @@ public static class ServiceExtensions
             client => client.BaseAddress = new Uri(baseAddress));
 
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
+        services.AddScoped<IWheelPackageRepository, WheelPackageRepository>();
     }
 }

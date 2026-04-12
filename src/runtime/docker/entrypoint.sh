@@ -14,4 +14,9 @@ if [ -n "$KERNEL_PACKAGES" ]; then
     "$KERNEL_PIP" install --no-cache-dir $KERNEL_PACKAGES
 fi
 
+if find /etc/wheels -name "*.whl" -type f 2>/dev/null | grep -q .; then
+    echo "Installing custom wheel packages from /etc/wheels/"
+    find /etc/wheels -name "*.whl" -type f -exec "$KERNEL_PIP" install --no-cache-dir {} +
+fi
+
 exec /opt/venvs/api/bin/duckhouse-runtime

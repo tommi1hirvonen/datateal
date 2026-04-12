@@ -5,4 +5,5 @@ public record CreateNodeRequest(
     string VmSize,
     TimeSpan? KernelIdleTimeout = null,
     TimeSpan? NodeIdleTimeout = null,
-    string? KernelRequirements = null);
+    string? KernelRequirements = null,
+    IReadOnlyList<Guid>? WheelPackageIds = null);

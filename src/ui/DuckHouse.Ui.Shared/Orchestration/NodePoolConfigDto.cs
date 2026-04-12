@@ -9,7 +9,8 @@ public record NodePoolConfigDto(
     string? KernelRequirements,
     string? Description,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    IReadOnlyList<Guid>? WheelPackageIds);
 
 public record CreateNodePoolRequest(
     string Name,
@@ -17,7 +18,8 @@ public record CreateNodePoolRequest(
     TimeSpan? KernelIdleTimeout,
     TimeSpan? NodeIdleTimeout,
     string? KernelRequirements,
-    string? Description);
+    string? Description,
+    IReadOnlyList<Guid>? WheelPackageIds = null);
 
 public record UpdateNodePoolRequest(
     string Name,
@@ -25,4 +27,5 @@ public record UpdateNodePoolRequest(
     TimeSpan? KernelIdleTimeout,
     TimeSpan? NodeIdleTimeout,
     string? KernelRequirements,
-    string? Description);
+    string? Description,
+    IReadOnlyList<Guid>? WheelPackageIds = null);

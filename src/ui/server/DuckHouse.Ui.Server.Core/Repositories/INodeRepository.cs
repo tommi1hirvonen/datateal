@@ -12,6 +12,7 @@ public interface INodeRepository
         TimeSpan? kernelIdleTimeout = null,
         TimeSpan? nodeIdleTimeout = null,
         string? kernelRequirements = null,
+        IReadOnlyList<WheelContent>? wheelContents = null,
         CancellationToken cancellationToken = default);
     Task RemoveNodeAsync(string name, CancellationToken cancellationToken = default);
     Task StopNodeAsync(string name, CancellationToken cancellationToken = default);

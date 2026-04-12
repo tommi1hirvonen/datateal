@@ -9,7 +9,8 @@ public record CreateNodeRequest(
     string VmSize,
     TimeSpan? KernelIdleTimeout = null,
     TimeSpan? NodeIdleTimeout = null,
-    string? KernelRequirements = null) : IRequest<NodeInfo>;
+    string? KernelRequirements = null,
+    IReadOnlyList<WheelContent>? WheelContents = null) : IRequest<NodeInfo>;
 
 internal class CreateNodeHandler(INodeRepository nodeRepository) : IRequestHandler<CreateNodeRequest, NodeInfo>
 {
@@ -20,5 +21,6 @@ internal class CreateNodeHandler(INodeRepository nodeRepository) : IRequestHandl
             request.KernelIdleTimeout,
             request.NodeIdleTimeout,
             request.KernelRequirements,
+            request.WheelContents,
             cancellationToken);
 }

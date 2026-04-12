@@ -2,7 +2,9 @@
 
 @using DuckHouse.Ui.Shared.Orchestration
 @using DuckHouse.Ui.Client.Validation
+@using DuckHouse.Ui.Shared.Packages
 @inject INodePoolService NodePoolService
+@inject IWheelPackageService WheelPackageService
 
 <PageTitle>Node Pools — DuckHouse</PageTitle>
 
@@ -88,6 +90,18 @@
                 <TextArea @bind-Value="_formKernelReqs" Rows="3" Placeholder="@("scipy>=1.14\nscikit-learn>=1.6")" />
             </div>
             <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Wheel Packages</label>
+                <Select Mode="SelectMode.Multiple"
+                        TItem="WheelPackageDto"
+                        TItemValue="Guid"
+                        DataSource="_availablePackages"
+                        LabelName="@nameof(WheelPackageDto.Name)"
+                        ValueName="@nameof(WheelPackageDto.Id)"
+                        @bind-Values="_formWheelPackageIds"
+                        Placeholder="Select packages to install"
+                        Style="width: 100%;" />
+            </div>
+            <div>
                 <label style="display: block; margin-bottom: 4px; font-weight: 500;">Description</label>
                 <TextArea @bind-Value="_formDescription" Rows="2" />
             </div>
@@ -109,10 +123,19 @@
     private int _formNodeIdleMin;
     private string? _formKernelReqs;
     private string? _formDescription;
+    private IEnumerable<Guid> _formWheelPackageIds = [];
+
+    private List<WheelPackageDto> _availablePackages = [];
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadAsync();
+        await Task.WhenAll(LoadAsync(), LoadPackagesAsync());
+    }
+
+    private async Task LoadPackagesAsync()
+    {
+        try { _availablePackages = [.. await WheelPackageService.GetPackagesAsync()]; }
+        catch { /* non-fatal */ }
     }
 
     private async Task LoadAsync()
@@ -141,6 +164,7 @@
         _formNodeIdleMin = 0;
         _formKernelReqs = null;
         _formDescription = null;
+        _formWheelPackageIds = [];
         _showModal = true;
     }
 
@@ -153,6 +177,7 @@
         _formNodeIdleMin = (int)(pool.NodeIdleTimeout?.TotalMinutes ?? 0);
         _formKernelReqs = pool.KernelRequirements;
         _formDescription = pool.Description;
+        _formWheelPackageIds = pool.WheelPackageIds ?? [];
         _showModal = true;
     }
 
@@ -169,13 +194,15 @@
             {
                 await NodePoolService.CreateNodePoolAsync(new CreateNodePoolRequest(
                     _formName.Trim(), _formVmSize.Trim(), kernelTimeout, nodeTimeout,
-                    _formKernelReqs?.Trim(), _formDescription?.Trim()));
+                    _formKernelReqs?.Trim(), _formDescription?.Trim(),
+                    _formWheelPackageIds.Any() ? [.. _formWheelPackageIds] : null));
             }
             else
             {
                 await NodePoolService.UpdateNodePoolAsync(_editTarget.Id, new UpdateNodePoolRequest(
                     _formName.Trim(), _formVmSize.Trim(), kernelTimeout, nodeTimeout,
-                    _formKernelReqs?.Trim(), _formDescription?.Trim()));
+                    _formKernelReqs?.Trim(), _formDescription?.Trim(),
+                    _formWheelPackageIds.Any() ? [.. _formWheelPackageIds] : null));
             }
             _showModal = false;
             await LoadAsync();
