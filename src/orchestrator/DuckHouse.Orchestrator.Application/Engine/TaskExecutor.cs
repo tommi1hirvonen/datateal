@@ -64,7 +64,7 @@ public class TaskExecutor(
                 CellIndex = i,
                 CellSource = cell.Source,
                 CellType = cell.Type,
-                Language = cell.Language,
+                Language = cell.Type == "Markdown" ? null : cell.Language,
                 Status = CellExecutionStatus.Pending,
             }, ct);
         }
