@@ -13,7 +13,8 @@ public record CreateNodeRequest(
     string? VmSize = null,
     TimeSpan? KernelIdleTimeout = null,
     TimeSpan? NodeIdleTimeout = null,
-    string? KernelRequirements = null) : IRequest<NodeInfo>;
+    string? KernelRequirements = null,
+    IReadOnlyList<WheelContent>? WheelContents = null) : IRequest<NodeInfo>;
 
 internal class CreateNodeHandler(
     INodeService nodeService,
@@ -34,7 +35,8 @@ internal class CreateNodeHandler(
 
         var node = await nodeService.CreateNodeAsync(
             new DuckHouse.Core.Nodes.CreateNodeRequest(request.Name, request.VmSize,
-                KernelRequirements: request.KernelRequirements),
+                KernelRequirements: request.KernelRequirements,
+                WheelContents: request.WheelContents),
             cancellationToken);
 
         return node;
