@@ -1,7 +1,7 @@
 @using DuckHouse.Ui.Client.Models
 @using DuckHouse.Ui.Client.Validation
 
-<Modal Title="@(_isEdit ? "Edit Parameter" : "Add Parameter")"
+<Modal Title="@(_isEdit ? "Edit parameter" : "Add parameter")"
        Visible="Visible"
        OnOk="HandleSave"
        OnCancel="HandleCancel"
@@ -17,7 +17,7 @@
             }
         </div>
         <div>
-            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Default Value</label>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Default value</label>
             <Input @bind-Value="_defaultValue" Placeholder="Optional default value" />
         </div>
         <div>

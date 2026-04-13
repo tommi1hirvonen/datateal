@@ -16,7 +16,7 @@
         </SpaceItem>
     </Space>
     <Button Type="@ButtonType.Primary" OnClick="StartCreate">
-        <Icon Type="@IconType.Outline.Plus" /> New Job
+        <Icon Type="@IconType.Outline.Plus" /> New job
     </Button>
     <Button OnClick="StartImport" Style="margin-left: 8px;">
         <Icon Type="@IconType.Outline.Upload" /> Import
@@ -81,7 +81,7 @@
     </Table>
 </Spin>
 
-<Modal Title="New Job"
+<Modal Title="New job"
        Visible="_showCreateModal"
        OnOk="ConfirmCreate"
        OnCancel="() => _showCreateModal = false"
@@ -98,7 +98,7 @@
     </div>
 </Modal>
 
-<Modal Title="Import Job from YAML"
+<Modal Title="Import job from YAML"
        Visible="_showImportModal"
        OnOk="ConfirmImport"
        OnCancel="() => _showImportModal = false"

@@ -4,7 +4,7 @@
 @inject INodePoolService NodePoolService
 @inject IJobService JobService
 
-<Drawer Title="@(_isEdit ? "Edit Task" : "Add Task")"
+<Drawer Title="@(_isEdit ? "Edit task" : "Add task")"
         Visible="Visible"
         OnClose="HandleCancel"
         Width="520">
@@ -12,14 +12,14 @@
 
         @* Section 1: Basic Settings *@
         <div>
-            <h4 style="margin: 0 0 12px;">Basic Settings</h4>
+            <h4 style="margin: 0 0 12px;">Basic settings</h4>
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: 500;">Name</label>
                     <Input @bind-Value="_name" Placeholder="task-name" />
                 </div>
                 <div>
-                    <label style="display: block; margin-bottom: 4px; font-weight: 500;">Task Type</label>
+                    <label style="display: block; margin-bottom: 4px; font-weight: 500;">Task type</label>
                     <Select TItem="string" TItemValue="string" @bind-Value="_taskType" Style="width: 100%;" OnSelectedItemChanged="@((string _) => OnTaskTypeChanged())">
                         <SelectOption TItem="string" TItemValue="string" Value="@("Notebook")" Label="Notebook" />
                         <SelectOption TItem="string" TItemValue="string" Value="@("SqlQuery")" Label="SQL Query" />
@@ -31,7 +31,7 @@
 
         @* Section 2: Type-Specific Settings *@
         <div>
-            <h4 style="margin: 0 0 12px;">Type Settings</h4>
+            <h4 style="margin: 0 0 12px;">Type settings</h4>
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 @if (_taskType == "Notebook")
                 {
@@ -45,7 +45,7 @@
                         }
                     </div>
                     <div>
-                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Node Pool</label>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Node pool</label>
                         <Select TItem="NodePoolOption"
                                 TItemValue="string"
                                 DataSource="_nodePoolOptions"
@@ -69,7 +69,7 @@
                         }
                     </div>
                     <div>
-                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Node Pool</label>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Node pool</label>
                         <Select TItem="NodePoolOption"
                                 TItemValue="string"
                                 DataSource="_nodePoolOptions"
@@ -106,14 +106,14 @@
 
         @* Section 3: Execution Settings *@
         <div>
-            <h4 style="margin: 0 0 12px;">Execution Settings</h4>
+            <h4 style="margin: 0 0 12px;">Execution settings</h4>
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <div>
-                    <label style="display: block; margin-bottom: 4px; font-weight: 500;">Max Retries</label>
+                    <label style="display: block; margin-bottom: 4px; font-weight: 500;">Max retries</label>
                     <AntDesign.InputNumber @bind-Value="_maxRetries" Min="0" Style="width: 100%;" />
                 </div>
                 <div>
-                    <label style="display: block; margin-bottom: 4px; font-weight: 500;">Retry Interval</label>
+                    <label style="display: block; margin-bottom: 4px; font-weight: 500;">Retry interval</label>
                     <Input @bind-Value="_retryInterval" Placeholder="00:00:30"
                            Status="@(ValidationHelper.ValidateTimeSpan(_retryInterval, required: true) is not null ? "error" : "")" />
                     @if (ValidationHelper.ValidateTimeSpan(_retryInterval, required: true) is { } retryErr)
@@ -161,7 +161,7 @@
                 </div>
             }
             <Button Size="@ButtonSize.Small" OnClick="() => _parameters.Add(new EditableTaskParameter())">
-                <Icon Type="@IconType.Outline.Plus" /> Add Parameter
+                <Icon Type="@IconType.Outline.Plus" /> Add parameter
             </Button>
         </div>
 
@@ -189,7 +189,7 @@
                 </div>
             }
             <Button Size="@ButtonSize.Small" OnClick="() => _dependencies.Add(new EditableDependency())">
-                <Icon Type="@IconType.Outline.Plus" /> Add Dependency
+                <Icon Type="@IconType.Outline.Plus" /> Add dependency
             </Button>
         </div>
     </div>

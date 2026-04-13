@@ -60,13 +60,13 @@ else
         <PropertyColumn Property="n => n.State" Title="State">
             <Tag Color="@StateTagColor(context.State)">@context.State</Tag>
         </PropertyColumn>
-        <PropertyColumn Property="n => n.VmSize" Title="VM Size">
+        <PropertyColumn Property="n => n.VmSize" Title="VM size">
             <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">@(context.VmSize ?? "—")</Text>
         </PropertyColumn>
-        <PropertyColumn Property="n => n.KernelIdleTimeout" Title="Kernel Idle">
+        <PropertyColumn Property="n => n.KernelIdleTimeout" Title="Kernel idle">
             <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">@FormatDuration(context.KernelIdleTimeout)</Text>
         </PropertyColumn>
-        <PropertyColumn Property="n => n.NodeIdleTimeout" Title="Node Idle">
+        <PropertyColumn Property="n => n.NodeIdleTimeout" Title="Node idle">
             <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">@FormatDuration(context.NodeIdleTimeout)</Text>
         </PropertyColumn>
         <ActionColumn Title="Actions">
@@ -141,28 +141,26 @@ else
         <Input @bind-Value="_createVmSize" Placeholder="Standard_D2as_v5" />
     </div>
     <div style="margin-bottom: 4px;">
-        <label style="display: block; font-weight: 600; margin-bottom: 4px;">
-            Kernel Idle Timeout
+        <label style="display: block; font-weight: 600; margin-bottom: 4px;">Kernel idle timeout
             <Text Type="TextElementType.Secondary" Style="font-weight: normal; margin-left: 4px;">(minutes)</Text>
         </label>
         <AntDesign.InputNumber TValue="int?" @bind-Value="_createKernelIdleMinutes" Min="1" Style="width: 100%;" Placeholder="Default" />
         <Text Type="TextElementType.Secondary" Style="font-size: 0.8rem;">How long a kernel can be idle before it is deleted. Leave blank to use the server default.</Text>
     </div>
     <div style="margin-bottom: 16px; margin-top: 12px;">
-        <label style="display: block; font-weight: 600; margin-bottom: 4px;">
-            Node Idle Timeout
+        <label style="display: block; font-weight: 600; margin-bottom: 4px;">Node idle timeout
             <Text Type="TextElementType.Secondary" Style="font-weight: normal; margin-left: 4px;">(minutes)</Text>
         </label>
         <AntDesign.InputNumber TValue="int?" @bind-Value="_createNodeIdleMinutes" Min="1" Style="width: 100%;" Placeholder="Default" />
         <Text Type="TextElementType.Secondary" Style="font-size: 0.8rem;">How long a node with no kernels can be idle before it is stopped. Leave blank to use the server default.</Text>
     </div>
     <div style="margin-bottom: 16px;">
-        <label style="display: block; font-weight: 600; margin-bottom: 4px;">Kernel Requirements (pip)</label>
+        <label style="display: block; font-weight: 600; margin-bottom: 4px;">Kernel requirements (pip)</label>
         <TextArea @bind-Value="_createKernelReqs" Rows="3" Placeholder="@("scipy>=1.14\nscikit-learn>=1.6")" />
         <Text Type="TextElementType.Secondary" Style="font-size: 0.8rem;">One package per line. Installed in the kernel venv at node startup.</Text>
     </div>
     <div style="margin-bottom: 16px;">
-        <label style="display: block; font-weight: 600; margin-bottom: 4px;">Wheel Packages</label>
+        <label style="display: block; font-weight: 600; margin-bottom: 4px;">Wheel packages</label>
         <Select Mode="SelectMode.Multiple"
                 TItem="WheelPackageDto"
                 TItemValue="Guid"

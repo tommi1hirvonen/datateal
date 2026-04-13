@@ -17,13 +17,13 @@
     </Space>
     <Space Size="SpaceSize.Small">
         <SpaceItem>
-            <Button Icon="@IconType.Outline.FolderAdd" OnClick="StartNewFolder">New Folder</Button>
+            <Button Icon="@IconType.Outline.FolderAdd" OnClick="StartNewFolder">New folder</Button>
         </SpaceItem>
         <SpaceItem>
-            <Button Icon="@IconType.Outline.FileAdd" OnClick="StartNewNotebook">New Notebook</Button>
+            <Button Icon="@IconType.Outline.FileAdd" OnClick="StartNewNotebook">New notebook</Button>
         </SpaceItem>
         <SpaceItem>
-            <Button Type="ButtonType.Primary" Icon="@IconType.Outline.Code" OnClick="StartNewQuery">New Query</Button>
+            <Button Type="ButtonType.Primary" Icon="@IconType.Outline.Code" OnClick="StartNewQuery">New query</Button>
         </SpaceItem>
     </Space>
 </Flex>
@@ -209,7 +209,7 @@ else
 }
 
 @* Rename folder modal *@
-<Modal Title="@("Rename Folder")"
+<Modal Title="@("Rename folder")"
        Visible="_renameFolderTarget is not null"
        OnOk="ConfirmRenameFolderAsync"
        OnCancel="CancelRenameFolder"
@@ -219,7 +219,7 @@ else
 </Modal>
 
 @* Rename notebook modal *@
-<Modal Title="@("Rename Notebook")"
+<Modal Title="@("Rename notebook")"
        Visible="_renameNotebookTarget is not null"
        OnOk="ConfirmRenameNotebookAsync"
        OnCancel="CancelRenameNotebook"
@@ -229,7 +229,7 @@ else
 </Modal>
 
 @* Rename query modal *@
-<Modal Title="@("Rename Query")"
+<Modal Title="@("Rename query")"
        Visible="_renameQueryTarget is not null"
        OnOk="ConfirmRenameQueryAsync"
        OnCancel="CancelRenameQuery"

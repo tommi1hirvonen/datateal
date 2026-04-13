@@ -84,7 +84,7 @@
                 <div style="margin-top: 16px;">
                     <div style="margin-bottom: 8px;">
                         <Button Size="@ButtonSize.Small" OnClick="StartAddTask">
-                            <Icon Type="@IconType.Outline.Plus" /> Add Task
+                            <Icon Type="@IconType.Outline.Plus" /> Add task
                         </Button>
                     </div>
                     <Table TItem="EditableTask" DataSource="_editTasks" Size="@TableSize.Small">
@@ -92,7 +92,7 @@
                         <PropertyColumn Property="c => c.TaskType" Title="Type">
                             <Tag Color="@GetTaskTypeColor(context.TaskType)">@context.TaskType</Tag>
                         </PropertyColumn>
-                        <PropertyColumn Property="c => c.NodePoolRef" Title="Node Pool">
+                        <PropertyColumn Property="c => c.NodePoolRef" Title="Node pool">
                             @(context.NodePoolRef ?? "—")
                         </PropertyColumn>
                         <PropertyColumn Property="c => c.MaxRetries" Title="Retries" />
@@ -133,7 +133,7 @@
                 <div style="margin-top: 16px;">
                     <div style="margin-bottom: 8px;">
                         <Button Size="@ButtonSize.Small" OnClick="StartAddParameter">
-                            <Icon Type="@IconType.Outline.Plus" /> Add Parameter
+                            <Icon Type="@IconType.Outline.Plus" /> Add parameter
                         </Button>
                     </div>
                     <Table TItem="EditableParameter" DataSource="_editParams" Size="@TableSize.Small">
@@ -178,7 +178,7 @@
                 <div style="margin-top: 16px;">
                     <div style="margin-bottom: 8px;">
                         <Button Size="@ButtonSize.Small" OnClick="StartAddSchedule">
-                            <Icon Type="@IconType.Outline.Plus" /> Add Schedule
+                            <Icon Type="@IconType.Outline.Plus" /> Add schedule
                         </Button>
                     </div>
                     <Table TItem="ScheduleDto" DataSource="_job.Schedules" Size="@TableSize.Small">
@@ -235,7 +235,7 @@
             </TabPane>
         </Tabs>
 
-        <Modal Title="Add Schedule"
+        <Modal Title="Add schedule"
                Visible="_showScheduleModal"
                OnOk="ConfirmAddSchedule"
                OnCancel="() => _showScheduleModal = false"
@@ -268,7 +268,7 @@
                         </div>
                     }
                     <Button Size="@ButtonSize.Small" OnClick="() => _newScheduleParameters.Add(new())">
-                        <Icon Type="@IconType.Outline.Plus" /> Add Override
+                        <Icon Type="@IconType.Outline.Plus" /> Add override
                     </Button>
                 </div>
             </div>

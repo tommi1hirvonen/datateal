@@ -10,9 +10,9 @@
 
 <div style="padding: 24px;">
     <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-        <h2 style="margin: 0;">Node Pool Configurations</h2>
+        <h2 style="margin: 0;">Node pool configurations</h2>
         <Button Type="@ButtonType.Primary" OnClick="StartCreate">
-            <Icon Type="@IconType.Outline.Plus" /> New Node Pool
+            <Icon Type="@IconType.Outline.Plus" /> New node pool
         </Button>
     </Flex>
 
@@ -25,11 +25,11 @@
     <Spin Spinning="_loading">
         <Table TItem="NodePoolConfigDto" DataSource="_pools" Size="@TableSize.Small">
             <PropertyColumn Property="c => c.Name" Title="Name" Sortable />
-            <PropertyColumn Property="c => c.VmSize" Title="VM Size" />
-            <PropertyColumn Property="c => c.KernelIdleTimeout" Title="Kernel Idle Timeout">
+            <PropertyColumn Property="c => c.VmSize" Title="VM size" />
+            <PropertyColumn Property="c => c.KernelIdleTimeout" Title="Kernel idle timeout">
                 @(context.KernelIdleTimeout.HasValue ? $"{context.KernelIdleTimeout.Value.TotalMinutes:F0} min" : "Default")
             </PropertyColumn>
-            <PropertyColumn Property="c => c.NodeIdleTimeout" Title="Node Idle Timeout">
+            <PropertyColumn Property="c => c.NodeIdleTimeout" Title="Node idle timeout">
                 @(context.NodeIdleTimeout.HasValue ? $"{context.NodeIdleTimeout.Value.TotalMinutes:F0} min" : "Default")
             </PropertyColumn>
             <PropertyColumn Property="c => c.Description" Title="Description">
@@ -58,7 +58,7 @@
         </Table>
     </Spin>
 
-    <Modal Title="@(_editTarget is null ? "New Node Pool" : "Edit Node Pool")"
+    <Modal Title="@(_editTarget is null ? "New node pool" : "Edit node pool")"
            Visible="_showModal"
            OnOk="ConfirmSave"
            OnCancel="() => _showModal = false"
@@ -78,19 +78,19 @@
                 <Input @bind-Value="_formVmSize" Placeholder="Standard_D4as_v5" />
             </div>
             <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Kernel Idle Timeout (minutes)</label>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Kernel idle timeout (minutes)</label>
                 <AntDesign.InputNumber @bind-Value="_formKernelIdleMin" Min="0" />
             </div>
             <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Node Idle Timeout (minutes)</label>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Node idle timeout (minutes)</label>
                 <AntDesign.InputNumber @bind-Value="_formNodeIdleMin" Min="0" />
             </div>
             <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Kernel Requirements (pip)</label>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Kernel requirements (pip)</label>
                 <TextArea @bind-Value="_formKernelReqs" Rows="3" Placeholder="@("scipy>=1.14\nscikit-learn>=1.6")" />
             </div>
             <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Wheel Packages</label>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Wheel packages</label>
                 <Select Mode="SelectMode.Multiple"
                         TItem="WheelPackageDto"
                         TItemValue="Guid"
