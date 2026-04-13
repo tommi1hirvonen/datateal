@@ -3,3 +3,10 @@
         <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)"/>
     </Found>
 </Router>
+
+@code {
+    protected override void OnInitialized()
+    {
+        LocaleProvider.SetLocale("en-US");
+    }
+}
