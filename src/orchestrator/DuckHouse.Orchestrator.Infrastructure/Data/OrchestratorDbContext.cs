@@ -103,6 +103,7 @@ public class OrchestratorDbContext(DbContextOptions<OrchestratorDbContext> optio
             entity.Property(e => e.Trigger).HasConversion<string>().HasMaxLength(32);
             entity.Property(e => e.JobName).HasMaxLength(256).IsRequired();
             entity.Property(e => e.ParametersJson).HasColumnType("jsonb");
+            entity.Property(e => e.SnapshotJson).HasColumnType("jsonb");
             entity.Ignore(e => e.Parameters);
             entity.HasOne(e => e.Job).WithMany().HasForeignKey(e => e.JobId).OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(e => e.ParentRun).WithMany().HasForeignKey(e => e.ParentRunId).OnDelete(DeleteBehavior.SetNull);

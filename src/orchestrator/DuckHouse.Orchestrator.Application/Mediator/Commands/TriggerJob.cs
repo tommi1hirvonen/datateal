@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Orchestrator.Application.Engine;
 using DuckHouse.Orchestrator.Core.Entities;
@@ -17,6 +18,12 @@ internal class TriggerJobHandler(
     IJobRunRepository jobRunRepository,
     RunDispatcher runDispatcher) : IRequestHandler<TriggerJobRequest, JobRun>
 {
+    private static readonly JsonSerializerOptions SnapshotOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        ReferenceHandler = ReferenceHandler.IgnoreCycles,
+    };
+
     public async Task<JobRun> Handle(TriggerJobRequest request, CancellationToken cancellationToken)
     {
         var job = await jobRepository.GetJobAsync(request.JobId, cancellationToken)
@@ -37,6 +44,7 @@ internal class TriggerJobHandler(
             ParametersJson = request.Parameters is { Count: > 0 }
                 ? JsonSerializer.Serialize(request.Parameters)
                 : null,
+            SnapshotJson = JsonSerializer.Serialize(job, SnapshotOptions),
             CreatedAt = DateTime.UtcNow,
         };
 

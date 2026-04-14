@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Enums;
@@ -21,6 +23,12 @@ public class RunCoordinator(
     IMediator mediator,
     ILoggerFactory loggerFactory)
 {
+    private static readonly JsonSerializerOptions SnapshotOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        ReferenceHandler = ReferenceHandler.IgnoreCycles,
+    };
+
     private readonly ILogger<RunCoordinator> _logger = loggerFactory.CreateLogger<RunCoordinator>();
 
     public async Task ExecuteRunAsync(Guid jobRunId, CancellationToken ct)
@@ -28,9 +36,8 @@ public class RunCoordinator(
         var run = await jobRunRepository.GetJobRunAsync(jobRunId, ct)
             ?? throw new InvalidOperationException($"Job run {jobRunId} not found.");
 
-        var job = await jobRepository.GetJobAsync(run.JobId
-                ?? throw new InvalidOperationException($"Job run {jobRunId} has no associated job (job was deleted)."), ct)
-            ?? throw new InvalidOperationException($"Job {run.JobId} not found.");
+        var job = ResolveJob(run)
+            ?? await LoadJobFromDb(run, ct);
 
         _logger.LogInformation("Starting job run {RunId} for job '{JobName}'", jobRunId, job.Name);
 
@@ -342,5 +349,41 @@ public class RunCoordinator(
             taskRun.CompletedAt = DateTime.UtcNow;
             await jobRunRepository.UpdateTaskRunAsync(taskRun, CancellationToken.None);
         }
+    }
+
+    /// <summary>
+    /// Deserializes the job snapshot stored in the run, if present.
+    /// Returns null if the run has no snapshot (backward compatibility with pre-existing runs).
+    /// </summary>
+    private Job? ResolveJob(JobRun run)
+    {
+        if (run.SnapshotJson is null)
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<Job>(run.SnapshotJson, SnapshotOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to deserialize job snapshot for run {RunId}; falling back to live DB", run.Id);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Loads the job from the live database. Used only as a fallback for runs
+    /// that pre-date the snapshot feature.
+    /// </summary>
+    private async Task<Job> LoadJobFromDb(JobRun run, CancellationToken ct)
+    {
+        _logger.LogWarning(
+            "Job run {RunId} has no snapshot; loading live job from DB (run may have been created before snapshot support was added)",
+            run.Id);
+
+        return await jobRepository.GetJobAsync(
+                run.JobId ?? throw new InvalidOperationException(
+                    $"Job run {run.Id} has no snapshot and no associated job (job was deleted)."), ct)
+            ?? throw new InvalidOperationException($"Job {run.JobId} not found.");
     }
 }

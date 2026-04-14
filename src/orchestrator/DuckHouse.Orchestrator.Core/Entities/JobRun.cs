@@ -38,4 +38,10 @@ public class JobRun
     public DateTime? CompletedAt { get; set; }
 
     public List<TaskRun> TaskRuns { get; set; } = [];
+
+    /// <summary>
+    /// JSON snapshot of the job definition (tasks, parameters, configuration) captured at trigger time.
+    /// Used by the RunCoordinator so that edits to the live job never affect an in-progress or recovered run.
+    /// </summary>
+    public string? SnapshotJson { get; set; }
 }
