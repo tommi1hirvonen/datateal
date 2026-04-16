@@ -1,11 +1,11 @@
+using DuckHouse.Data;
 using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Repositories;
-using DuckHouse.Orchestrator.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace DuckHouse.Orchestrator.Infrastructure.Repositories;
 
-internal class JobRepository(OrchestratorDbContext db) : IJobRepository
+internal class JobRepository(DuckHouseDbContext db) : IJobRepository
 {
     public async Task<IReadOnlyList<Job>> GetJobsAsync(CancellationToken cancellationToken = default) =>
         await db.Jobs

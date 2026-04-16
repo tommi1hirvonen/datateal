@@ -1,12 +1,12 @@
+using DuckHouse.Data;
 using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Enums;
 using DuckHouse.Orchestrator.Core.Repositories;
-using DuckHouse.Orchestrator.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace DuckHouse.Orchestrator.Infrastructure.Repositories;
 
-internal class JobRunRepository(OrchestratorDbContext db) : IJobRunRepository
+internal class JobRunRepository(DuckHouseDbContext db) : IJobRunRepository
 {
     public async Task<JobRun?> GetJobRunAsync(Guid id, CancellationToken cancellationToken = default) =>
         await db.JobRuns

@@ -13,6 +13,7 @@
         <ProjectReference Include="..\DuckHouse.Ui.Server.Application\DuckHouse.Ui.Server.Application.csproj" />
         <ProjectReference Include="..\DuckHouse.Ui.Server.Infrastructure\DuckHouse.Ui.Server.Infrastructure.csproj" />
         <ProjectReference Include="..\..\DuckHouse.Ui.Shared\DuckHouse.Ui.Shared.csproj" />
+        <ProjectReference Include="..\..\..\shared\DuckHouse.Data\DuckHouse.Data.csproj" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
         <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design">

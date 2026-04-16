@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="../../app-host/DuckHouse.ServiceDefaults/DuckHouse.ServiceDefaults.csproj" />
     <ProjectReference Include="../../shared/DuckHouse.Core/DuckHouse.Core.csproj" />
+    <ProjectReference Include="../../shared/DuckHouse.Data/DuckHouse.Data.csproj" />
     <ProjectReference Include="..\DuckHouse.Orchestrator.Application\DuckHouse.Orchestrator.Application.csproj" />
     <ProjectReference Include="..\DuckHouse.Orchestrator.Infrastructure\DuckHouse.Orchestrator.Infrastructure.csproj" />
   </ItemGroup>

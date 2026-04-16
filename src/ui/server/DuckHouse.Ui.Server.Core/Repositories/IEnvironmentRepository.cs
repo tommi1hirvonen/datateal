@@ -1,4 +1,4 @@
-using DuckHouse.Ui.Server.Core.Environment;
+using DuckHouse.Core.Environment;
 
 namespace DuckHouse.Ui.Server.Core.Repositories;
 

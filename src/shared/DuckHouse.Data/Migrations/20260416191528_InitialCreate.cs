@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace DuckHouse.Orchestrator.Infrastructure.Migrations
+namespace DuckHouse.Data.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
@@ -12,6 +12,56 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "DataProtectionKeys",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    FriendlyName = table.Column<string>(type: "text", nullable: true),
+                    Xml = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DataProtectionKeys", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "EnvironmentVariables",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Key = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    Value = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EnvironmentVariables", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Folders",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    ParentId = table.Column<Guid>(type: "uuid", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Folders", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Folders_Folders_ParentId",
+                        column: x => x.ParentId,
+                        principalTable: "Folders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateTable(
                 name: "Jobs",
                 columns: table => new
@@ -41,12 +91,74 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                     NodeIdleTimeout = table.Column<TimeSpan>(type: "interval", nullable: true),
                     KernelRequirements = table.Column<string>(type: "text", nullable: true),
                     Description = table.Column<string>(type: "text", nullable: true),
+                    WheelPackageIds = table.Column<string>(type: "jsonb", nullable: true),
+                    EnvironmentVariableIds = table.Column<string>(type: "jsonb", nullable: true),
+                    SecretIds = table.Column<string>(type: "jsonb", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_NodePoolConfigs", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Secrets",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Key = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    EncryptedValue = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Secrets", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WheelPackages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    FileName = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    Data = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Size = table.Column<long>(type: "bigint", nullable: false),
+                    UploadedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WheelPackages", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WorkspaceItems",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Title = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    FolderId = table.Column<Guid>(type: "uuid", nullable: true),
+                    Content = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ItemType = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    LastExecutedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    LastDurationMs = table.Column<double>(type: "double precision", nullable: true),
+                    LastResultStatus = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: true),
+                    LastResultJson = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkspaceItems", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_WorkspaceItems_Folders_FolderId",
+                        column: x => x.FolderId,
+                        principalTable: "Folders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -76,7 +188,8 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    JobId = table.Column<Guid>(type: "uuid", nullable: false),
+                    JobId = table.Column<Guid>(type: "uuid", nullable: true),
+                    JobName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     Status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     Trigger = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     ScheduleId = table.Column<Guid>(type: "uuid", nullable: true),
@@ -85,7 +198,8 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                     ParametersJson = table.Column<string>(type: "jsonb", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     StartedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CompletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    CompletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    SnapshotJson = table.Column<string>(type: "jsonb", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -101,7 +215,7 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                         column: x => x.JobId,
                         principalTable: "Jobs",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -113,7 +227,7 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                     CronExpression = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     IsEnabled = table.Column<bool>(type: "boolean", nullable: false),
                     TimeZone = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
-                    Parameters = table.Column<Dictionary<string, string>>(type: "jsonb", nullable: true),
+                    Parameters = table.Column<string>(type: "jsonb", nullable: true),
                     NextFireTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
@@ -140,12 +254,12 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                     TaskType = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     NotebookId = table.Column<Guid>(type: "uuid", nullable: true),
                     NodePoolRef = table.Column<string>(type: "text", nullable: true),
-                    Parameters = table.Column<Dictionary<string, string>>(type: "jsonb", nullable: true),
+                    Parameters = table.Column<string>(type: "jsonb", nullable: true),
                     QueryId = table.Column<Guid>(type: "uuid", nullable: true),
                     SqlQueryTask_NodePoolRef = table.Column<string>(type: "text", nullable: true),
-                    SqlQueryTask_Parameters = table.Column<Dictionary<string, string>>(type: "jsonb", nullable: true),
+                    SqlQueryTask_Parameters = table.Column<string>(type: "jsonb", nullable: true),
                     SubJobId = table.Column<Guid>(type: "uuid", nullable: true),
-                    SubJobTask_Parameters = table.Column<Dictionary<string, string>>(type: "jsonb", nullable: true)
+                    SubJobTask_Parameters = table.Column<string>(type: "jsonb", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -175,7 +289,7 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                         column: x => x.DependsOnTaskId,
                         principalTable: "JobTasks",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_TaskDependencies_JobTasks_TaskId",
                         column: x => x.TaskId,
@@ -190,7 +304,9 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     JobRunId = table.Column<Guid>(type: "uuid", nullable: false),
-                    TaskId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TaskId = table.Column<Guid>(type: "uuid", nullable: true),
+                    TaskName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    TaskType = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     Status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     AttemptNumber = table.Column<int>(type: "integer", nullable: false),
                     NodeName = table.Column<string>(type: "text", nullable: true),
@@ -216,7 +332,7 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                         column: x => x.TaskId,
                         principalTable: "JobTasks",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -230,6 +346,7 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                     CellType = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     Language = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     Status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    CellRole = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     OutputsJson = table.Column<string>(type: "jsonb", nullable: true),
                     ErrorJson = table.Column<string>(type: "jsonb", nullable: true),
                     ExecutionCount = table.Column<int>(type: "integer", nullable: true),
@@ -247,6 +364,17 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EnvironmentVariables_Key",
+                table: "EnvironmentVariables",
+                column: "Key",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Folders_ParentId",
+                table: "Folders",
+                column: "ParentId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_JobParameters_JobId",
@@ -280,14 +408,21 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                 column: "JobId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_JobTasks_JobId",
+                name: "IX_JobTasks_JobId_Name",
                 table: "JobTasks",
-                column: "JobId");
+                columns: new[] { "JobId", "Name" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_NodePoolConfigs_Name",
                 table: "NodePoolConfigs",
                 column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Secrets_Key",
+                table: "Secrets",
+                column: "Key",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -314,11 +449,42 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                 name: "IX_TaskRuns_TaskId",
                 table: "TaskRuns",
                 column: "TaskId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WheelPackages_Name",
+                table: "WheelPackages",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkspaceItems_FolderId",
+                table: "WorkspaceItems",
+                column: "FolderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkspaceItems_Title_FolderId",
+                table: "WorkspaceItems",
+                columns: new[] { "Title", "FolderId" },
+                unique: true,
+                filter: "\"FolderId\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkspaceItems_Title_Root",
+                table: "WorkspaceItems",
+                column: "Title",
+                unique: true,
+                filter: "\"FolderId\" IS NULL");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "DataProtectionKeys");
+
+            migrationBuilder.DropTable(
+                name: "EnvironmentVariables");
+
             migrationBuilder.DropTable(
                 name: "JobParameters");
 
@@ -329,13 +495,25 @@ namespace DuckHouse.Orchestrator.Infrastructure.Migrations
                 name: "NodePoolConfigs");
 
             migrationBuilder.DropTable(
+                name: "Secrets");
+
+            migrationBuilder.DropTable(
                 name: "TaskDependencies");
 
             migrationBuilder.DropTable(
                 name: "TaskRunCellOutputs");
 
             migrationBuilder.DropTable(
+                name: "WheelPackages");
+
+            migrationBuilder.DropTable(
+                name: "WorkspaceItems");
+
+            migrationBuilder.DropTable(
                 name: "TaskRuns");
+
+            migrationBuilder.DropTable(
+                name: "Folders");
 
             migrationBuilder.DropTable(
                 name: "JobRuns");

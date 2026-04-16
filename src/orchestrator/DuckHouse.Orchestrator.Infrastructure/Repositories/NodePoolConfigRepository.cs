@@ -1,11 +1,11 @@
+using DuckHouse.Data;
 using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Repositories;
-using DuckHouse.Orchestrator.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace DuckHouse.Orchestrator.Infrastructure.Repositories;
 
-internal class NodePoolConfigRepository(OrchestratorDbContext db) : INodePoolConfigRepository
+internal class NodePoolConfigRepository(DuckHouseDbContext db) : INodePoolConfigRepository
 {
     public async Task<IReadOnlyList<NodePoolConfig>> GetAllAsync(CancellationToken cancellationToken = default) =>
         await db.NodePoolConfigs.OrderBy(c => c.Name).ToListAsync(cancellationToken);

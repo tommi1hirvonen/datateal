@@ -1,6 +1,6 @@
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Server.Core.Repositories;
-using DuckHouse.Ui.Server.Core.RuntimePackages;
+using DuckHouse.Core.RuntimePackages;
 
 namespace DuckHouse.Ui.Server.Application.Mediator.Queries;
 

@@ -1,9 +1,9 @@
 using System.Text.Json.Serialization;
+using DuckHouse.Data;
 using DuckHouse.Ui.Server;
 using DuckHouse.Ui.Server.Application;
 using DuckHouse.Ui.Server.Components;
 using DuckHouse.Ui.Server.Infrastructure;
-using DuckHouse.Ui.Server.Infrastructure.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,10 +26,10 @@ builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
 builder.Services.AddDataProtection()
-    .PersistKeysToDbContext<UiDbContext>()
+    .PersistKeysToDbContext<DuckHouseDbContext>()
     .SetApplicationName("DuckHouse");
 
-builder.AddNpgsqlDbContext<UiDbContext>("duckhouse-ui");
+builder.AddNpgsqlDbContext<DuckHouseDbContext>("duckhouse-ui");
 
 builder.Services.AddOrchestratorProxy();
 
@@ -39,7 +39,7 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<UiDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<DuckHouseDbContext>();
     await db.Database.CreateExecutionStrategy().ExecuteAsync(() => db.Database.MigrateAsync());
 }
 

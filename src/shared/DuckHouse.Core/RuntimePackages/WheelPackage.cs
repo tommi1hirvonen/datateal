@@ -1,4 +1,4 @@
-namespace DuckHouse.Ui.Server.Core.RuntimePackages;
+namespace DuckHouse.Core.RuntimePackages;
 
 public class WheelPackage
 {

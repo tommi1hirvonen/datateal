@@ -1,11 +1,11 @@
+using DuckHouse.Data;
 using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Repositories;
-using DuckHouse.Orchestrator.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace DuckHouse.Orchestrator.Infrastructure.Repositories;
 
-internal class ScheduleRepository(OrchestratorDbContext db) : IScheduleRepository
+internal class ScheduleRepository(DuckHouseDbContext db) : IScheduleRepository
 {
     public async Task<IReadOnlyList<JobSchedule>> GetEnabledSchedulesAsync(CancellationToken cancellationToken = default) =>
         await db.JobSchedules

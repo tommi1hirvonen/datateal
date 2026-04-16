@@ -1,11 +1,11 @@
+using DuckHouse.Core.RuntimePackages;
+using DuckHouse.Data;
 using DuckHouse.Ui.Server.Core.Repositories;
-using DuckHouse.Ui.Server.Core.RuntimePackages;
-using DuckHouse.Ui.Server.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace DuckHouse.Ui.Server.Infrastructure.Repositories;
 
-internal class WheelPackageRepository(UiDbContext dbContext) : IWheelPackageRepository
+internal class WheelPackageRepository(DuckHouseDbContext dbContext) : IWheelPackageRepository
 {
     public async Task<IReadOnlyList<WheelPackage>> GetAllAsync(CancellationToken cancellationToken = default) =>
         await dbContext.WheelPackages

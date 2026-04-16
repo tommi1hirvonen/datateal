@@ -1,6 +1,6 @@
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Server.Core.Repositories;
-using DuckHouse.Ui.Server.Core.Workspace;
+using DuckHouse.Core.Workspace;
 using DuckHouse.Ui.Shared.Workspace;
 
 namespace DuckHouse.Ui.Server.Application.Mediator.Queries;

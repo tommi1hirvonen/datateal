@@ -1,10 +1,11 @@
+using DuckHouse.Core.Workspace;
+using DuckHouse.Data;
 using DuckHouse.Ui.Server.Core.Repositories;
-using DuckHouse.Ui.Server.Core.Workspace;
 using Microsoft.EntityFrameworkCore;
 
 namespace DuckHouse.Ui.Server.Infrastructure.Data;
 
-internal class WorkspaceRepository(UiDbContext db) : IWorkspaceRepository
+internal class WorkspaceRepository(DuckHouseDbContext db) : IWorkspaceRepository
 {
     // ── Folders ──────────────────────────────────────────────────────────
 

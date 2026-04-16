@@ -1,4 +1,4 @@
-namespace DuckHouse.Ui.Server.Core.Environment;
+namespace DuckHouse.Core.Environment;
 
 public class Secret
 {

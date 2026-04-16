@@ -17,6 +17,7 @@
   </Folder>
   <Folder Name="/shared/">
     <Project Path="shared/DuckHouse.Core/DuckHouse.Core.csproj" />
+    <Project Path="shared/DuckHouse.Data/DuckHouse.Data.csproj" />
   </Folder>
   <Folder Name="/ui/server/">
       <Project Path="ui/server/DuckHouse.Ui.Server.Application/DuckHouse.Ui.Server.Application.csproj" />

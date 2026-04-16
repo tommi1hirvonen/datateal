@@ -1,10 +1,11 @@
-using DuckHouse.Ui.Server.Core.Environment;
+using DuckHouse.Core.Environment;
+using DuckHouse.Data;
 using DuckHouse.Ui.Server.Core.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace DuckHouse.Ui.Server.Infrastructure.Data;
 
-internal class EnvironmentRepository(UiDbContext db) : IEnvironmentRepository
+internal class EnvironmentRepository(DuckHouseDbContext db) : IEnvironmentRepository
 {
     // ── Environment Variables ───────────────────────────────────────────
 

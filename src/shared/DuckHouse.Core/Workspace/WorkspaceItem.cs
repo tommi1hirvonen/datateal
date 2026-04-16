@@ -1,4 +1,4 @@
-namespace DuckHouse.Ui.Server.Core.Workspace;
+namespace DuckHouse.Core.Workspace;
 
 public abstract class WorkspaceItem
 {
