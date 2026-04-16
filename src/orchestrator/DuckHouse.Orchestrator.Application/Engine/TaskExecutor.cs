@@ -54,6 +54,10 @@ public class TaskExecutor(
 
         var cells = ParseNotebookCells(content.Content);
 
+        // Determine this notebook's folder path for %run relative path resolution
+        var notebookAbsPath = await workspaceReader.ResolveNotebookPathByIdAsync(task.NotebookId, ct);
+        var notebookFolderPath = notebookAbsPath is not null ? GetFolderPath(notebookAbsPath) : "";
+
         var resolvedParameters = ResolveParameters(task.Parameters, jobRunParameters);
 
         // Inject parameters cell if task has parameters and notebook has a parameter cell
@@ -114,10 +118,13 @@ public class TaskExecutor(
                 cellOutput.StartedAt = DateTime.UtcNow;
                 await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
 
-                // Wrap SQL cells
+                // Wrap SQL cells; expand %run magic in Python cells
                 var code = cell.Language == "Sql"
                     ? $"import duckdb; duckdb.sql(\"\"\"{cell.Source}\"\"\")"
                     : cell.Source;
+
+                if (cell.Language != "Sql" && HasRunLines(code))
+                    code = await ExpandRunMagicAsync(code, notebookFolderPath, null, 0, ct);
 
                 try
                 {
@@ -352,6 +359,129 @@ public class TaskExecutor(
             var name = m.Groups[1].Value;
             return jobRunParameters.TryGetValue(name, out var resolved) ? resolved : m.Value;
         });
+
+    // ── %run magic expansion ─────────────────────────────────────────
+
+    private static readonly Regex RunMagicPattern =
+        new(@"^\s*%run\s+(\S+)\s*$", RegexOptions.Multiline | RegexOptions.Compiled);
+
+    private static bool HasRunLines(string source) => RunMagicPattern.IsMatch(source);
+
+    /// <summary>
+    /// Expands %run lines in <paramref name="source"/> by resolving referenced notebook/query
+    /// content relative to <paramref name="baseFolderPath"/>. Supports recursive expansion with
+    /// circular-reference detection and a depth limit.
+    /// </summary>
+    private async Task<string> ExpandRunMagicAsync(
+        string source,
+        string baseFolderPath,
+        HashSet<Guid>? visited,
+        int depth,
+        CancellationToken ct)
+    {
+        if (depth > 10)
+            throw new InvalidOperationException("Maximum %run nesting depth (10) exceeded.");
+
+        visited ??= [];
+
+        var lines = source.Split('\n');
+        bool modified = false;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var match = RunMagicPattern.Match(lines[i]);
+            if (!match.Success) continue;
+
+            var relativePath = match.Groups[1].Value;
+            var absolutePath = ResolvePath(baseFolderPath, relativePath);
+
+            // Try notebook first
+            var notebookId = await workspaceReader.ResolveNotebookIdByPathAsync(absolutePath, ct);
+            if (notebookId is not null)
+            {
+                if (!visited.Add(notebookId.Value))
+                    throw new InvalidOperationException(
+                        $"%run: circular reference detected: {relativePath}");
+
+                var refContent = await workspaceReader.GetNotebookContentAsync(notebookId.Value, ct)
+                    ?? throw new InvalidOperationException(
+                        $"%run: notebook not found: {relativePath}");
+
+                var refCells = ParseNotebookCells(refContent.Content);
+                var cellCode = string.Join("\n", refCells
+                    .Where(c => c.Type == "Code")
+                    .Select(c => c.Language == "Sql"
+                        ? $"import duckdb; duckdb.sql(\"\"\"{c.Source}\"\"\")"
+                        : c.Source)
+                    .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+                // Recurse using the referenced notebook's folder as the new base
+                var refAbsPath = await workspaceReader.ResolveNotebookPathByIdAsync(notebookId.Value, ct);
+                var refFolderPath = refAbsPath is not null ? GetFolderPath(refAbsPath) : baseFolderPath;
+                cellCode = await ExpandRunMagicAsync(cellCode, refFolderPath, visited, depth + 1, ct);
+
+                visited.Remove(notebookId.Value);
+                lines[i] = cellCode;
+                modified = true;
+                continue;
+            }
+
+            // Try query
+            var queryId = await workspaceReader.ResolveQueryIdByPathAsync(absolutePath, ct);
+            if (queryId is not null)
+            {
+                if (!visited.Add(queryId.Value))
+                    throw new InvalidOperationException(
+                        $"%run: circular reference detected: {relativePath}");
+
+                var refContent = await workspaceReader.GetQueryContentAsync(queryId.Value, ct)
+                    ?? throw new InvalidOperationException(
+                        $"%run: query not found: {relativePath}");
+
+                lines[i] = $"import duckdb; duckdb.sql(\"\"\"{refContent.Content}\"\"\")";
+                visited.Remove(queryId.Value);
+                modified = true;
+                continue;
+            }
+
+            throw new InvalidOperationException($"%run: item not found: {relativePath}");
+        }
+
+        return modified ? string.Join("\n", lines) : source;
+    }
+
+    /// <summary>
+    /// Resolves a relative workspace path against a base folder path.
+    /// E.g. base="/folder1" + relative="./env_var_test" → "folder1/env_var_test"
+    /// </summary>
+    private static string ResolvePath(string baseFolderPath, string relativePath)
+    {
+        var segments = baseFolderPath
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .ToList();
+
+        foreach (var part in relativePath.Replace('\\', '/').Split('/'))
+        {
+            if (part is "." or "") continue;
+            if (part == "..")
+            {
+                if (segments.Count > 0)
+                    segments.RemoveAt(segments.Count - 1);
+            }
+            else
+            {
+                segments.Add(part);
+            }
+        }
+
+        return string.Join("/", segments);
+    }
+
+    private static string GetFolderPath(string absoluteItemPath)
+    {
+        var idx = absoluteItemPath.LastIndexOf('/');
+        return idx <= 0 ? "" : absoluteItemPath[..idx];
+    }
 
     /// <summary>
     /// Builds a Python source string that assigns the given parameters as variables,
