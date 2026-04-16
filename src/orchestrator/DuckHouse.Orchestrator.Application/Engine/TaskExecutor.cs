@@ -363,7 +363,7 @@ public class TaskExecutor(
     // ── %run magic expansion ─────────────────────────────────────────
 
     private static readonly Regex RunMagicPattern =
-        new(@"^\s*%run\s+(\S+)\s*$", RegexOptions.Multiline | RegexOptions.Compiled);
+        new(@"^\s*%run\s+(.+?)\s*$", RegexOptions.Multiline | RegexOptions.Compiled);
 
     private static bool HasRunLines(string source) => RunMagicPattern.IsMatch(source);
 
@@ -392,7 +392,7 @@ public class TaskExecutor(
             var match = RunMagicPattern.Match(lines[i]);
             if (!match.Success) continue;
 
-            var relativePath = match.Groups[1].Value;
+            var relativePath = StripRunMagicQuotes(match.Groups[1].Value);
             var absolutePath = ResolvePath(baseFolderPath, relativePath);
 
             // Try notebook first
@@ -449,6 +449,16 @@ public class TaskExecutor(
 
         return modified ? string.Join("\n", lines) : source;
     }
+
+    /// <summary>
+    /// Strips surrounding double or single quotes from a path extracted from a %run line.
+    /// E.g. <c>"./My Folder/My Notebook"</c> → <c>./My Folder/My Notebook</c>.
+    /// </summary>
+    private static string StripRunMagicQuotes(string path) =>
+        path.Length >= 2 &&
+        ((path[0] == '"' && path[^1] == '"') || (path[0] == '\'' && path[^1] == '\''))
+            ? path[1..^1]
+            : path;
 
     /// <summary>
     /// Resolves a relative workspace path against a base folder path.

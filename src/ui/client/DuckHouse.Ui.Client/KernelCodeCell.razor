@@ -120,6 +120,18 @@
         string typedPath,
         BlazorMonaco.Position position)
     {
+        // Strip a surrounding or leading quote so quoted paths work transparently:
+        // e.g. %run "./My Folder/" → strip " → "./My Folder/"
+        int quoteOffset = 0;
+        if (typedPath.Length > 0 && (typedPath[0] == '"' || typedPath[0] == '\''))
+        {
+            char q = typedPath[0];
+            quoteOffset = 1;
+            typedPath = typedPath[1..];
+            if (typedPath.Length > 0 && typedPath[^1] == q)
+                typedPath = typedPath[..^1];
+        }
+
         // Split typed path into directory portion and name prefix
         string dirPath;
         string namePrefix;
@@ -137,11 +149,11 @@
 
         var items = await ProvideRunMagicCompletions!(dirPath);
 
-        // Calculate the column where the name prefix starts (after "%run " and the dir path)
+        // Calculate the column where the name prefix starts (after "%run ", any quote, and the dir path)
         string lineContent = await _model!.GetLineContent(position.LineNumber);
         var match = RunLinePrefix.Match(lineContent);
         int runArgStart = match.Groups[1].Index + 1; // 1-based column
-        int nameStartCol = runArgStart + (lastSlash >= 0 ? lastSlash + 1 : 0);
+        int nameStartCol = runArgStart + quoteOffset + (lastSlash >= 0 ? lastSlash + 1 : 0);
 
         var range = JsonSerializer.SerializeToElement(new
         {

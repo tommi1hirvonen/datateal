@@ -10,8 +10,23 @@ public static partial class RunMagicHelper
 {
     private const int MaxDepth = 10;
 
-    [GeneratedRegex(@"^\s*%run\s+(\S+)\s*$")]
+    // Matches the path argument after %run, capturing everything to end-of-line
+    // (including spaces). Quotes are stripped separately via StripQuotes().
+    [GeneratedRegex(@"^\s*%run\s+(.+?)\s*$")]
     private static partial Regex RunLinePattern();
+
+    /// <summary>
+    /// Strips surrounding double or single quotes from a path string, if present.
+    /// E.g. <c>"./My Folder/My Notebook"</c> → <c>./My Folder/My Notebook</c>.
+    /// </summary>
+    private static string StripQuotes(string path)
+    {
+        if (path.Length >= 2 &&
+            ((path[0] == '"' && path[^1] == '"') ||
+             (path[0] == '\'' && path[^1] == '\'')))
+            return path[1..^1];
+        return path;
+    }
 
     /// <summary>Returns true if the source contains at least one <c>%run</c> line.</summary>
     public static bool HasRunLines(string source) =>
@@ -30,7 +45,7 @@ public static partial class RunMagicHelper
         {
             var match = pattern.Match(lines[i]);
             if (match.Success)
-                result.Add((i, match.Groups[1].Value));
+                result.Add((i, StripQuotes(match.Groups[1].Value)));
         }
         return result;
     }
