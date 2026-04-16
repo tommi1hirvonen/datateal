@@ -22,11 +22,17 @@ public class NotebookCell
     public bool IsExecuting { get; set; }
     public string? ExecutionId { get; set; }
     public bool IsEditingMarkdown { get; set; }
+    /// <summary>
+    /// Cached expanded source after <c>%run</c> resolution. Set after execution,
+    /// used by PriorContextFor() to provide expanded context for completions/diagnostics.
+    /// </summary>
+    public string? CachedExpandedSource { get; set; }
 
     public void ClearOutput()
     {
         Outputs.Clear();
         Error = null;
         DurationMs = null;
+        CachedExpandedSource = null;
     }
 }

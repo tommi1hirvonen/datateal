@@ -69,7 +69,13 @@ internal class WorkspaceRepository(UiDbContext db) : IWorkspaceRepository
         }
     }
 
+    public Task<Folder?> GetFolderByNameAsync(string name, Guid? parentId, CancellationToken cancellationToken = default) =>
+        db.Folders.FirstOrDefaultAsync(f => f.Name == name && f.ParentId == parentId, cancellationToken);
+
     // ── Workspace listing ─────────────────────────────────────────────────
+
+    public Task<WorkspaceItem?> GetItemByTitleAsync(string title, Guid? folderId, CancellationToken cancellationToken = default) =>
+        db.WorkspaceItems.FirstOrDefaultAsync(i => i.Title == title && i.FolderId == folderId, cancellationToken);
 
     public Task<bool> WorkspaceItemTitleExistsAsync(string title, Guid? folderId, Guid? excludeId = null, CancellationToken cancellationToken = default)
     {

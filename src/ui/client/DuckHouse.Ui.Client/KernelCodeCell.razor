@@ -2,7 +2,9 @@
 @using BlazorMonaco.Languages
 @using BlazorMonaco.Editor
 @using DuckHouse.Core.Kernels
+@using DuckHouse.Ui.Client.Notebook
 @using System.Text.Json
+@using System.Text.RegularExpressions
 @inject IKernelService KernelService
 @inject IJSRuntime JsRuntime
 @implements IAsyncDisposable
@@ -29,6 +31,14 @@
     /// Used as context for completions and diagnostics so Jedi/pyflakes can see
     /// variables and imports defined in earlier cells of the same session.</summary>
     [Parameter] public Func<string>? PriorContext { get; set; }
+    /// <summary>
+    /// Optional callback to provide workspace item completions for <c>%run</c> magic lines.
+    /// Given a directory path (e.g., <c>./</c> or <c>../subfolder/</c>), returns folder names,
+    /// notebook titles, and query titles in the resolved folder.
+    /// </summary>
+    [Parameter] public Func<string, Task<IReadOnlyList<RunMagicCompletionItem>>>? ProvideRunMagicCompletions { get; set; }
+
+    private static readonly Regex RunLinePrefix = new(@"^\s*%run\s+(.*)", RegexOptions.Compiled);
 
     private CodeCell _codeCell = default!;
     private TextModel? _model;
@@ -46,7 +56,7 @@
         BlazorMonaco.Languages.Global.RegisterCompletionItemProvider(
             JsRuntime,
             "python",
-            new CompletionItemProvider(new List<string> { "." }, ProvideCompletionsAsync, null));
+            new CompletionItemProvider(new List<string> { ".", "/" }, ProvideCompletionsAsync, null));
 
     private async Task<CompletionList> ProvideCompletionsAsync(
         string modelUri,
@@ -55,6 +65,15 @@
     {
         try
         {
+            // Check if the current line is a %run line
+            if (_model is not null && ProvideRunMagicCompletions is not null)
+            {
+                string lineContent = await _model.GetLineContent(position.LineNumber);
+                var runMatch = RunLinePrefix.Match(lineContent);
+                if (runMatch.Success)
+                    return await ProvideRunMagicCompletionListAsync(runMatch.Groups[1].Value, position);
+            }
+
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
 
             int startCol = position.Column;
@@ -97,6 +116,61 @@
         }
     }
 
+    private async Task<CompletionList> ProvideRunMagicCompletionListAsync(
+        string typedPath,
+        BlazorMonaco.Position position)
+    {
+        // Split typed path into directory portion and name prefix
+        string dirPath;
+        string namePrefix;
+        int lastSlash = typedPath.LastIndexOf('/');
+        if (lastSlash >= 0)
+        {
+            dirPath = typedPath[..(lastSlash + 1)];
+            namePrefix = typedPath[(lastSlash + 1)..];
+        }
+        else
+        {
+            dirPath = "./";
+            namePrefix = typedPath;
+        }
+
+        var items = await ProvideRunMagicCompletions!(dirPath);
+
+        // Calculate the column where the name prefix starts (after "%run " and the dir path)
+        string lineContent = await _model!.GetLineContent(position.LineNumber);
+        var match = RunLinePrefix.Match(lineContent);
+        int runArgStart = match.Groups[1].Index + 1; // 1-based column
+        int nameStartCol = runArgStart + (lastSlash >= 0 ? lastSlash + 1 : 0);
+
+        var range = JsonSerializer.SerializeToElement(new
+        {
+            startLineNumber = position.LineNumber,
+            startColumn = nameStartCol,
+            endLineNumber = position.LineNumber,
+            endColumn = position.Column,
+        });
+
+        var suggestions = items
+            .Where(i => string.IsNullOrEmpty(namePrefix) || i.Label.StartsWith(namePrefix, StringComparison.OrdinalIgnoreCase))
+            .Select(item => new BlazorMonaco.Languages.CompletionItem
+            {
+                Label = JsonSerializer.SerializeToElement(item.Label),
+                Kind = item.Kind switch
+                {
+                    "folder" => BlazorMonaco.Languages.CompletionItemKind.Folder,
+                    _ => BlazorMonaco.Languages.CompletionItemKind.File,
+                },
+                InsertText = item.InsertText,
+                Detail = item.Kind,
+                SortText = item.Kind == "folder" ? "0" + item.Label : "1" + item.Label,
+                Range = range,
+            })
+            .ToList();
+
+        return new CompletionList { Suggestions = suggestions, Incomplete = false };
+    }
+
     private async Task OnValueChangedAsync(string value)
     {
         Value = value;
@@ -123,9 +197,10 @@
         if (_model is null) return;
         try
         {
+            var codeForDiag = RunMagicHelper.ReplaceRunLinesWithPass(value);
             var response = await KernelService.DiagnoseAsync(
                 NodeName, KernelId,
-                new DiagnoseRequest(value, PriorContext?.Invoke() ?? ""),
+                new DiagnoseRequest(codeForDiag, PriorContext?.Invoke() ?? ""),
                 ct);
 
             var markers = response.Diagnostics

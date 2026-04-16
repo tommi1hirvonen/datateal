@@ -202,6 +202,7 @@
                       CanMoveUp="@(index > 0)"
                       CanMoveDown="@(index < _notebook.Cells.Count - 1)"
                       PriorContext="@(() => PriorContextFor(index))"
+                      ProvideRunMagicCompletions="ProvideRunMagicCompletionsAsync"
                       OnExecute="@(() => _ = ExecuteCellAsync(cell))"
                       OnRunAbove="@(() => _ = RunAboveAsync(cell))"
                       OnRunBelow="@(() => _ = RunBelowAsync(cell))"
@@ -461,9 +462,31 @@
         if (_kernel is not null)
             _kernel = _kernel with { Status = KernelStatus.Busy };
 
-        string codeToRun = cell.Language == NotebookCellLanguage.Sql
-            ? $"import duckdb; duckdb.sql(\"\"\"{cell.Source}\"\"\")"
-            : cell.Source;
+        string codeToRun;
+        if (cell.Language == NotebookCellLanguage.Sql)
+        {
+            codeToRun = $"import duckdb; duckdb.sql(\"\"\"{cell.Source}\"\"\")";
+        }
+        else if (RunMagicHelper.HasRunLines(cell.Source))
+        {
+            try
+            {
+                codeToRun = await RunMagicHelper.ExpandAsync(
+                    cell.Source, _workspaceNotebookFolderId, WorkspaceService);
+                cell.CachedExpandedSource = codeToRun;
+            }
+            catch (RunMagicException ex)
+            {
+                cell.Error = new ErrorInfo("RunMagicError", ex.Message, []);
+                cell.IsExecuting = false;
+                return;
+            }
+        }
+        else
+        {
+            codeToRun = cell.Source;
+            cell.CachedExpandedSource = null;
+        }
 
         try
         {
@@ -595,9 +618,39 @@
         return string.Join("\n", _notebook.Cells
             .Take(cellIndex)
             .Where(c => c.CellType == NotebookCellType.Code)
-            .Select(c => c.Language == NotebookCellLanguage.Sql
-                ? $"import duckdb; duckdb.sql(\"\"\"{c.Source}\"\"\")"
-                : c.Source));
+            .Select(c =>
+            {
+                if (c.Language == NotebookCellLanguage.Sql)
+                    return $"import duckdb; duckdb.sql(\"\"\"{c.Source}\"\"\")";
+                if (c.CachedExpandedSource is not null)
+                    return c.CachedExpandedSource;
+                return RunMagicHelper.ReplaceRunLinesWithPass(c.Source);
+            }));
+    }
+
+    private async Task<IReadOnlyList<RunMagicCompletionItem>> ProvideRunMagicCompletionsAsync(string directoryPath)
+    {
+        try
+        {
+            var resolved = await WorkspaceService.ResolvePathAsync(
+                directoryPath.EndsWith('/') ? directoryPath : directoryPath + "/",
+                _workspaceNotebookFolderId);
+
+            if (resolved?.Listing is null) return [];
+
+            var items = new List<RunMagicCompletionItem>();
+            foreach (var f in resolved.Listing.Folders)
+                items.Add(new(f.Name + "/", "folder", f.Name + "/"));
+            foreach (var n in resolved.Listing.Notebooks)
+                items.Add(new(n.Title, "notebook", n.Title));
+            foreach (var q in resolved.Listing.Queries)
+                items.Add(new(q.Title, "query", q.Title));
+            return items;
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     private async Task OpenFileDialogAsync()

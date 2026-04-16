@@ -33,6 +33,18 @@ internal class WorkspaceService(HttpClient httpClient) : IWorkspaceService
         return await response.Content.ReadFromJsonAsync<NotebookDetail>(JsonOptions, cancellationToken);
     }
 
+    public async Task<ResolvedWorkspaceItem?> ResolvePathAsync(string relativePath, Guid? baseFolderId, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync(
+            "api/workspace/resolve",
+            new ResolvePathRequest(relativePath, baseFolderId),
+            JsonOptions,
+            cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<ResolvedWorkspaceItem>(JsonOptions, cancellationToken);
+    }
+
     public async Task<FolderSummary> CreateFolderAsync(CreateFolderRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync("api/workspace/folders", request, JsonOptions, cancellationToken);

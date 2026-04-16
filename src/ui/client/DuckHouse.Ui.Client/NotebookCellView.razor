@@ -214,6 +214,7 @@
                             KernelId="@(KernelId ?? "")"
                             ReadOnly="@Cell.IsExecuting"
                             PriorContext="PriorContext"
+                            ProvideRunMagicCompletions="ProvideRunMagicCompletions"
                             OnExecute="OnExecute"
                             Class="editor-cell" />
         }
@@ -333,6 +334,7 @@
     [Parameter] public bool CanMoveUp { get; set; }
     [Parameter] public bool CanMoveDown { get; set; }
     [Parameter] public Func<string>? PriorContext { get; set; }
+    [Parameter] public Func<string, Task<IReadOnlyList<RunMagicCompletionItem>>>? ProvideRunMagicCompletions { get; set; }
     [Parameter] public EventCallback OnExecute { get; set; }
     [Parameter] public EventCallback OnRunAbove { get; set; }
     [Parameter] public EventCallback OnRunBelow { get; set; }

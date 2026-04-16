@@ -13,8 +13,14 @@ public interface IWorkspaceRepository
     Task<Folder?> UpdateFolderAsync(Guid id, string name, Guid? parentId, CancellationToken cancellationToken = default);
     Task DeleteFolderAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Finds a child folder by name within a parent folder.</summary>
+    Task<Folder?> GetFolderByNameAsync(string name, Guid? parentId, CancellationToken cancellationToken = default);
+
     // Workspace listing (returns polymorphic items — callers use pattern matching)
     Task<IReadOnlyList<WorkspaceItem>> GetItemsInAsync(Guid? folderId, CancellationToken cancellationToken = default);
+
+    /// <summary>Finds a workspace item (notebook or query) by title within a folder.</summary>
+    Task<WorkspaceItem?> GetItemByTitleAsync(string title, Guid? folderId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns true if any WorkspaceItem (notebook or query) in <paramref name="folderId"/> has
