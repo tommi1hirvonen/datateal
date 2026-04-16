@@ -6,158 +6,161 @@
 
 <PageTitle>Environment — DuckHouse</PageTitle>
 
-<div style="padding: 24px;">
-    <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-        <h2 style="margin: 0;">Environment</h2>
-    </Flex>
+<Space>
+    <SpaceItem>
+        <Icon Height="24px" Width="24px" Type="@IconType.Outline.Tool" />
+    </SpaceItem>
+    <SpaceItem>
+        <h2>Environment</h2>
+    </SpaceItem>
+</Space>
+  
+@if (!string.IsNullOrEmpty(_error))
+{
+    <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
+            Style="margin-bottom: 16px;" />
+}
 
-    @if (!string.IsNullOrEmpty(_error))
-    {
-        <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
-               Style="margin-bottom: 16px;" />
-    }
-
-    <Tabs DefaultActiveKey="variables">
-        <TabPane Key="variables" Tab="Variables">
-            <Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
-                <Button Type="@ButtonType.Primary" OnClick="StartCreateVariable">
-                    <Icon Type="@IconType.Outline.Plus" /> New variable
-                </Button>
-            </Flex>
-            <Spin Spinning="_loadingVars">
-                <Table TItem="EnvironmentVariableDto" DataSource="_variables" Size="@TableSize.Small">
-                    <PropertyColumn Property="v => v.Key" Title="Key" Sortable>
-                        <span style="font-family: monospace;">@context.Key</span>
-                    </PropertyColumn>
-                    <PropertyColumn Property="v => v.Value" Title="Value">
-                        <span style="font-family: monospace;">@context.Value</span>
-                    </PropertyColumn>
-                    <PropertyColumn Property="v => v.Description" Title="Description">
-                        @(context.Description ?? "—")
-                    </PropertyColumn>
-                    <PropertyColumn Property="v => v.UpdatedAt" Title="Updated" Sortable>
-                        @context.UpdatedAt.ToString("yyyy-MM-dd")
-                    </PropertyColumn>
-                    <ActionColumn Title="Actions">
-                        <Space>
-                            <SpaceItem>
-                                <Button Size="@ButtonSize.Small" OnClick="() => StartEditVariable(context)">
-                                    <Icon Type="@IconType.Outline.Edit" />
+<Tabs DefaultActiveKey="variables">
+    <TabPane Key="variables" Tab="Variables">
+        <Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
+            <Button Type="@ButtonType.Primary" OnClick="StartCreateVariable">
+                <Icon Type="@IconType.Outline.Plus" /> New variable
+            </Button>
+        </Flex>
+        <Spin Spinning="_loadingVars">
+            <Table TItem="EnvironmentVariableDto" DataSource="_variables" Size="@TableSize.Small">
+                <PropertyColumn Property="v => v.Key" Title="Key" Sortable>
+                    <span style="font-family: monospace;">@context.Key</span>
+                </PropertyColumn>
+                <PropertyColumn Property="v => v.Value" Title="Value">
+                    <span style="font-family: monospace;">@context.Value</span>
+                </PropertyColumn>
+                <PropertyColumn Property="v => v.Description" Title="Description">
+                    @(context.Description ?? "—")
+                </PropertyColumn>
+                <PropertyColumn Property="v => v.UpdatedAt" Title="Updated" Sortable>
+                    @context.UpdatedAt.ToString("yyyy-MM-dd")
+                </PropertyColumn>
+                <ActionColumn Title="Actions">
+                    <Space>
+                        <SpaceItem>
+                            <Button Size="@ButtonSize.Small" OnClick="() => StartEditVariable(context)">
+                                <Icon Type="@IconType.Outline.Edit" />
+                            </Button>
+                        </SpaceItem>
+                        <SpaceItem>
+                            <Popconfirm Title="@($"Delete variable '{context.Key}'?")"
+                                        OnConfirm="() => DeleteVariableAsync(context)">
+                                <Button Danger Size="@ButtonSize.Small">
+                                    <Icon Type="@IconType.Outline.Delete" />
                                 </Button>
-                            </SpaceItem>
-                            <SpaceItem>
-                                <Popconfirm Title="@($"Delete variable '{context.Key}'?")"
-                                            OnConfirm="() => DeleteVariableAsync(context)">
-                                    <Button Danger Size="@ButtonSize.Small">
-                                        <Icon Type="@IconType.Outline.Delete" />
-                                    </Button>
-                                </Popconfirm>
-                            </SpaceItem>
-                        </Space>
-                    </ActionColumn>
-                </Table>
-            </Spin>
-        </TabPane>
+                            </Popconfirm>
+                        </SpaceItem>
+                    </Space>
+                </ActionColumn>
+            </Table>
+        </Spin>
+    </TabPane>
 
-        <TabPane Key="secrets" Tab="Secrets">
-            <Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
-                <Button Type="@ButtonType.Primary" OnClick="StartCreateSecret">
-                    <Icon Type="@IconType.Outline.Plus" /> New secret
-                </Button>
-            </Flex>
-            <Spin Spinning="_loadingSecrets">
-                <Table TItem="SecretDto" DataSource="_secrets" Size="@TableSize.Small">
-                    <PropertyColumn Property="s => s.Key" Title="Key" Sortable>
-                        <span style="font-family: monospace;">@context.Key</span>
-                    </PropertyColumn>
-                    <PropertyColumn Property="s => s.Description" Title="Description">
-                        @(context.Description ?? "—")
-                    </PropertyColumn>
-                    <PropertyColumn Property="s => s.UpdatedAt" Title="Updated" Sortable>
-                        @context.UpdatedAt.ToString("yyyy-MM-dd")
-                    </PropertyColumn>
-                    <ActionColumn Title="Actions">
-                        <Space>
-                            <SpaceItem>
-                                <Button Size="@ButtonSize.Small" OnClick="() => StartEditSecret(context)">
-                                    <Icon Type="@IconType.Outline.Edit" />
+    <TabPane Key="secrets" Tab="Secrets">
+        <Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
+            <Button Type="@ButtonType.Primary" OnClick="StartCreateSecret">
+                <Icon Type="@IconType.Outline.Plus" /> New secret
+            </Button>
+        </Flex>
+        <Spin Spinning="_loadingSecrets">
+            <Table TItem="SecretDto" DataSource="_secrets" Size="@TableSize.Small">
+                <PropertyColumn Property="s => s.Key" Title="Key" Sortable>
+                    <span style="font-family: monospace;">@context.Key</span>
+                </PropertyColumn>
+                <PropertyColumn Property="s => s.Description" Title="Description">
+                    @(context.Description ?? "—")
+                </PropertyColumn>
+                <PropertyColumn Property="s => s.UpdatedAt" Title="Updated" Sortable>
+                    @context.UpdatedAt.ToString("yyyy-MM-dd")
+                </PropertyColumn>
+                <ActionColumn Title="Actions">
+                    <Space>
+                        <SpaceItem>
+                            <Button Size="@ButtonSize.Small" OnClick="() => StartEditSecret(context)">
+                                <Icon Type="@IconType.Outline.Edit" />
+                            </Button>
+                        </SpaceItem>
+                        <SpaceItem>
+                            <Popconfirm Title="@($"Delete secret '{context.Key}'?")"
+                                        OnConfirm="() => DeleteSecretAsync(context)">
+                                <Button Danger Size="@ButtonSize.Small">
+                                    <Icon Type="@IconType.Outline.Delete" />
                                 </Button>
-                            </SpaceItem>
-                            <SpaceItem>
-                                <Popconfirm Title="@($"Delete secret '{context.Key}'?")"
-                                            OnConfirm="() => DeleteSecretAsync(context)">
-                                    <Button Danger Size="@ButtonSize.Small">
-                                        <Icon Type="@IconType.Outline.Delete" />
-                                    </Button>
-                                </Popconfirm>
-                            </SpaceItem>
-                        </Space>
-                    </ActionColumn>
-                </Table>
-            </Spin>
-        </TabPane>
-    </Tabs>
+                            </Popconfirm>
+                        </SpaceItem>
+                    </Space>
+                </ActionColumn>
+            </Table>
+        </Spin>
+    </TabPane>
+</Tabs>
 
-    @* Variable modal *@
-    <Modal Title="@(_editVarTarget is null ? "New variable" : "Edit variable")"
-           Visible="_showVarModal"
-           OnOk="ConfirmSaveVariable"
-           OnCancel="() => _showVarModal = false"
-           OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_formVarKey) || string.IsNullOrWhiteSpace(_formVarValue) || ValidationHelper.ValidateEnvVarKey(_formVarKey) is not null })">
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Key</label>
-                <Input @bind-Value="_formVarKey" Placeholder="MY_VARIABLE"
-                       Status="@(ValidationHelper.ValidateEnvVarKey(_formVarKey) is not null ? "error" : "")" />
-                @if (ValidationHelper.ValidateEnvVarKey(_formVarKey) is { } keyErr)
-                {
-                    <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@keyErr</div>
-                }
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Value</label>
-                <Input @bind-Value="_formVarValue" Placeholder="https://example.com" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Description</label>
-                <TextArea @bind-Value="_formVarDescription" Rows="2" />
-            </div>
+@* Variable modal *@
+<Modal Title="@(_editVarTarget is null ? "New variable" : "Edit variable")"
+        Visible="_showVarModal"
+        OnOk="ConfirmSaveVariable"
+        OnCancel="() => _showVarModal = false"
+        OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_formVarKey) || string.IsNullOrWhiteSpace(_formVarValue) || ValidationHelper.ValidateEnvVarKey(_formVarKey) is not null })">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Key</label>
+            <Input @bind-Value="_formVarKey" Placeholder="MY_VARIABLE"
+                    Status="@(ValidationHelper.ValidateEnvVarKey(_formVarKey) is not null ? "error" : "")" />
+            @if (ValidationHelper.ValidateEnvVarKey(_formVarKey) is { } keyErr)
+            {
+                <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@keyErr</div>
+            }
         </div>
-    </Modal>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Value</label>
+            <Input @bind-Value="_formVarValue" Placeholder="https://example.com" />
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Description</label>
+            <TextArea @bind-Value="_formVarDescription" Rows="2" />
+        </div>
+    </div>
+</Modal>
 
-    @* Secret modal *@
-    <Modal Title="@(_editSecretTarget is null ? "New secret" : "Edit secret")"
-           Visible="_showSecretModal"
-           OnOk="ConfirmSaveSecret"
-           OnCancel="() => _showSecretModal = false"
-           OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_formSecretKey) || (_editSecretTarget is null && string.IsNullOrWhiteSpace(_formSecretValue)) || ValidationHelper.ValidateEnvVarKey(_formSecretKey) is not null })">
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Key</label>
-                <Input @bind-Value="_formSecretKey" Placeholder="API_TOKEN"
-                       Status="@(ValidationHelper.ValidateEnvVarKey(_formSecretKey) is not null ? "error" : "")" />
-                @if (ValidationHelper.ValidateEnvVarKey(_formSecretKey) is { } secretKeyErr)
-                {
-                    <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@secretKeyErr</div>
-                }
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">
-                    Value
-                    @if (_editSecretTarget is not null)
-                    {
-                        <span style="font-weight: normal; color: #8c8c8c; margin-left: 4px;">(leave blank to keep current)</span>
-                    }
-                </label>
-                <InputPassword @bind-Value="_formSecretValue" Placeholder="@(_editSecretTarget is not null ? "••••••••" : "Enter secret value")" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Description</label>
-                <TextArea @bind-Value="_formSecretDescription" Rows="2" />
-            </div>
+@* Secret modal *@
+<Modal Title="@(_editSecretTarget is null ? "New secret" : "Edit secret")"
+        Visible="_showSecretModal"
+        OnOk="ConfirmSaveSecret"
+        OnCancel="() => _showSecretModal = false"
+        OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_formSecretKey) || (_editSecretTarget is null && string.IsNullOrWhiteSpace(_formSecretValue)) || ValidationHelper.ValidateEnvVarKey(_formSecretKey) is not null })">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Key</label>
+            <Input @bind-Value="_formSecretKey" Placeholder="API_TOKEN"
+                    Status="@(ValidationHelper.ValidateEnvVarKey(_formSecretKey) is not null ? "error" : "")" />
+            @if (ValidationHelper.ValidateEnvVarKey(_formSecretKey) is { } secretKeyErr)
+            {
+                <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@secretKeyErr</div>
+            }
         </div>
-    </Modal>
-</div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">
+                Value
+                @if (_editSecretTarget is not null)
+                {
+                    <span style="font-weight: normal; color: #8c8c8c; margin-left: 4px;">(leave blank to keep current)</span>
+                }
+            </label>
+            <InputPassword @bind-Value="_formSecretValue" Placeholder="@(_editSecretTarget is not null ? "••••••••" : "Enter secret value")" />
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Description</label>
+            <TextArea @bind-Value="_formSecretDescription" Rows="2" />
+        </div>
+    </div>
+</Modal>
 
 @code {
     private IReadOnlyList<EnvironmentVariableDto> _variables = [];

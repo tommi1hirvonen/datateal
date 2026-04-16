@@ -14,11 +14,11 @@
         <span>Nodes</span>
     </MenuItem>
     <MenuItem Key="notebook" OnClick="@(() => Navigation.NavigateTo("/workspace"))">
-        <Icon Type="@IconType.Outline.Snippets" />
+        <Icon Type="@IconType.Outline.FolderOpen" />
         <span>Workspace</span>
     </MenuItem>
     <MenuItem Key="jobs" OnClick="@(() => Navigation.NavigateTo("/jobs"))">
-        <Icon Type="@IconType.Outline.Apartment" />
+        <Icon Type="@IconType.Outline.Partition" />
         <span>Jobs</span>
     </MenuItem>
     <MenuItem Key="node-pools" OnClick="@(() => Navigation.NavigateTo("/node-pools"))">
@@ -26,7 +26,7 @@
         <span>Node pools</span>
     </MenuItem>
     <MenuItem Key="environment" OnClick="@(() => Navigation.NavigateTo("/environment"))">
-        <Icon Type="@IconType.Outline.Key" />
+        <Icon Type="@IconType.Outline.Tool" />
         <span>Environment</span>
     </MenuItem>
     <MenuItem Key="packages" OnClick="@(() => Navigation.NavigateTo("/packages"))">

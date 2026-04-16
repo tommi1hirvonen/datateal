@@ -9,18 +9,24 @@
 <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
     <Space Align="SpaceAlign.Center" Size="SpaceSize.Small">
         <SpaceItem>
-            <Icon Height="24px" Width="24px" Type="@IconType.Outline.Apartment" />
+            <Icon Height="24px" Width="24px" Type="@IconType.Outline.Partition" />
         </SpaceItem>
         <SpaceItem>
             <h2 style="margin: 0;">Jobs</h2>
         </SpaceItem>
     </Space>
-    <Button Type="@ButtonType.Primary" OnClick="StartCreate">
-        <Icon Type="@IconType.Outline.Plus" /> New job
-    </Button>
-    <Button OnClick="StartImport" Style="margin-left: 8px;">
-        <Icon Type="@IconType.Outline.Upload" /> Import
-    </Button>
+    <Space>
+        <SpaceItem>
+            <Button Type="@ButtonType.Primary" OnClick="StartCreate">
+                <Icon Type="@IconType.Outline.Plus" /> New job
+            </Button>
+        </SpaceItem>
+        <SpaceItem>
+            <Button OnClick="StartImport" Style="margin-left: 8px;">
+                <Icon Type="@IconType.Outline.Upload" /> Import
+            </Button>
+        </SpaceItem>
+    </Space>
 </Flex>
 
 @if (!string.IsNullOrEmpty(_error))

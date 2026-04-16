@@ -10,130 +10,139 @@
 
 <PageTitle>Node Pools — DuckHouse</PageTitle>
 
-<div style="padding: 24px;">
-    <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-        <h2 style="margin: 0;">Node pool configurations</h2>
-        <Button Type="@ButtonType.Primary" OnClick="StartCreate">
-            <Icon Type="@IconType.Outline.Plus" /> New node pool
-        </Button>
-    </Flex>
+<Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 24px;" Gap="FlexGap.Small">
+    <Space Align="SpaceAlign.End" Size="SpaceSize.Middle">
+        <SpaceItem>
+            <Icon Height="24px" Width="24px" Type="@IconType.Outline.Cluster" />
+        </SpaceItem>
+        <SpaceItem>
+            <h2 style="margin: 0;">Node pool configurations</h2>
+        </SpaceItem>
+    </Space>
+    <Space>
+        <SpaceItem>
+            <Button Type="@ButtonType.Primary" OnClick="StartCreate">
+                <Icon Type="@IconType.Outline.Plus" /> New node pool
+            </Button>
+        </SpaceItem>
+    </Space>
+</Flex>
 
-    @if (!string.IsNullOrEmpty(_error))
-    {
-        <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
-               Style="margin-bottom: 16px;" />
-    }
+@if (!string.IsNullOrEmpty(_error))
+{
+    <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
+            Style="margin-bottom: 16px;" />
+}
 
-    <Spin Spinning="_loading">
-        <Table TItem="NodePoolConfigDto" DataSource="_pools" Size="@TableSize.Small">
-            <PropertyColumn Property="c => c.Name" Title="Name" Sortable />
-            <PropertyColumn Property="c => c.VmSize" Title="VM size" />
-            <PropertyColumn Property="c => c.KernelIdleTimeout" Title="Kernel idle timeout">
-                @(context.KernelIdleTimeout.HasValue ? $"{context.KernelIdleTimeout.Value.TotalMinutes:F0} min" : "Default")
-            </PropertyColumn>
-            <PropertyColumn Property="c => c.NodeIdleTimeout" Title="Node idle timeout">
-                @(context.NodeIdleTimeout.HasValue ? $"{context.NodeIdleTimeout.Value.TotalMinutes:F0} min" : "Default")
-            </PropertyColumn>
-            <PropertyColumn Property="c => c.Description" Title="Description">
-                @(context.Description ?? "—")
-            </PropertyColumn>
-            <PropertyColumn Property="c => c.UpdatedAt" Title="Updated" Sortable>
-                @context.UpdatedAt.ToString("yyyy-MM-dd")
-            </PropertyColumn>
-            <ActionColumn Title="Actions">
-                <Space>
-                    <SpaceItem>
-                        <Button Size="@ButtonSize.Small" OnClick="() => StartEdit(context)">
-                            <Icon Type="@IconType.Outline.Edit" />
+<Spin Spinning="_loading">
+    <Table TItem="NodePoolConfigDto" DataSource="_pools" Size="@TableSize.Small">
+        <PropertyColumn Property="c => c.Name" Title="Name" Sortable />
+        <PropertyColumn Property="c => c.VmSize" Title="VM size" />
+        <PropertyColumn Property="c => c.KernelIdleTimeout" Title="Kernel idle timeout">
+            @(context.KernelIdleTimeout.HasValue ? $"{context.KernelIdleTimeout.Value.TotalMinutes:F0} min" : "Default")
+        </PropertyColumn>
+        <PropertyColumn Property="c => c.NodeIdleTimeout" Title="Node idle timeout">
+            @(context.NodeIdleTimeout.HasValue ? $"{context.NodeIdleTimeout.Value.TotalMinutes:F0} min" : "Default")
+        </PropertyColumn>
+        <PropertyColumn Property="c => c.Description" Title="Description">
+            @(context.Description ?? "—")
+        </PropertyColumn>
+        <PropertyColumn Property="c => c.UpdatedAt" Title="Updated" Sortable>
+            @context.UpdatedAt.ToString("yyyy-MM-dd")
+        </PropertyColumn>
+        <ActionColumn Title="Actions">
+            <Space>
+                <SpaceItem>
+                    <Button Size="@ButtonSize.Small" OnClick="() => StartEdit(context)">
+                        <Icon Type="@IconType.Outline.Edit" />
+                    </Button>
+                </SpaceItem>
+                <SpaceItem>
+                    <Popconfirm Title="@($"Delete node pool '{context.Name}'?")"
+                                OnConfirm="() => DeleteAsync(context)">
+                        <Button Danger Size="@ButtonSize.Small">
+                            <Icon Type="@IconType.Outline.Delete" />
                         </Button>
-                    </SpaceItem>
-                    <SpaceItem>
-                        <Popconfirm Title="@($"Delete node pool '{context.Name}'?")"
-                                    OnConfirm="() => DeleteAsync(context)">
-                            <Button Danger Size="@ButtonSize.Small">
-                                <Icon Type="@IconType.Outline.Delete" />
-                            </Button>
-                        </Popconfirm>
-                    </SpaceItem>
-                </Space>
-            </ActionColumn>
-        </Table>
-    </Spin>
+                    </Popconfirm>
+                </SpaceItem>
+            </Space>
+        </ActionColumn>
+    </Table>
+</Spin>
 
-    <Modal Title="@(_editTarget is null ? "New node pool" : "Edit node pool")"
-           Visible="_showModal"
-           OnOk="ConfirmSave"
-           OnCancel="() => _showModal = false"
-           OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_formName) || string.IsNullOrWhiteSpace(_formVmSize) || ValidationHelper.ValidateNodePoolName(_formName) is not null })">
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Name</label>
-                <Input @bind-Value="_formName" Placeholder="analytics-node"
-                       Status="@(ValidationHelper.ValidateNodePoolName(_formName) is not null ? "error" : "")" />
-                @if (ValidationHelper.ValidateNodePoolName(_formName) is { } poolNameErr)
-                {
-                    <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@poolNameErr</div>
-                }
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">VM Size</label>
-                <Input @bind-Value="_formVmSize" Placeholder="Standard_D4as_v5" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Kernel idle timeout (minutes)</label>
-                <AntDesign.InputNumber @bind-Value="_formKernelIdleMin" Min="0" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Node idle timeout (minutes)</label>
-                <AntDesign.InputNumber @bind-Value="_formNodeIdleMin" Min="0" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Kernel requirements (pip)</label>
-                <TextArea @bind-Value="_formKernelReqs" Rows="3" Placeholder="@("scipy>=1.14\nscikit-learn>=1.6")" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Wheel packages</label>
-                <Select Mode="SelectMode.Multiple"
-                        TItem="WheelPackageDto"
-                        TItemValue="Guid"
-                        DataSource="_availablePackages"
-                        LabelName="@nameof(WheelPackageDto.Name)"
-                        ValueName="@nameof(WheelPackageDto.Id)"
-                        @bind-Values="_formWheelPackageIds"
-                        Placeholder="Select packages to install"
-                        Style="width: 100%;" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Environment variables</label>
-                <Select Mode="SelectMode.Multiple"
-                        TItem="EnvironmentVariableDto"
-                        TItemValue="Guid"
-                        DataSource="_availableEnvVars"
-                        LabelName="@nameof(EnvironmentVariableDto.Key)"
-                        ValueName="@nameof(EnvironmentVariableDto.Id)"
-                        @bind-Values="_formEnvVarIds"
-                        Placeholder="Select environment variables"
-                        Style="width: 100%;" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Secrets</label>
-                <Select Mode="SelectMode.Multiple"
-                        TItem="SecretDto"
-                        TItemValue="Guid"
-                        DataSource="_availableSecrets"
-                        LabelName="@nameof(SecretDto.Key)"
-                        ValueName="@nameof(SecretDto.Id)"
-                        @bind-Values="_formSecretIds"
-                        Placeholder="Select secrets"
-                        Style="width: 100%;" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Description</label>
-                <TextArea @bind-Value="_formDescription" Rows="2" />
-            </div>
+<Modal Title="@(_editTarget is null ? "New node pool" : "Edit node pool")"
+        Visible="_showModal"
+        OnOk="ConfirmSave"
+        OnCancel="() => _showModal = false"
+        OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_formName) || string.IsNullOrWhiteSpace(_formVmSize) || ValidationHelper.ValidateNodePoolName(_formName) is not null })">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Name</label>
+            <Input @bind-Value="_formName" Placeholder="analytics-node"
+                    Status="@(ValidationHelper.ValidateNodePoolName(_formName) is not null ? "error" : "")" />
+            @if (ValidationHelper.ValidateNodePoolName(_formName) is { } poolNameErr)
+            {
+                <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@poolNameErr</div>
+            }
         </div>
-    </Modal>
-</div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">VM Size</label>
+            <Input @bind-Value="_formVmSize" Placeholder="Standard_D4as_v5" />
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Kernel idle timeout (minutes)</label>
+            <AntDesign.InputNumber @bind-Value="_formKernelIdleMin" Min="0" />
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Node idle timeout (minutes)</label>
+            <AntDesign.InputNumber @bind-Value="_formNodeIdleMin" Min="0" />
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Kernel requirements (pip)</label>
+            <TextArea @bind-Value="_formKernelReqs" Rows="3" Placeholder="@("scipy>=1.14\nscikit-learn>=1.6")" />
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Wheel packages</label>
+            <Select Mode="SelectMode.Multiple"
+                    TItem="WheelPackageDto"
+                    TItemValue="Guid"
+                    DataSource="_availablePackages"
+                    LabelName="@nameof(WheelPackageDto.Name)"
+                    ValueName="@nameof(WheelPackageDto.Id)"
+                    @bind-Values="_formWheelPackageIds"
+                    Placeholder="Select packages to install"
+                    Style="width: 100%;" />
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Environment variables</label>
+            <Select Mode="SelectMode.Multiple"
+                    TItem="EnvironmentVariableDto"
+                    TItemValue="Guid"
+                    DataSource="_availableEnvVars"
+                    LabelName="@nameof(EnvironmentVariableDto.Key)"
+                    ValueName="@nameof(EnvironmentVariableDto.Id)"
+                    @bind-Values="_formEnvVarIds"
+                    Placeholder="Select environment variables"
+                    Style="width: 100%;" />
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Secrets</label>
+            <Select Mode="SelectMode.Multiple"
+                    TItem="SecretDto"
+                    TItemValue="Guid"
+                    DataSource="_availableSecrets"
+                    LabelName="@nameof(SecretDto.Key)"
+                    ValueName="@nameof(SecretDto.Id)"
+                    @bind-Values="_formSecretIds"
+                    Placeholder="Select secrets"
+                    Style="width: 100%;" />
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Description</label>
+            <TextArea @bind-Value="_formDescription" Rows="2" />
+        </div>
+    </div>
+</Modal>
 
 @code {
     private IReadOnlyList<NodePoolConfigDto> _pools = [];
