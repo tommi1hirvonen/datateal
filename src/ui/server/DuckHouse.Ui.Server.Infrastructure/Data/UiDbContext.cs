@@ -42,6 +42,17 @@ public class UiDbContext(DbContextOptions<UiDbContext> options) : DbContext(opti
                 .HasForeignKey(e => e.FolderId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Unique title within each folder (notebooks and queries share the same namespace).
+            // Two partial indexes handle the nullable FolderId: one for items in a folder, one for root items.
+            entity.HasIndex(e => new { e.Title, e.FolderId })
+                .IsUnique()
+                .HasFilter("\"FolderId\" IS NOT NULL")
+                .HasDatabaseName("IX_WorkspaceItems_Title_FolderId");
+            entity.HasIndex(e => e.Title)
+                .IsUnique()
+                .HasFilter("\"FolderId\" IS NULL")
+                .HasDatabaseName("IX_WorkspaceItems_Title_Root");
         });
 
         modelBuilder.Entity<Query>(entity =>

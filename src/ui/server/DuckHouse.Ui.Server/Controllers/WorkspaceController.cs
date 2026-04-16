@@ -1,4 +1,5 @@
 using DuckHouse.Core.Mediator;
+using DuckHouse.Ui.Server.Core.Workspace;
 using DuckHouse.Ui.Shared.Workspace;
 using Microsoft.AspNetCore.Mvc;
 using Cmd = DuckHouse.Ui.Server.Application.Mediator.Commands;
@@ -54,15 +55,29 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     [HttpPost("notebooks")]
     public async Task<IActionResult> CreateNotebook(SharedWorkspace.CreateNotebookRequest body, CancellationToken ct)
     {
-        var notebook = await mediator.SendAsync(new Cmd.CreateNotebookRequest(body.Title, body.Content, body.FolderId), ct);
-        return CreatedAtAction(nameof(GetNotebook), new { id = notebook.Id }, notebook);
+        try
+        {
+            var notebook = await mediator.SendAsync(new Cmd.CreateNotebookRequest(body.Title, body.Content, body.FolderId), ct);
+            return CreatedAtAction(nameof(GetNotebook), new { id = notebook.Id }, notebook);
+        }
+        catch (WorkspaceTitleConflictException ex)
+        {
+            return Conflict(new ProblemDetails { Status = 409, Title = "Title conflict", Detail = ex.Message });
+        }
     }
 
     [HttpPut("notebooks/{id:guid}")]
     public async Task<IActionResult> UpdateNotebook(Guid id, SharedWorkspace.UpdateNotebookRequest body, CancellationToken ct)
     {
-        var notebook = await mediator.SendAsync(new Cmd.UpdateNotebookRequest(id, body.Title, body.Content, body.FolderId), ct);
-        return notebook is null ? NotFound() : Ok(notebook);
+        try
+        {
+            var notebook = await mediator.SendAsync(new Cmd.UpdateNotebookRequest(id, body.Title, body.Content, body.FolderId), ct);
+            return notebook is null ? NotFound() : Ok(notebook);
+        }
+        catch (WorkspaceTitleConflictException ex)
+        {
+            return Conflict(new ProblemDetails { Status = 409, Title = "Title conflict", Detail = ex.Message });
+        }
     }
 
     [HttpDelete("notebooks/{id:guid}")]
@@ -82,15 +97,29 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     [HttpPost("queries")]
     public async Task<IActionResult> CreateQuery(SharedWorkspace.CreateQueryRequest body, CancellationToken ct)
     {
-        var query = await mediator.SendAsync(new Cmd.CreateQueryRequest(body.Title, body.Content, body.FolderId), ct);
-        return CreatedAtAction(nameof(GetQuery), new { id = query.Id }, query);
+        try
+        {
+            var query = await mediator.SendAsync(new Cmd.CreateQueryRequest(body.Title, body.Content, body.FolderId), ct);
+            return CreatedAtAction(nameof(GetQuery), new { id = query.Id }, query);
+        }
+        catch (WorkspaceTitleConflictException ex)
+        {
+            return Conflict(new ProblemDetails { Status = 409, Title = "Title conflict", Detail = ex.Message });
+        }
     }
 
     [HttpPut("queries/{id:guid}")]
     public async Task<IActionResult> UpdateQuery(Guid id, SharedWorkspace.UpdateQueryRequest body, CancellationToken ct)
     {
-        var query = await mediator.SendAsync(new Cmd.UpdateQueryRequest(id, body.Title, body.Content, body.FolderId), ct);
-        return query is null ? NotFound() : Ok(query);
+        try
+        {
+            var query = await mediator.SendAsync(new Cmd.UpdateQueryRequest(id, body.Title, body.Content, body.FolderId), ct);
+            return query is null ? NotFound() : Ok(query);
+        }
+        catch (WorkspaceTitleConflictException ex)
+        {
+            return Conflict(new ProblemDetails { Status = 409, Title = "Title conflict", Detail = ex.Message });
+        }
     }
 
     [HttpDelete("queries/{id:guid}")]

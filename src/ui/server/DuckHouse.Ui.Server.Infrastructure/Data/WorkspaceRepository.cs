@@ -71,6 +71,18 @@ internal class WorkspaceRepository(UiDbContext db) : IWorkspaceRepository
 
     // ── Workspace listing ─────────────────────────────────────────────────
 
+    public Task<bool> WorkspaceItemTitleExistsAsync(string title, Guid? folderId, Guid? excludeId = null, CancellationToken cancellationToken = default)
+    {
+        var query = db.WorkspaceItems.Where(i =>
+            i.Title == title &&
+            i.FolderId == folderId);
+
+        if (excludeId.HasValue)
+            query = query.Where(i => i.Id != excludeId.Value);
+
+        return query.AnyAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<WorkspaceItem>> GetItemsInAsync(Guid? folderId, CancellationToken cancellationToken = default)
     {
         var query = folderId.HasValue

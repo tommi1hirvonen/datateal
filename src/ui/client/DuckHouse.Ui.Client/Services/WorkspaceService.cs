@@ -57,6 +57,7 @@ internal class WorkspaceService(HttpClient httpClient) : IWorkspaceService
     public async Task<NotebookSummary> CreateNotebookAsync(CreateNotebookRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync("api/workspace/notebooks", request, JsonOptions, cancellationToken);
+        await EnsureNotConflictAsync(response, cancellationToken);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<NotebookSummary>(JsonOptions, cancellationToken))!;
     }
@@ -65,6 +66,7 @@ internal class WorkspaceService(HttpClient httpClient) : IWorkspaceService
     {
         var response = await httpClient.PutAsJsonAsync($"api/workspace/notebooks/{id}", request, JsonOptions, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        await EnsureNotConflictAsync(response, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<NotebookSummary>(JsonOptions, cancellationToken);
     }
@@ -86,6 +88,7 @@ internal class WorkspaceService(HttpClient httpClient) : IWorkspaceService
     public async Task<QuerySummary> CreateQueryAsync(CreateQueryRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync("api/workspace/queries", request, JsonOptions, cancellationToken);
+        await EnsureNotConflictAsync(response, cancellationToken);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<QuerySummary>(JsonOptions, cancellationToken))!;
     }
@@ -94,6 +97,7 @@ internal class WorkspaceService(HttpClient httpClient) : IWorkspaceService
     {
         var response = await httpClient.PutAsJsonAsync($"api/workspace/queries/{id}", request, JsonOptions, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        await EnsureNotConflictAsync(response, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<QuerySummary>(JsonOptions, cancellationToken);
     }
@@ -109,4 +113,21 @@ internal class WorkspaceService(HttpClient httpClient) : IWorkspaceService
         var response = await httpClient.PostAsJsonAsync($"api/workspace/queries/{id}/result", request, JsonOptions, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
+
+    private static async Task EnsureNotConflictAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.StatusCode != HttpStatusCode.Conflict) return;
+
+        string? detail = null;
+        try
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ConflictProblem>(JsonOptions, cancellationToken);
+            detail = problem?.Detail;
+        }
+        catch { /* fall through to default message */ }
+
+        throw new InvalidOperationException(detail ?? "A notebook or query with this title already exists in the selected folder.");
+    }
+
+    private sealed record ConflictProblem(string? Detail);
 }

@@ -11,6 +11,9 @@ internal class CreateQueryHandler(IWorkspaceRepository repository) : IRequestHan
 {
     public async Task<QuerySummary> Handle(CreateQueryRequest request, CancellationToken cancellationToken)
     {
+        if (await repository.WorkspaceItemTitleExistsAsync(request.Title, request.FolderId, cancellationToken: cancellationToken))
+            throw new WorkspaceTitleConflictException(request.Title, request.FolderId is null ? "the root folder" : "this folder");
+
         var query = await repository.CreateQueryAsync(request.Title, request.Content, request.FolderId, cancellationToken);
         return new QuerySummary(query.Id, query.Title, query.FolderId, query.CreatedAt, query.UpdatedAt);
     }
