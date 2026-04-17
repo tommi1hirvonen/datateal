@@ -1,9 +1,11 @@
 using DuckHouse.Core.Mediator;
+using DuckHouse.Ui.Server.Core.Catalogs;
 using DuckHouse.Ui.Server.Core.Workspace;
 using DuckHouse.Ui.Shared.Workspace;
 using Microsoft.AspNetCore.Mvc;
 using Cmd = DuckHouse.Ui.Server.Application.Mediator.Commands;
 using Qry = DuckHouse.Ui.Server.Application.Mediator.Queries;
+using SharedCat = DuckHouse.Ui.Shared.Catalogs;
 using SharedWorkspace = DuckHouse.Ui.Shared.Workspace;
 
 namespace DuckHouse.Ui.Server.Controllers;
@@ -172,5 +174,35 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
         var found = await mediator.SendAsync(
             new Cmd.SaveQueryResultRequest(id, body.Status, body.DurationMs, body.DataFrame, body.Text, body.Error), ct);
         return found ? NoContent() : NotFound();
+    }
+
+    // ── Catalog associations ────────────────────────────────────────────
+
+    [HttpGet("items/{id:guid}/catalogs")]
+    public async Task<IActionResult> GetItemCatalogs(Guid id, CancellationToken ct)
+    {
+        // Re-use the notebook or query get to find the item
+        var notebook = await mediator.SendAsync(new Qry.GetNotebookRequest(id), ct);
+        if (notebook is not null) return Ok(notebook.CatalogNames ?? new List<string>());
+
+        var query = await mediator.SendAsync(new Qry.GetQueryRequest(id), ct);
+        if (query is not null) return Ok(query.CatalogNames ?? new List<string>());
+
+        return NotFound();
+    }
+
+    [HttpPut("items/{id:guid}/catalogs")]
+    public async Task<IActionResult> UpdateItemCatalogs(Guid id, SharedCat.UpdateWorkspaceItemCatalogsRequest body, CancellationToken ct)
+    {
+        try
+        {
+            var updated = await mediator.SendAsync(
+                new Cmd.UpdateWorkspaceItemCatalogsRequest(id, body.CatalogNames), ct);
+            return updated ? NoContent() : NotFound();
+        }
+        catch (CatalogNameConflictException ex)
+        {
+            return BadRequest(new ProblemDetails { Status = 400, Title = "Invalid catalog", Detail = ex.Message });
+        }
     }
 }

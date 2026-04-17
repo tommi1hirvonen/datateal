@@ -1,0 +1,270 @@
+@page "/catalogs"
+
+@using DuckHouse.Ui.Shared.Catalogs
+@using DuckHouse.Ui.Client.Validation
+@inject ICatalogService CatalogService
+
+<PageTitle>Catalogs — DuckHouse</PageTitle>
+
+<Space>
+    <SpaceItem>
+        <Icon Height="24px" Width="24px" Type="@IconType.Outline.Database" />
+    </SpaceItem>
+    <SpaceItem>
+        <h2>Catalogs</h2>
+    </SpaceItem>
+</Space>
+
+@if (!string.IsNullOrEmpty(_error))
+{
+    <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
+            Style="margin-bottom: 16px;" />
+}
+
+<Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
+    <Button Type="@ButtonType.Primary" OnClick="StartCreate">
+        <Icon Type="@IconType.Outline.Plus" /> New catalog
+    </Button>
+</Flex>
+
+<Spin Spinning="_loading">
+    <Table TItem="CatalogDto" DataSource="_catalogs" Size="@TableSize.Small">
+        <PropertyColumn Property="c => c.Name" Title="Name" Sortable>
+            <span style="font-family: monospace;">@context.Name</span>
+        </PropertyColumn>
+        <PropertyColumn Property="c => c.IsManaged" Title="Type" Sortable>
+            @if (context.IsManaged)
+            {
+                <Tag Color="@("blue")">Managed</Tag>
+            }
+            else
+            {
+                <Tag Color="@("orange")">External</Tag>
+            }
+        </PropertyColumn>
+        <PropertyColumn Property="c => c.CatalogHost" Title="Host">
+            @(context.CatalogHost ?? "—")
+        </PropertyColumn>
+        <PropertyColumn Property="c => c.CatalogDatabase" Title="Database">
+            @(context.CatalogDatabase ?? "—")
+        </PropertyColumn>
+        <PropertyColumn Property="c => c.UpdatedAt" Title="Updated" Sortable>
+            @context.UpdatedAt.ToString("yyyy-MM-dd")
+        </PropertyColumn>
+        <ActionColumn Title="Actions">
+            <Space>
+                <SpaceItem>
+                    <Button Size="@ButtonSize.Small" OnClick="() => StartEdit(context)">
+                        <Icon Type="@IconType.Outline.Edit" />
+                    </Button>
+                </SpaceItem>
+                <SpaceItem>
+                    <Popconfirm Title="@(context.IsManaged ? $"Delete catalog '{context.Name}'? The PostgreSQL database will also be dropped." : $"Delete catalog '{context.Name}'?")"
+                                OnConfirm="() => DeleteAsync(context)">
+                        <Button Danger Size="@ButtonSize.Small">
+                            <Icon Type="@IconType.Outline.Delete" />
+                        </Button>
+                    </Popconfirm>
+                </SpaceItem>
+            </Space>
+        </ActionColumn>
+    </Table>
+</Spin>
+
+<Modal Title="@(_editTarget is null ? "New catalog" : "Edit catalog")"
+        Visible="_showModal"
+        OnOk="ConfirmSave"
+        OnCancel="() => _showModal = false"
+        OkButtonProps="@(new ButtonProps { Disabled = !IsFormValid() })">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div>
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Name</label>
+            <Input @bind-Value="_formName" Placeholder="my_catalog"
+                    Status="@(ValidationHelper.ValidateCatalogName(_formName) is not null ? "error" : "")" />
+            @if (ValidationHelper.ValidateCatalogName(_formName) is { } nameErr)
+            {
+                <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@nameErr</div>
+            }
+        </div>
+
+        @if (_editTarget is null)
+        {
+            <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Type</label>
+                <RadioGroup @bind-Value="_formIsManaged">
+                    <Radio Value="true">Managed</Radio>
+                    <Radio Value="false">External</Radio>
+                </RadioGroup>
+            </div>
+        }
+
+        @if (!_formIsManaged)
+        {
+            <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Data path</label>
+                <Input @bind-Value="_formDataPath" Placeholder="/data/ducklake/my_catalog or abfss://..." />
+            </div>
+            <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">
+                    Storage connection string
+                    <span style="font-weight: normal; color: #8c8c8c; margin-left: 4px;">(Azure only)</span>
+                </label>
+                <InputPassword @bind-Value="_formStorageConnectionString"
+                    Placeholder="@(_editTarget is not null && _editTarget.HasStorageConnectionString ? "••••••••" : "DefaultEndpointsProtocol=https;...")" />
+            </div>
+            <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog host</label>
+                <Input @bind-Value="_formCatalogHost" Placeholder="localhost" />
+            </div>
+            <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog port</label>
+                <AntDesign.InputNumber @bind-Value="_formCatalogPort" Min="1" Max="65535" Style="width: 100%;" />
+            </div>
+            <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog database</label>
+                <Input @bind-Value="_formCatalogDatabase" Placeholder="my_catalog" />
+            </div>
+            <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog user</label>
+                <Input @bind-Value="_formCatalogUser" Placeholder="postgres" />
+            </div>
+            <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 500;">
+                    Catalog password
+                    @if (_editTarget is not null)
+                    {
+                        <span style="font-weight: normal; color: #8c8c8c; margin-left: 4px;">(leave blank to keep current)</span>
+                    }
+                </label>
+                <InputPassword @bind-Value="_formCatalogPassword"
+                    Placeholder="@(_editTarget is not null && _editTarget.HasCatalogPassword ? "••••••••" : "Enter password")" />
+            </div>
+        }
+    </div>
+</Modal>
+
+@code {
+    private IReadOnlyList<CatalogDto> _catalogs = [];
+    private bool _loading = true;
+    private string? _error;
+
+    // Modal state
+    private bool _showModal;
+    private CatalogDto? _editTarget;
+    private string _formName = "";
+    private bool _formIsManaged = true;
+    private string _formDataPath = "";
+    private string _formStorageConnectionString = "";
+    private string _formCatalogHost = "";
+    private int _formCatalogPort = 5432;
+    private string _formCatalogDatabase = "";
+    private string _formCatalogUser = "";
+    private string _formCatalogPassword = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCatalogsAsync();
+    }
+
+    private async Task LoadCatalogsAsync()
+    {
+        _loading = true;
+        try { _catalogs = await CatalogService.GetCatalogsAsync(); }
+        catch (Exception ex) { _error = $"Failed to load catalogs: {ex.Message}"; }
+        finally { _loading = false; }
+    }
+
+    private bool IsFormValid()
+    {
+        if (string.IsNullOrWhiteSpace(_formName) || ValidationHelper.ValidateCatalogName(_formName) is not null)
+            return false;
+
+        if (!_formIsManaged)
+        {
+            if (string.IsNullOrWhiteSpace(_formDataPath)) return false;
+            if (string.IsNullOrWhiteSpace(_formCatalogHost)) return false;
+            if (string.IsNullOrWhiteSpace(_formCatalogDatabase)) return false;
+            if (string.IsNullOrWhiteSpace(_formCatalogUser)) return false;
+            if (_editTarget is null && string.IsNullOrWhiteSpace(_formCatalogPassword)) return false;
+        }
+
+        return true;
+    }
+
+    private void StartCreate()
+    {
+        _editTarget = null;
+        _formName = "";
+        _formIsManaged = true;
+        _formDataPath = "";
+        _formStorageConnectionString = "";
+        _formCatalogHost = "";
+        _formCatalogPort = 5432;
+        _formCatalogDatabase = "";
+        _formCatalogUser = "";
+        _formCatalogPassword = "";
+        _showModal = true;
+    }
+
+    private void StartEdit(CatalogDto catalog)
+    {
+        _editTarget = catalog;
+        _formName = catalog.Name;
+        _formIsManaged = catalog.IsManaged;
+        _formDataPath = catalog.DataPath ?? "";
+        _formStorageConnectionString = "";
+        _formCatalogHost = catalog.CatalogHost ?? "";
+        _formCatalogPort = catalog.CatalogPort ?? 5432;
+        _formCatalogDatabase = catalog.CatalogDatabase ?? "";
+        _formCatalogUser = catalog.CatalogUser ?? "";
+        _formCatalogPassword = "";
+        _showModal = true;
+    }
+
+    private async Task ConfirmSave()
+    {
+        if (!IsFormValid()) return;
+
+        try
+        {
+            if (_editTarget is null)
+            {
+                await CatalogService.CreateCatalogAsync(new CreateCatalogRequest(
+                    _formName.Trim(),
+                    _formIsManaged,
+                    _formIsManaged ? null : _formDataPath.Trim(),
+                    _formIsManaged ? null : (string.IsNullOrWhiteSpace(_formStorageConnectionString) ? null : _formStorageConnectionString),
+                    _formIsManaged ? null : _formCatalogHost.Trim(),
+                    _formIsManaged ? null : _formCatalogPort,
+                    _formIsManaged ? null : _formCatalogDatabase.Trim(),
+                    _formIsManaged ? null : _formCatalogUser.Trim(),
+                    _formIsManaged ? null : (string.IsNullOrWhiteSpace(_formCatalogPassword) ? null : _formCatalogPassword)));
+            }
+            else
+            {
+                await CatalogService.UpdateCatalogAsync(_editTarget.Id, new UpdateCatalogRequest(
+                    _formName.Trim(),
+                    string.IsNullOrWhiteSpace(_formDataPath) ? null : _formDataPath.Trim(),
+                    string.IsNullOrWhiteSpace(_formStorageConnectionString) ? null : _formStorageConnectionString,
+                    string.IsNullOrWhiteSpace(_formCatalogHost) ? null : _formCatalogHost.Trim(),
+                    _formCatalogPort,
+                    string.IsNullOrWhiteSpace(_formCatalogDatabase) ? null : _formCatalogDatabase.Trim(),
+                    string.IsNullOrWhiteSpace(_formCatalogUser) ? null : _formCatalogUser.Trim(),
+                    string.IsNullOrWhiteSpace(_formCatalogPassword) ? null : _formCatalogPassword));
+            }
+            _showModal = false;
+            await LoadCatalogsAsync();
+        }
+        catch (Exception ex) { _error = $"Failed to save catalog: {ex.Message}"; }
+    }
+
+    private async Task DeleteAsync(CatalogDto catalog)
+    {
+        try
+        {
+            await CatalogService.DeleteCatalogAsync(catalog.Id);
+            await LoadCatalogsAsync();
+        }
+        catch (Exception ex) { _error = $"Failed to delete catalog: {ex.Message}"; }
+    }
+}

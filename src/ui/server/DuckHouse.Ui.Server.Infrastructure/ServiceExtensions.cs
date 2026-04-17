@@ -1,4 +1,6 @@
+using DuckHouse.Ui.Server.Core.Catalogs;
 using DuckHouse.Ui.Server.Core.Repositories;
+using DuckHouse.Ui.Server.Infrastructure.Catalogs;
 using DuckHouse.Ui.Server.Infrastructure.Data;
 using DuckHouse.Ui.Server.Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
@@ -21,5 +23,8 @@ public static class ServiceExtensions
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddScoped<IWheelPackageRepository, WheelPackageRepository>();
         services.AddScoped<IEnvironmentRepository, EnvironmentRepository>();
+        services.AddScoped<ICatalogRepository, CatalogRepository>();
+        services.AddScoped<ICatalogDatabaseService, CatalogDatabaseService>();
+        services.AddScoped<ICatalogMetadataService, CatalogMetadataService>();
     }
 }

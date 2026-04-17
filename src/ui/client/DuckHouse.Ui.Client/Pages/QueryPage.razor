@@ -5,9 +5,11 @@
 @using DuckHouse.Core.Nodes
 @using DuckHouse.Ui.Shared.Kernels
 @using DuckHouse.Ui.Shared.Workspace
+@using DuckHouse.Ui.Shared.Catalogs
 @inject IKernelService KernelService
 @inject INodeService NodeService
 @inject IWorkspaceService WorkspaceService
+@inject ICatalogService CatalogService
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
 
@@ -145,6 +147,57 @@
         </SpaceItem>
     }
 </Space>
+
+@* Catalog selector *@
+<Space Align="SpaceAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap;" Size="SpaceSize.Small">
+    <SpaceItem>
+        <Icon Type="@IconType.Outline.Database" />
+    </SpaceItem>
+    <SpaceItem>
+        <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">Catalogs:</Text>
+    </SpaceItem>
+    <SpaceItem>
+        <Select TItemValue="string"
+                TItem="CatalogDto"
+                DataSource="@_allCatalogs.ToList()"
+                @bind-Values="@_selectedCatalogNames"
+                ItemValue="c => c.Name"
+                ItemLabel="c => c.Name"
+                Placeholder="— select catalogs —"
+                AllowClear
+                Mode="@SelectMode.Multiple"
+                DropdownMatchSelectWidth="false"
+                Style="min-width: 200px;"
+                OnSelectedItemsChanged="OnCatalogSelectionChanged">
+        </Select>
+    </SpaceItem>
+    @if (_selectedCatalogNames.Any())
+    {
+        <SpaceItem>
+            <Button Size="ButtonSize.Small"
+                    OnClick="() => _showCatalogExplorer = !_showCatalogExplorer"
+                    Icon="@(_showCatalogExplorer ? IconType.Outline.EyeInvisible : IconType.Outline.Eye)">
+                @(_showCatalogExplorer ? "Hide explorer" : "Show explorer")
+            </Button>
+        </SpaceItem>
+    }
+    @if (_catalogSetupRunning)
+    {
+        <SpaceItem>
+            <Spin Size="SpinSize.Small" />
+        </SpaceItem>
+        <SpaceItem>
+            <Text Type="TextElementType.Secondary" Style="font-size: 0.8rem;">Attaching catalogs…</Text>
+        </SpaceItem>
+    }
+</Space>
+
+@if (_showCatalogExplorer && _selectedCatalogNames.Any())
+{
+    <div style="margin-bottom: 12px; border: 1px solid #d9d9d9; border-radius: 6px; max-height: 300px; overflow: auto;">
+        <CatalogExplorer CatalogNames="@_selectedCatalogNames.ToList()" />
+    </div>
+}
 
 @if (_error is not null)
 {
@@ -304,6 +357,12 @@
 
     private DotNetObjectReference<QueryPage>? _dotNetRef;
 
+    // Catalogs
+    private IReadOnlyList<CatalogDto> _allCatalogs = [];
+    private IEnumerable<string> _selectedCatalogNames = [];
+    private bool _showCatalogExplorer;
+    private bool _catalogSetupRunning;
+
     private bool HasKernel => !string.IsNullOrEmpty(_kernelId);
 
     protected override async Task OnInitializedAsync()
@@ -361,6 +420,21 @@
         try { _nodes = await NodeService.GetNodesAsync(); }
         catch (Exception ex) { _error = $"Failed to load nodes: {ex.Message}"; }
         finally { _loadingNodes = false; }
+
+        // Load available catalogs
+        try { _allCatalogs = await CatalogService.GetCatalogsAsync(); }
+        catch { /* non-fatal */ }
+
+        // Restore saved catalog selections
+        if (_workspaceQueryId.HasValue)
+        {
+            try
+            {
+                var savedNames = await CatalogService.GetWorkspaceItemCatalogsAsync(_workspaceQueryId.Value);
+                _selectedCatalogNames = savedNames;
+            }
+            catch { /* non-fatal */ }
+        }
 
         // Restore last-used node preference
         if (_workspaceQueryId.HasValue)
@@ -498,6 +572,9 @@
             _ = PollKernelStatusAsync(_kernelPollingCts.Token);
             if (_workspaceQueryId.HasValue)
                 await JS.InvokeVoidAsync("setItemNodePref", _workspaceQueryId.Value.ToString(), _nodeName);
+
+            // Attach catalogs if any are selected
+            await SetupCatalogsAsync();
         }
         catch (Exception ex) { _error = $"Failed to connect: {ex.Message}"; }
         finally { _connecting = false; }
@@ -673,6 +750,59 @@
 
     private static string StripAnsi(string text) =>
         System.Text.RegularExpressions.Regex.Replace(text, @"\x1B\[[0-9;]*[a-zA-Z]", "");
+
+    // ── Catalog management ───────────────────────────────────────────
+
+    private async Task OnCatalogSelectionChanged(IEnumerable<CatalogDto> _)
+    {
+        if (!_workspaceQueryId.HasValue) return;
+        try
+        {
+            await CatalogService.UpdateWorkspaceItemCatalogsAsync(
+                _workspaceQueryId.Value, _selectedCatalogNames.ToList());
+        }
+        catch (Exception ex) { _error = $"Failed to save catalog selection: {ex.Message}"; }
+    }
+
+    private async Task SetupCatalogsAsync()
+    {
+        var names = _selectedCatalogNames.ToList();
+        if (names.Count == 0 || !HasKernel || string.IsNullOrEmpty(_nodeName)) return;
+
+        _catalogSetupRunning = true;
+        StateHasChanged();
+
+        try
+        {
+            var resolved = await CatalogService.ResolveCatalogsAsync(names);
+            if (resolved.Count == 0) return;
+
+            var script = CatalogSetupGenerator.GenerateSetupScript(resolved, isLinux: true);
+            var handle = await KernelService.StartExecuteAsync(
+                _nodeName, _kernelId!, new ExecuteKernelRequest(script));
+
+            PollExecutionResponse poll;
+            do
+            {
+                await Task.Delay(1000);
+                poll = await KernelService.PollExecutionAsync(_nodeName, _kernelId!, handle.ExecutionId);
+            } while (!poll.IsComplete);
+
+            if (poll.Result?.Error is not null)
+            {
+                _error = $"Catalog setup failed: {poll.Result.Error.Evalue}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Catalog setup failed: {ex.Message}";
+        }
+        finally
+        {
+            _catalogSetupRunning = false;
+            StateHasChanged();
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

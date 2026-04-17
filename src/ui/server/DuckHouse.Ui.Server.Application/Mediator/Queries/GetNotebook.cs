@@ -13,6 +13,6 @@ internal class GetNotebookHandler(IWorkspaceRepository repository) : IRequestHan
         var notebook = await repository.GetNotebookAsync(request.Id, cancellationToken);
         return notebook is null
             ? null
-            : new NotebookDetail(notebook.Id, notebook.Title, notebook.FolderId, notebook.CreatedAt, notebook.UpdatedAt, notebook.Content);
+            : new NotebookDetail(notebook.Id, notebook.Title, notebook.FolderId, notebook.CreatedAt, notebook.UpdatedAt, notebook.Content, notebook.CatalogNames);
     }
 }

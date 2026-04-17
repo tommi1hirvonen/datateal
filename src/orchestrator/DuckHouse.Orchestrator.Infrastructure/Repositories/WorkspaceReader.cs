@@ -37,6 +37,16 @@ internal class WorkspaceReader(DuckHouseDbContext db) : IWorkspaceReader
     public async Task<string?> ResolveQueryPathByIdAsync(Guid id, CancellationToken ct)
         => await ResolveItemPathByIdAsync<Query>(id, ct);
 
+    public async Task<IReadOnlyList<string>> GetWorkspaceItemCatalogNamesAsync(Guid itemId, CancellationToken ct)
+    {
+        var catalogNames = await db.WorkspaceItems
+            .Where(i => i.Id == itemId)
+            .Select(i => i.CatalogNames)
+            .FirstOrDefaultAsync(ct);
+
+        return catalogNames ?? [];
+    }
+
     private async Task<Guid?> ResolveItemIdByPathAsync<T>(string path, CancellationToken ct)
         where T : WorkspaceItem
     {

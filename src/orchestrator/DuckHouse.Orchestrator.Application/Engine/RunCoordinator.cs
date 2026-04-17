@@ -21,6 +21,7 @@ public class RunCoordinator(
     IWorkspaceReader workspaceReader,
     IWheelPackageReader wheelPackageReader,
     IEnvironmentResolver environmentResolver,
+    ICatalogResolver catalogResolver,
     IMediator mediator,
     ILoggerFactory loggerFactory)
 {
@@ -53,7 +54,7 @@ public class RunCoordinator(
             loggerFactory.CreateLogger<NodeManager>());
 
         var taskExecutor = new TaskExecutor(
-            controlPlane, workspaceReader, jobRunRepository, mediator,
+            controlPlane, workspaceReader, jobRunRepository, catalogResolver, mediator,
             loggerFactory.CreateLogger<TaskExecutor>());
 
         // Build lookup maps

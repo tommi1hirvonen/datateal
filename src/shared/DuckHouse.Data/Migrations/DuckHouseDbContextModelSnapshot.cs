@@ -22,6 +22,59 @@ namespace DuckHouse.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("DuckHouse.Core.Catalogs.Catalog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CatalogDatabase")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("CatalogHost")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int?>("CatalogPort")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CatalogUser")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DataPath")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("EncryptedCatalogPassword")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EncryptedStorageConnectionString")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsManaged")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Catalogs");
+                });
+
             modelBuilder.Entity("DuckHouse.Core.Environment.EnvironmentVariable", b =>
                 {
                     b.Property<Guid>("Id")
@@ -151,6 +204,9 @@ namespace DuckHouse.Data.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CatalogNames")
+                        .HasColumnType("jsonb");
 
                     b.Property<string>("Content")
                         .IsRequired()

@@ -75,6 +75,9 @@ internal class WorkspaceRepository(DuckHouseDbContext db) : IWorkspaceRepository
 
     // ── Workspace listing ─────────────────────────────────────────────────
 
+    public Task<WorkspaceItem?> GetItemAsync(Guid id, CancellationToken cancellationToken = default) =>
+        db.WorkspaceItems.FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
+
     public Task<WorkspaceItem?> GetItemByTitleAsync(string title, Guid? folderId, CancellationToken cancellationToken = default) =>
         db.WorkspaceItems.FirstOrDefaultAsync(i => i.Title == title && i.FolderId == folderId, cancellationToken);
 
@@ -198,6 +201,19 @@ internal class WorkspaceRepository(DuckHouseDbContext db) : IWorkspaceRepository
         query.LastDurationMs = durationMs;
         query.LastExecutedAt = executedAt;
         query.LastResultJson = resultJson;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    // ── Catalog associations ─────────────────────────────────────────────
+
+    public async Task<bool> UpdateItemCatalogNamesAsync(Guid itemId, List<string>? catalogNames, CancellationToken cancellationToken = default)
+    {
+        var item = await db.WorkspaceItems.FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
+        if (item is null) return false;
+
+        item.CatalogNames = catalogNames;
+        item.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }

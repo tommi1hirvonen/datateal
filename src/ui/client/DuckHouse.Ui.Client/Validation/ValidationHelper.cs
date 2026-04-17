@@ -158,4 +158,30 @@ public static partial class ValidationHelper
 
         return null;
     }
+
+    // DuckDB identifier: letter or underscore, followed by letters, digits, or underscores.
+    [GeneratedRegex(@"^[a-zA-Z_][a-zA-Z0-9_]*$")]
+    private static partial Regex DuckDbIdentifierRegex();
+
+    /// <summary>
+    /// Validates a DuckDB catalog name (valid identifier).
+    /// Returns an error message, or null if valid.
+    /// </summary>
+    public static string? ValidateCatalogName(string? name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return null;
+
+        if (name.Length > 128)
+            return "Catalog name must be 128 characters or fewer.";
+
+        if (!DuckDbIdentifierRegex().IsMatch(name))
+        {
+            if (char.IsDigit(name[0]))
+                return "Catalog name must not start with a digit.";
+            return "Catalog name may only contain letters, digits, and underscores.";
+        }
+
+        return null;
+    }
 }

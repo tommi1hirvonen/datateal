@@ -3,6 +3,7 @@ using DuckHouse.Data;
 using DuckHouse.Ui.Server;
 using DuckHouse.Ui.Server.Application;
 using DuckHouse.Ui.Server.Components;
+using DuckHouse.Ui.Server.Core.Catalogs;
 using DuckHouse.Ui.Server.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,8 @@ builder.Services.AddProblemDetails();
 
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
+
+builder.Services.Configure<CatalogSettings>(builder.Configuration.GetSection("Catalogs"));
 
 builder.Services.AddDataProtection()
     .PersistKeysToDbContext<DuckHouseDbContext>()

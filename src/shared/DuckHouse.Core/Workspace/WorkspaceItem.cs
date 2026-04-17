@@ -10,6 +10,12 @@ public abstract class WorkspaceItem
 
     public required string Content { get; set; }
 
+    /// <summary>
+    /// Catalog names associated with this workspace item.
+    /// Used to attach DuckLake catalogs to kernel sessions.
+    /// </summary>
+    public List<string>? CatalogNames { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

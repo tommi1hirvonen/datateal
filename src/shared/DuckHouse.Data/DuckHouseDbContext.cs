@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DuckHouse.Core.Catalogs;
 using DuckHouse.Core.Environment;
 using DuckHouse.Core.RuntimePackages;
 using DuckHouse.Core.Workspace;
@@ -21,9 +22,16 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
         v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
         v => v == null ? null : JsonSerializer.Deserialize<List<Guid>>(v, (JsonSerializerOptions?)null));
 
+    private static readonly ValueConverter<List<string>?, string?> StringListJsonConverter = new(
+        v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+        v => v == null ? null : JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null));
+
     // ── Workspace ─────────────────────────────────────────────────────────
     public DbSet<Folder> Folders => Set<Folder>();
     public DbSet<WorkspaceItem> WorkspaceItems => Set<WorkspaceItem>();
+
+    // ── Catalogs ─────────────────────────────────────────────────────────
+    public DbSet<Catalog> Catalogs => Set<Catalog>();
 
     // ── Runtime packages ──────────────────────────────────────────────────
     public DbSet<WheelPackage> WheelPackages => Set<WheelPackage>();
@@ -49,6 +57,7 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureWorkspace(modelBuilder);
+        ConfigureCatalogs(modelBuilder);
         ConfigureRuntimePackages(modelBuilder);
         ConfigureEnvironment(modelBuilder);
         ConfigureOrchestrator(modelBuilder);
@@ -90,11 +99,27 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
                 .IsUnique()
                 .HasFilter("\"FolderId\" IS NULL")
                 .HasDatabaseName("IX_WorkspaceItems_Title_Root");
+
+            entity.Property(e => e.CatalogNames).HasColumnType("jsonb").HasConversion(StringListJsonConverter);
         });
 
         modelBuilder.Entity<Query>(entity =>
         {
             entity.Property(e => e.LastResultStatus).HasMaxLength(16);
+        });
+    }
+
+    private static void ConfigureCatalogs(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Catalog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(128).IsRequired();
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.Property(e => e.DataPath).HasMaxLength(1024);
+            entity.Property(e => e.CatalogHost).HasMaxLength(256);
+            entity.Property(e => e.CatalogDatabase).HasMaxLength(256);
+            entity.Property(e => e.CatalogUser).HasMaxLength(256);
         });
     }
 

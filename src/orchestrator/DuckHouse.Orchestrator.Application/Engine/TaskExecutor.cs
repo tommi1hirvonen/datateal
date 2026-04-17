@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using DuckHouse.Core.Kernels;
 using DuckHouse.Core.Mediator;
+using DuckHouse.Orchestrator.Application.Catalogs;
 using DuckHouse.Orchestrator.Application.Mediator.Commands;
 using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Enums;
@@ -18,6 +19,7 @@ public class TaskExecutor(
     IControlPlaneClient controlPlane,
     IWorkspaceReader workspaceReader,
     IJobRunRepository jobRunRepository,
+    ICatalogResolver catalogResolver,
     IMediator mediator,
     ILogger<TaskExecutor> logger)
 {
@@ -103,6 +105,9 @@ public class TaskExecutor(
 
         try
         {
+            // Attach DuckLake catalogs if configured
+            await SetupCatalogsForWorkspaceItemAsync(task.NotebookId, nodeName, kernelId, ct);
+
             for (var i = 0; i < cells.Count; i++)
             {
                 ct.ThrowIfCancellationRequested();
@@ -209,6 +214,9 @@ public class TaskExecutor(
 
         try
         {
+            // Attach DuckLake catalogs if configured
+            await SetupCatalogsForWorkspaceItemAsync(task.QueryId, nodeName, kernelId, ct);
+
             var code = $"import duckdb; duckdb.sql(\"\"\"{content.Content}\"\"\")";
             var result = await ExecuteCodeAsync(nodeName, kernelId, code, ct);
 
@@ -515,5 +523,27 @@ public class TaskExecutor(
             return $"{kvp.Key} = \"{escaped}\"";
         });
         return string.Join("\n", lines);
+    }
+
+    // ── Catalog setup ───────────────────────────────────────────────
+
+    private async Task SetupCatalogsForWorkspaceItemAsync(
+        Guid workspaceItemId, string nodeName, string kernelId, CancellationToken ct)
+    {
+        var catalogNames = await workspaceReader.GetWorkspaceItemCatalogNamesAsync(workspaceItemId, ct);
+        if (catalogNames.Count == 0) return;
+
+        var resolved = await catalogResolver.ResolveAsync(catalogNames, ct);
+        if (resolved.Count == 0) return;
+
+        var script = CatalogSetupGenerator.GenerateSetupScript(resolved);
+        logger.LogInformation("Attaching {Count} catalog(s) to kernel {KernelId}", resolved.Count, kernelId);
+
+        var result = await ExecuteCodeAsync(nodeName, kernelId, script, ct);
+        if (result.Error is not null)
+        {
+            throw new InvalidOperationException(
+                $"Catalog setup failed: {result.Error.Ename}: {result.Error.Evalue}");
+        }
     }
 }

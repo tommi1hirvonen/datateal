@@ -10,6 +10,7 @@
     <PackageVersion Include="AntDesign" Version="1.6.1" />
     <PackageVersion Include="BlazorMonaco" Version="3.4.0" />
     <PackageVersion Include="Cronos" Version="0.12.0" />
+    <PackageVersion Include="DuckDB.NET.Data.Full" Version="1.3.0" />
     <PackageVersion Include="KubernetesClient" Version="19.0.2" />
     <PackageVersion Include="Markdig" Version="1.1.2" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection" Version="10.0.6" />
@@ -32,7 +33,9 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.6" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.6" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.5.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.6" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.5.0" />
+    <PackageVersion Include="Npgsql" Version="10.0.2" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
     <PackageVersion Include="YamlDotNet" Version="17.0.1" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.2" />

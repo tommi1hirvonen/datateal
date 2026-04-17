@@ -34,7 +34,7 @@ internal class GetQueryHandler(IWorkspaceRepository repository) : IRequestHandle
                 payload?.Error);
         }
 
-        return new QueryDetail(query.Id, query.Title, query.FolderId, query.CreatedAt, query.UpdatedAt, query.Content, lastResult);
+        return new QueryDetail(query.Id, query.Title, query.FolderId, query.CreatedAt, query.UpdatedAt, query.Content, lastResult, query.CatalogNames);
     }
 
     internal record ResultPayload(DataFrameOutput? DataFrame, string? Text, ErrorInfo? Error);

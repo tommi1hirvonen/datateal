@@ -17,6 +17,7 @@ public interface IWorkspaceRepository
     Task<Folder?> GetFolderByNameAsync(string name, Guid? parentId, CancellationToken cancellationToken = default);
 
     // Workspace listing (returns polymorphic items — callers use pattern matching)
+    Task<WorkspaceItem?> GetItemAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WorkspaceItem>> GetItemsInAsync(Guid? folderId, CancellationToken cancellationToken = default);
 
     /// <summary>Finds a workspace item (notebook or query) by title within a folder.</summary>
@@ -40,4 +41,7 @@ public interface IWorkspaceRepository
     Task<Query?> UpdateQueryAsync(Guid id, string title, string content, Guid? folderId, CancellationToken cancellationToken = default);
     Task<bool> DeleteQueryAsync(Guid id, CancellationToken cancellationToken = default);
     Task<bool> SaveQueryResultAsync(Guid id, string status, double durationMs, DateTime executedAt, string? resultJson, CancellationToken cancellationToken = default);
+
+    // Catalog associations
+    Task<bool> UpdateItemCatalogNamesAsync(Guid itemId, List<string>? catalogNames, CancellationToken cancellationToken = default);
 }

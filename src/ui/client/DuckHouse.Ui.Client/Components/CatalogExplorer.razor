@@ -1,0 +1,281 @@
+@using DuckHouse.Ui.Shared.Catalogs
+@inject ICatalogService CatalogService
+
+<div class="catalog-explorer">
+    @if (_loading)
+    {
+        <Flex Justify="@("center")" Style="padding: 16px;">
+            <Spin Size="SpinSize.Small" />
+        </Flex>
+    }
+    else if (_error is not null)
+    {
+        <Alert Type="@AlertType.Error" Message="@_error" Closable
+               OnClose="() => _error = null" Style="margin: 8px;" />
+    }
+    else if (_treeData.Count == 0)
+    {
+        <div style="padding: 16px; text-align: center;">
+            <Text Type="TextElementType.Secondary" Style="font-size: 0.8rem;">No catalogs selected.</Text>
+        </div>
+    }
+    else
+    {
+        <Tree TItem="ExplorerNode"
+              DataSource="_treeData"
+              ShowIcon
+              TitleExpression="x => x.DataItem.Title"
+              ChildrenExpression="x => x.DataItem.Children"
+              IsLeafExpression="x => x.DataItem.IsLeaf"
+              IconExpression="x => x.DataItem.Icon"
+              OnNodeLoadDelayAsync="OnNodeLoadDelayAsync">
+        </Tree>
+    }
+</div>
+
+@code {
+    /// <summary>
+    /// The catalog names to display in the explorer.
+    /// </summary>
+    [Parameter] public IReadOnlyList<string> CatalogNames { get; set; } = [];
+
+    private List<ExplorerNode> _treeData = [];
+    private bool _loading;
+    private string? _error;
+
+    // Map catalog name → CatalogDto for ID lookup
+    private Dictionary<string, CatalogDto> _catalogLookup = new();
+
+    // Track the previous catalog names to avoid re-loading when unchanged
+    private IReadOnlyList<string> _previousCatalogNames = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!CatalogNames.SequenceEqual(_previousCatalogNames))
+        {
+            _previousCatalogNames = CatalogNames.ToList();
+            await LoadRootNodesAsync();
+        }
+    }
+
+    private async Task LoadRootNodesAsync()
+    {
+        if (CatalogNames.Count == 0)
+        {
+            _treeData = [];
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            var allCatalogs = await CatalogService.GetCatalogsAsync();
+            _catalogLookup = allCatalogs.ToDictionary(c => c.Name, c => c);
+
+            _treeData = CatalogNames
+                .Where(name => _catalogLookup.ContainsKey(name))
+                .Select(name => new ExplorerNode
+                {
+                    Title = name,
+                    Key = $"catalog:{name}",
+                    Icon = IconType.Outline.Database,
+                    NodeType = ExplorerNodeType.Catalog,
+                    CatalogName = name,
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load catalogs: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnNodeLoadDelayAsync(TreeEventArgs<ExplorerNode> args)
+    {
+        var node = args.Node.DataItem;
+        node.Children.Clear();
+
+        try
+        {
+            switch (node.NodeType)
+            {
+                case ExplorerNodeType.Catalog:
+                    await LoadSchemasAsync(node);
+                    break;
+                case ExplorerNodeType.Schema:
+                    LoadObjectFolders(node);
+                    break;
+                case ExplorerNodeType.TableFolder:
+                    LoadTables(node, "BASE TABLE");
+                    break;
+                case ExplorerNodeType.ViewFolder:
+                    LoadTables(node, "VIEW");
+                    break;
+                case ExplorerNodeType.Table:
+                case ExplorerNodeType.View:
+                    LoadColumns(node);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            node.Children.Add(new ExplorerNode
+            {
+                Title = $"Error: {ex.Message}",
+                Key = $"{node.Key}:error",
+                Icon = IconType.Outline.Warning,
+                IsLeaf = true,
+                NodeType = ExplorerNodeType.Leaf,
+            });
+        }
+    }
+
+    private async Task LoadSchemasAsync(ExplorerNode catalogNode)
+    {
+        if (!_catalogLookup.TryGetValue(catalogNode.CatalogName!, out var catalog))
+            return;
+
+        var metadata = await CatalogService.GetMetadataAsync(catalog.Id);
+
+        foreach (var schema in metadata.Schemas)
+        {
+            catalogNode.Children.Add(new ExplorerNode
+            {
+                Title = schema.Name,
+                Key = $"{catalogNode.Key}:{schema.Name}",
+                Icon = IconType.Outline.AppstoreAdd,
+                NodeType = ExplorerNodeType.Schema,
+                CatalogName = catalogNode.CatalogName,
+                SchemaName = schema.Name,
+                CachedMetadata = schema,
+            });
+        }
+
+        if (catalogNode.Children.Count == 0)
+        {
+            catalogNode.Children.Add(new ExplorerNode
+            {
+                Title = "(no schemas)",
+                Key = $"{catalogNode.Key}:empty",
+                Icon = IconType.Outline.Info,
+                IsLeaf = true,
+                NodeType = ExplorerNodeType.Leaf,
+            });
+        }
+    }
+
+    private void LoadObjectFolders(ExplorerNode schemaNode)
+    {
+        var schema = schemaNode.CachedMetadata as SchemaDto;
+        var tableCount = schema?.Tables.Count(t => t.Type == "BASE TABLE") ?? 0;
+        var viewCount = schema?.Tables.Count(t => t.Type == "VIEW") ?? 0;
+
+        schemaNode.Children.Add(new ExplorerNode
+        {
+            Title = $"Tables ({tableCount})",
+            Key = $"{schemaNode.Key}:tables",
+            Icon = IconType.Outline.Table,
+            NodeType = ExplorerNodeType.TableFolder,
+            CatalogName = schemaNode.CatalogName,
+            SchemaName = schemaNode.SchemaName,
+            CachedMetadata = schemaNode.CachedMetadata,
+            IsLeaf = tableCount == 0,
+        });
+
+        schemaNode.Children.Add(new ExplorerNode
+        {
+            Title = $"Views ({viewCount})",
+            Key = $"{schemaNode.Key}:views",
+            Icon = IconType.Outline.Eye,
+            NodeType = ExplorerNodeType.ViewFolder,
+            CatalogName = schemaNode.CatalogName,
+            SchemaName = schemaNode.SchemaName,
+            CachedMetadata = schemaNode.CachedMetadata,
+            IsLeaf = viewCount == 0,
+        });
+    }
+
+    private void LoadTables(ExplorerNode folderNode, string tableType)
+    {
+        var schema = folderNode.CachedMetadata as SchemaDto;
+        if (schema is null) return;
+
+        var tables = schema.Tables.Where(t => t.Type == tableType).OrderBy(t => t.Name);
+        foreach (var table in tables)
+        {
+            folderNode.Children.Add(new ExplorerNode
+            {
+                Title = table.Name,
+                Key = $"{folderNode.Key}:{table.Name}",
+                Icon = tableType == "VIEW" ? IconType.Outline.Eye : IconType.Outline.Table,
+                NodeType = tableType == "VIEW" ? ExplorerNodeType.View : ExplorerNodeType.Table,
+                CatalogName = folderNode.CatalogName,
+                SchemaName = folderNode.SchemaName,
+                CachedMetadata = table,
+            });
+        }
+    }
+
+    private void LoadColumns(ExplorerNode tableNode)
+    {
+        var table = tableNode.CachedMetadata as TableDto;
+        if (table is null) return;
+
+        foreach (var col in table.Columns.OrderBy(c => c.OrdinalPosition))
+        {
+            var nullable = col.IsNullable ? "?" : "";
+            tableNode.Children.Add(new ExplorerNode
+            {
+                Title = $"{col.Name} ({col.DataType}{nullable})",
+                Key = $"{tableNode.Key}:{col.Name}",
+                Icon = IconType.Outline.UnorderedList,
+                IsLeaf = true,
+                NodeType = ExplorerNodeType.Leaf,
+            });
+        }
+
+        if (tableNode.Children.Count == 0)
+        {
+            tableNode.Children.Add(new ExplorerNode
+            {
+                Title = "(no columns)",
+                Key = $"{tableNode.Key}:empty",
+                Icon = IconType.Outline.Info,
+                IsLeaf = true,
+                NodeType = ExplorerNodeType.Leaf,
+            });
+        }
+    }
+
+    // ── Tree node model ───────────────────────────────────────────────
+
+    public class ExplorerNode
+    {
+        public string Title { get; set; } = "";
+        public string Key { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public bool IsLeaf { get; set; }
+        public ExplorerNodeType NodeType { get; set; }
+        public string? CatalogName { get; set; }
+        public string? SchemaName { get; set; }
+        public object? CachedMetadata { get; set; }
+        public List<ExplorerNode> Children { get; set; } = [];
+    }
+
+    public enum ExplorerNodeType
+    {
+        Catalog,
+        Schema,
+        TableFolder,
+        ViewFolder,
+        Table,
+        View,
+        Leaf,
+    }
+}

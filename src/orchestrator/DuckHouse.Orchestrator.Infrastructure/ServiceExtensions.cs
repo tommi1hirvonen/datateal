@@ -1,5 +1,7 @@
+using DuckHouse.Orchestrator.Core.Configuration;
 using DuckHouse.Orchestrator.Core.Interfaces;
 using DuckHouse.Orchestrator.Core.Repositories;
+using DuckHouse.Orchestrator.Infrastructure.Catalogs;
 using DuckHouse.Orchestrator.Infrastructure.Clients;
 using DuckHouse.Orchestrator.Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +28,9 @@ public static class ServiceExtensions
         services.AddScoped<IWorkspaceReader, WorkspaceReader>();
         services.AddScoped<IWheelPackageReader, WheelPackageReader>();
         services.AddScoped<IEnvironmentResolver, EnvironmentResolver>();
+        services.AddScoped<ICatalogResolver, CatalogResolver>();
+
+        services.Configure<CatalogSettings>(configuration.GetSection("Catalogs"));
 
         return services;
     }
