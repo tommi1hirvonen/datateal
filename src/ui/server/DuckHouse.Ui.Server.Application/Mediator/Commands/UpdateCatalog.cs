@@ -3,6 +3,7 @@ using DuckHouse.Ui.Server.Core.Catalogs;
 using DuckHouse.Ui.Server.Core.Repositories;
 using DuckHouse.Ui.Shared.Catalogs;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Options;
 
 namespace DuckHouse.Ui.Server.Application.Mediator.Commands;
 
@@ -17,7 +18,10 @@ public record UpdateCatalogRequest(
     string? CatalogUser,
     string? CatalogPassword) : IRequest<CatalogDto?>;
 
-internal class UpdateCatalogHandler(ICatalogRepository repository, IDataProtectionProvider dataProtection)
+internal class UpdateCatalogHandler(
+    ICatalogRepository repository,
+    IDataProtectionProvider dataProtection,
+    IOptions<CatalogSettings> settings)
     : IRequestHandler<UpdateCatalogRequest, CatalogDto?>
 {
     private readonly IDataProtector _protector = dataProtection.CreateProtector("DuckHouse.Catalogs");
@@ -35,24 +39,27 @@ internal class UpdateCatalogHandler(ICatalogRepository repository, IDataProtecti
 
         existing.Name = request.Name;
 
-        if (request.DataPath is not null)
-            existing.DataPath = request.DataPath;
-        if (request.CatalogHost is not null)
-            existing.CatalogHost = request.CatalogHost;
-        if (request.CatalogPort.HasValue)
-            existing.CatalogPort = request.CatalogPort;
-        if (request.CatalogDatabase is not null)
-            existing.CatalogDatabase = request.CatalogDatabase;
-        if (request.CatalogUser is not null)
-            existing.CatalogUser = request.CatalogUser;
-
-        // Re-encrypt if new values provided
-        if (request.StorageConnectionString is not null)
-            existing.EncryptedStorageConnectionString = _protector.Protect(request.StorageConnectionString);
-        if (request.CatalogPassword is not null)
-            existing.EncryptedCatalogPassword = _protector.Protect(request.CatalogPassword);
+        if (!existing.IsManaged)
+        {
+            // External catalogs: update any provided connection fields
+            if (request.DataPath is not null)
+                existing.DataPath = request.DataPath;
+            if (request.CatalogHost is not null)
+                existing.CatalogHost = request.CatalogHost;
+            if (request.CatalogPort.HasValue)
+                existing.CatalogPort = request.CatalogPort;
+            if (request.CatalogDatabase is not null)
+                existing.CatalogDatabase = request.CatalogDatabase;
+            if (request.CatalogUser is not null)
+                existing.CatalogUser = request.CatalogUser;
+            if (request.StorageConnectionString is not null)
+                existing.EncryptedStorageConnectionString = _protector.Protect(request.StorageConnectionString);
+            if (request.CatalogPassword is not null)
+                existing.EncryptedCatalogPassword = _protector.Protect(request.CatalogPassword);
+        }
+        // For managed catalogs only the name is persisted; connection info comes from settings at runtime.
 
         var updated = await repository.UpdateAsync(existing, cancellationToken);
-        return updated is null ? null : CreateCatalogHandler.ToDto(updated);
+        return updated is null ? null : CreateCatalogHandler.ToDto(updated, settings.Value);
     }
 }

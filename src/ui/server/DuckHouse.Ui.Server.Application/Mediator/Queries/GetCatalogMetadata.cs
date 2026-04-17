@@ -3,6 +3,7 @@ using DuckHouse.Ui.Server.Core.Catalogs;
 using DuckHouse.Ui.Server.Core.Repositories;
 using DuckHouse.Ui.Shared.Catalogs;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Options;
 
 namespace DuckHouse.Ui.Server.Application.Mediator.Queries;
 
@@ -11,7 +12,8 @@ public record GetCatalogMetadataRequest(Guid CatalogId) : IRequest<CatalogMetada
 internal class GetCatalogMetadataHandler(
     ICatalogRepository repository,
     ICatalogMetadataService metadataService,
-    IDataProtectionProvider dataProtection)
+    IDataProtectionProvider dataProtection,
+    IOptions<CatalogSettings> settings)
     : IRequestHandler<GetCatalogMetadataRequest, CatalogMetadataDto?>
 {
     private readonly IDataProtector _protector = dataProtection.CreateProtector("DuckHouse.Catalogs");
@@ -21,23 +23,48 @@ internal class GetCatalogMetadataHandler(
         var catalog = await repository.GetByIdAsync(request.CatalogId, cancellationToken);
         if (catalog is null) return null;
 
-        var password = catalog.EncryptedCatalogPassword is not null
-            ? _protector.Unprotect(catalog.EncryptedCatalogPassword)
-            : string.Empty;
+        var opts = settings.Value;
 
-        var storageConnectionString = catalog.EncryptedStorageConnectionString is not null
-            ? _protector.Unprotect(catalog.EncryptedStorageConnectionString)
-            : null;
+        string dataPath, catalogHost, catalogDatabase, catalogUser, catalogPassword;
+        int catalogPort;
+        string? storageConnectionString;
+
+        if (catalog.IsManaged)
+        {
+            dataPath = opts.BaseDataPath.TrimEnd('/') + "/" + catalog.Name;
+            storageConnectionString = !string.IsNullOrEmpty(opts.StorageConnectionString)
+                ? opts.StorageConnectionString
+                : null;
+            catalogHost = opts.CatalogHost;
+            catalogPort = opts.CatalogPort;
+            catalogDatabase = catalog.Name;
+            catalogUser = opts.CatalogUser;
+            catalogPassword = opts.CatalogPassword;
+        }
+        else
+        {
+            dataPath = catalog.DataPath ?? string.Empty;
+            storageConnectionString = catalog.EncryptedStorageConnectionString is not null
+                ? _protector.Unprotect(catalog.EncryptedStorageConnectionString)
+                : null;
+            catalogHost = catalog.CatalogHost ?? string.Empty;
+            catalogPort = catalog.CatalogPort ?? 5432;
+            catalogDatabase = catalog.CatalogDatabase ?? catalog.Name;
+            catalogUser = catalog.CatalogUser ?? string.Empty;
+            catalogPassword = catalog.EncryptedCatalogPassword is not null
+                ? _protector.Unprotect(catalog.EncryptedCatalogPassword)
+                : string.Empty;
+        }
 
         var result = await metadataService.GetMetadataAsync(
             catalog.Name,
-            catalog.DataPath ?? string.Empty,
+            dataPath,
             storageConnectionString,
-            catalog.CatalogHost ?? string.Empty,
-            catalog.CatalogPort ?? 5432,
-            catalog.CatalogDatabase ?? catalog.Name,
-            catalog.CatalogUser ?? string.Empty,
-            password,
+            catalogHost,
+            catalogPort,
+            catalogDatabase,
+            catalogUser,
+            catalogPassword,
             cancellationToken);
 
         return new CatalogMetadataDto(
