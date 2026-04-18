@@ -9,10 +9,6 @@
         <Icon Type="@IconType.Outline.Home" />
         <span>Home</span>
     </MenuItem>
-    <MenuItem Key="nodes" OnClick="@(() => Navigation.NavigateTo("/nodes"))">
-        <Icon Type="@IconType.Outline.CloudServer" />
-        <span>Nodes</span>
-    </MenuItem>
     <MenuItem Key="notebook" OnClick="@(() => Navigation.NavigateTo("/workspace"))">
         <Icon Type="@IconType.Outline.FolderOpen" />
         <span>Workspace</span>
@@ -21,6 +17,14 @@
         <Icon Type="@IconType.Outline.Partition" />
         <span>Jobs</span>
     </MenuItem>
+    <MenuItem Key="catalogs" OnClick="@(() => Navigation.NavigateTo("/catalogs"))">
+        <Icon Type="@IconType.Outline.Database" />
+        <span>Catalogs</span>
+    </MenuItem>
+    <MenuItem Key="nodes" OnClick="@(() => Navigation.NavigateTo("/nodes"))">
+        <Icon Type="@IconType.Outline.CloudServer" />
+        <span>Nodes</span>
+    </MenuItem>
     <MenuItem Key="node-pools" OnClick="@(() => Navigation.NavigateTo("/node-pools"))">
         <Icon Type="@IconType.Outline.Cluster" />
         <span>Node pools</span>
@@ -28,10 +32,6 @@
     <MenuItem Key="environment" OnClick="@(() => Navigation.NavigateTo("/environment"))">
         <Icon Type="@IconType.Outline.Tool" />
         <span>Environment</span>
-    </MenuItem>
-    <MenuItem Key="catalogs" OnClick="@(() => Navigation.NavigateTo("/catalogs"))">
-        <Icon Type="@IconType.Outline.Database" />
-        <span>Catalogs</span>
     </MenuItem>
     <MenuItem Key="packages" OnClick="@(() => Navigation.NavigateTo("/packages"))">
         <Icon Type="@IconType.Outline.CodeSandbox" />
