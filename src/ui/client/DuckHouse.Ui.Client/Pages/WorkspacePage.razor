@@ -83,7 +83,7 @@ else
     @if (_items.Count > 0 || _addingFolder)
     {
         <Table TItem="WorkspaceItem" DataSource="_items" Bordered="false"
-               PageSize="int.MaxValue" PaginationPosition="none">
+               PageSize="int.MaxValue" PaginationPosition="none" Size="TableSize.Small">
             <PropertyColumn Property="i => i.Name" Title="Name">
                 @if (context.IsFolder)
                 {

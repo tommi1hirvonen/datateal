@@ -19,257 +19,257 @@
 <PageTitle>Query — DuckHouse</PageTitle>
 
 <div class="cp-layout">
-<CatalogSidePanel AllCatalogs="@_allCatalogs"
-                  SelectedCatalogNames="@_selectedCatalogNames"
-                  SelectedCatalogNamesChanged="@(v => _selectedCatalogNames = v)"
-                  OnCatalogSelectionChanged="OnCatalogSelectionChanged"
-                  CatalogSetupRunning="@_catalogSetupRunning" />
-<div class="qp-page">
+    <CatalogSidePanel AllCatalogs="@_allCatalogs"
+                    SelectedCatalogNames="@_selectedCatalogNames"
+                    SelectedCatalogNamesChanged="@(v => _selectedCatalogNames = v)"
+                    OnCatalogSelectionChanged="OnCatalogSelectionChanged"
+                    CatalogSetupRunning="@_catalogSetupRunning" />
+    <div class="qp-page" style="margin-left: 24px;">
 
-@* ── Title row ── *@
-<Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px; flex-shrink: 0;">
-    <Space Align="SpaceAlign.End" Size="SpaceSize.Middle">
-        <SpaceItem>
-            <Icon Height="24px" Width="24px" Type="@IconType.Outline.Code" />
-        </SpaceItem>
-        <SpaceItem>
-            <h2 style="margin: 0;">
-                @if (_editingTitle)
-                {
-                    <Input Style="width: 32ch; font-size: inherit;"
-                           @bind-Value="_editingTitleValue"
-                           OnPressEnter="@(_ => CommitTitleEdit())"
-                           OnBlur="@(_ => CommitTitleEdit())" />
-                }
-                else
-                {
-                    <span style="cursor: pointer;" @onclick="StartEditTitle">
-                        @_title@(_isDirty ? " *" : "")
-                    </span>
-                }
-            </h2>
-        </SpaceItem>
-    </Space>
+        @* ── Title row ── *@
+        <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px; flex-shrink: 0;">
+            <Space Align="SpaceAlign.End" Size="SpaceSize.Middle">
+                <SpaceItem>
+                    <Icon Height="24px" Width="24px" Type="@IconType.Outline.Code" />
+                </SpaceItem>
+                <SpaceItem>
+                    <h2 style="margin: 0;">
+                        @if (_editingTitle)
+                        {
+                            <Input Style="width: 32ch; font-size: inherit;"
+                                @bind-Value="_editingTitleValue"
+                                OnPressEnter="@(_ => CommitTitleEdit())"
+                                OnBlur="@(_ => CommitTitleEdit())" />
+                        }
+                        else
+                        {
+                            <span style="cursor: pointer;" @onclick="StartEditTitle">
+                                @_title@(_isDirty ? " *" : "")
+                            </span>
+                        }
+                    </h2>
+                </SpaceItem>
+            </Space>
 
-    @* File toolbar *@
-    <Space Size="SpaceSize.Small" Style="flex-wrap: wrap;">
-        <SpaceItem>
-            <Button OnClick="@(() => Navigation.NavigateTo("/workspace"))" Icon="@IconType.Outline.FolderOpen">
-                Browse workspace
-            </Button>
-        </SpaceItem>
-        @if (_workspaceQueryId.HasValue)
-        {
-            <SpaceItem>
-                <Button Disabled="@(!_isDirty)" Icon="@IconType.Outline.Save" OnClick="SaveToWorkspaceAsync">
-                    Save
-                </Button>
-            </SpaceItem>
-        }
-        else
-        {
-            <SpaceItem>
-                <Button Disabled="@(!_isDirty)" Icon="@IconType.Outline.CloudUpload" OnClick="OpenFolderPickerAsync">
-                    Save to workspace
-                </Button>
-            </SpaceItem>
-        }
-    </Space>
-</Flex>
-
-@* Workspace breadcrumb *@
-@if (_workspaceQueryId.HasValue && _breadcrumbs.Count > 0)
-{
-    <Breadcrumb Style="margin-bottom: 8px;">
-        @foreach (var crumb in _breadcrumbs)
-        {
-            <BreadcrumbItem>
-                <a @onclick="() => NavigateToWorkspace(crumb.Id)" @onclick:preventDefault style="cursor: pointer;">
-                    @crumb.Name
-                </a>
-            </BreadcrumbItem>
-        }
-        <BreadcrumbItem>@_title</BreadcrumbItem>
-    </Breadcrumb>
-}
-
-@* Kernel connection bar *@
-<Space Align="SpaceAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap;" Size="SpaceSize.Small">
-    <SpaceItem>
-        <Icon Type="@IconType.Outline.CloudServer" />
-    </SpaceItem>
-    <SpaceItem>
-        <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">Node:</Text>
-    </SpaceItem>
-    @if (_loadingNodes)
-    {
-        <SpaceItem><Spin Size="SpinSize.Small" /></SpaceItem>
-    }
-    else
-    {
-        <SpaceItem>
-            <Select TItemValue="string"
-                    TItem="NodeInfo"
-                    DataSource="@_nodes.ToList()"
-                    @bind-Value="@_nodeName"
-                    ItemValue="n => n.Name"
-                    ItemLabel="n => n.Name"
-                    Placeholder="— select node —"
-                    AllowClear
-                    Disabled="@(_connecting || HasKernel)"
-                    DropdownMatchSelectWidth="false"
-                    Style="min-width: 150px;">
-                <ItemTemplate>
-                    @{ var node = (NodeInfo)context!; }
-                    <span>@node.Name</span>
-                    <Tag Color="@NodeStateTagColor(node.State)" Style="margin-left: 6px; font-size: 0.75rem;">@node.State</Tag>
-                </ItemTemplate>
-            </Select>
-        </SpaceItem>
-    }
-
-    @if (!HasKernel)
-    {
-        <SpaceItem>
-            <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
-                    Disabled="@(string.IsNullOrEmpty(_nodeName) || _connecting)"
-                    Loading="_connecting"
-                    Icon="@IconType.Outline.Api"
-                    OnClick="ConnectAsync">
-                @(SelectedNode?.State == NodeState.Running ? "Connect" : "Start and connect")
-            </Button>
-        </SpaceItem>
-    }
-    else
-    {
-        <SpaceItem><Tag Color="@StatusTagColor(_kernel!.Status)">@_kernel!.Status</Tag></SpaceItem>
-        <SpaceItem>
-            <Button Size="ButtonSize.Small"
-                    Disabled="_disconnecting"
-                    Loading="_disconnecting"
-                    Icon="@IconType.Outline.Disconnect"
-                    OnClick="DisconnectAsync">
-                Disconnect
-            </Button>
-        </SpaceItem>
-    }
-</Space>
-
-@* Catalog selector moved to the side panel *@
-
-@if (_error is not null)
-{
-    <Alert Type="AlertType.Error" Message="@_error" Closable ShowIcon="true"
-           OnClose="@(() => _error = null)" Style="margin-bottom: 12px;" />
-}
-
-@* ── Split layout ── *@
-<div class="qp-split">
-
-    @* Top pane: editor + run toolbar *@
-    <div id="qp-top-pane" class="qp-top-pane" style="height: @(_topHeightPx)px;">
-        <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 8px; flex-shrink: 0;">
-            <Text Type="TextElementType.Secondary" Strong Style="font-size: 0.875rem;">SQL</Text>
-            <Space Size="SpaceSize.Small">
-                @if (_isExecuting)
+            @* File toolbar *@
+            <Space Size="SpaceSize.Small" Style="flex-wrap: wrap;">
+                <SpaceItem>
+                    <Button OnClick="@(() => Navigation.NavigateTo("/workspace"))" Icon="@IconType.Outline.FolderOpen">
+                        Browse workspace
+                    </Button>
+                </SpaceItem>
+                @if (_workspaceQueryId.HasValue)
                 {
                     <SpaceItem>
-                        <ExecutionTimer IsRunning="true" DurationMs="null" />
-                    </SpaceItem>
-                    <SpaceItem>
-                        <Button Size="ButtonSize.Small"
-                                Icon="@IconType.Outline.Loading"
-                                OnClick="InterruptAsync">
-                            Interrupt
+                        <Button Disabled="@(!_isDirty)" Icon="@IconType.Outline.Save" OnClick="SaveToWorkspaceAsync">
+                            Save
                         </Button>
                     </SpaceItem>
                 }
                 else
                 {
-                    @if (_lastDurationMs.HasValue)
-                    {
-                        <SpaceItem>
-                            <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">
-                                <ExecutionTimer IsRunning="false" DurationMs="_lastDurationMs" />
-                            </Text>
-                        </SpaceItem>
-                    }
                     <SpaceItem>
-                        <Tooltip Title="@("Ctrl+Enter")">
-                            <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
-                                    Disabled="@(!HasKernel || string.IsNullOrWhiteSpace(_sql))"
-                                    Icon="@IconType.Outline.PlayCircle"
-                                    OnClick="RunAsync">
-                                @(string.IsNullOrWhiteSpace(_selectedSql) ? "Run all" : "Run selected")
-                            </Button>
-                        </Tooltip>
+                        <Button Disabled="@(!_isDirty)" Icon="@IconType.Outline.CloudUpload" OnClick="OpenFolderPickerAsync">
+                            Save to workspace
+                        </Button>
                     </SpaceItem>
                 }
             </Space>
         </Flex>
-        <div style="flex: 1 1 0%; overflow: hidden;">
-            <CodeCell Value="@_sql"
-                      ValueChanged="OnSqlChanged"
-                      OnSelectionChanged="OnSqlSelectionChanged"
-                      Language="sql"
-                      Height="@_editorHeight"
-                      ReadOnly="@_isExecuting"
-                      OnExecute="RunAsync" />
-        </div>
-    </div>
 
-    @* Drag handle *@
-    <div id="qp-drag-handle" class="qp-drag-handle">
-        <div class="qp-drag-handle-inner"></div>
-    </div>
-
-    @* Bottom pane: results *@
-    <div class="qp-bottom-pane">
-        @if (_isExecuting)
+        @* Workspace breadcrumb *@
+        @if (_workspaceQueryId.HasValue && _breadcrumbs.Count > 0)
         {
-            <Flex Justify="@("center")" Style="padding: 40px 0;"><Spin /></Flex>
-        }
-        else if (_resultDf is not null)
-        {
-            <div style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">
-                    @_resultDf.TotalRows.ToString("N0")@(_resultDf.TotalRows == DataFrameOutput.RowCap ? "+" : "") rows
-                </Text>
-                @if (_lastExecutedAt.HasValue)
+            <Breadcrumb Style="margin-bottom: 8px;">
+                @foreach (var crumb in _breadcrumbs)
                 {
-                    <span style="font-size: 0.75rem; opacity: 0.6;">Last run @_lastExecutedAt.Value.ToLocalTime().ToString("HH:mm:ss")</span>
+                    <BreadcrumbItem>
+                        <a @onclick="() => NavigateToWorkspace(crumb.Id)" @onclick:preventDefault style="cursor: pointer;">
+                            @crumb.Name
+                        </a>
+                    </BreadcrumbItem>
                 }
-            </div>
-            <div style="flex: 1 1 0%; overflow: auto;">
-                <DataFrameView Data="_resultDf" Fill="true" />
-            </div>
+                <BreadcrumbItem>@_title</BreadcrumbItem>
+            </Breadcrumb>
         }
-        else if (_resultError is not null)
+
+        @* Kernel connection bar *@
+        <Space Align="SpaceAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap;" Size="SpaceSize.Small">
+            <SpaceItem>
+                <Icon Type="@IconType.Outline.CloudServer" />
+            </SpaceItem>
+            <SpaceItem>
+                <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">Node:</Text>
+            </SpaceItem>
+            @if (_loadingNodes)
+            {
+                <SpaceItem><Spin Size="SpinSize.Small" /></SpaceItem>
+            }
+            else
+            {
+                <SpaceItem>
+                    <Select TItemValue="string"
+                            TItem="NodeInfo"
+                            DataSource="@_nodes.ToList()"
+                            @bind-Value="@_nodeName"
+                            ItemValue="n => n.Name"
+                            ItemLabel="n => n.Name"
+                            Placeholder="— select node —"
+                            AllowClear
+                            Disabled="@(_connecting || HasKernel)"
+                            DropdownMatchSelectWidth="false"
+                            Style="min-width: 150px;">
+                        <ItemTemplate>
+                            @{ var node = (NodeInfo)context!; }
+                            <span>@node.Name</span>
+                            <Tag Color="@NodeStateTagColor(node.State)" Style="margin-left: 6px; font-size: 0.75rem;">@node.State</Tag>
+                        </ItemTemplate>
+                    </Select>
+                </SpaceItem>
+            }
+
+            @if (!HasKernel)
+            {
+                <SpaceItem>
+                    <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
+                            Disabled="@(string.IsNullOrEmpty(_nodeName) || _connecting)"
+                            Loading="_connecting"
+                            Icon="@IconType.Outline.Api"
+                            OnClick="ConnectAsync">
+                        @(SelectedNode?.State == NodeState.Running ? "Connect" : "Start and connect")
+                    </Button>
+                </SpaceItem>
+            }
+            else
+            {
+                <SpaceItem><Tag Color="@StatusTagColor(_kernel!.Status)">@_kernel!.Status</Tag></SpaceItem>
+                <SpaceItem>
+                    <Button Size="ButtonSize.Small"
+                            Disabled="_disconnecting"
+                            Loading="_disconnecting"
+                            Icon="@IconType.Outline.Disconnect"
+                            OnClick="DisconnectAsync">
+                        Disconnect
+                    </Button>
+                </SpaceItem>
+            }
+        </Space>
+
+        @* Catalog selector moved to the side panel *@
+
+        @if (_error is not null)
         {
-            <div style="flex: 1 1 0%; overflow: auto;">
-                <div class="qp-error-bar">
-                    <Text Type="TextElementType.Danger" Strong Style="display: block; font-size: 0.875rem; margin-bottom: 4px;">@_resultError.Ename: @_resultError.Evalue</Text>
-                    <pre style="font-family: monospace; font-size: 0.875rem; margin: 0; white-space: pre-wrap;"><Text Type="TextElementType.Danger">@string.Join("\n", _resultError.Traceback.Select(StripAnsi))</Text></pre>
+            <Alert Type="AlertType.Error" Message="@_error" Closable ShowIcon="true"
+                OnClose="@(() => _error = null)" Style="margin-bottom: 12px;" />
+        }
+
+        @* ── Split layout ── *@
+        <div class="qp-split">
+
+            @* Top pane: editor + run toolbar *@
+            <div id="qp-top-pane" class="qp-top-pane" style="height: @(_topHeightPx)px;">
+                <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 8px; flex-shrink: 0;">
+                    <Text Type="TextElementType.Secondary" Strong Style="font-size: 0.875rem;">SQL</Text>
+                    <Space Size="SpaceSize.Small">
+                        @if (_isExecuting)
+                        {
+                            <SpaceItem>
+                                <ExecutionTimer IsRunning="true" DurationMs="null" />
+                            </SpaceItem>
+                            <SpaceItem>
+                                <Button Size="ButtonSize.Small"
+                                        Icon="@IconType.Outline.Loading"
+                                        OnClick="InterruptAsync">
+                                    Interrupt
+                                </Button>
+                            </SpaceItem>
+                        }
+                        else
+                        {
+                            @if (_lastDurationMs.HasValue)
+                            {
+                                <SpaceItem>
+                                    <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">
+                                        <ExecutionTimer IsRunning="false" DurationMs="_lastDurationMs" />
+                                    </Text>
+                                </SpaceItem>
+                            }
+                            <SpaceItem>
+                                <Tooltip Title="@("Ctrl+Enter")">
+                                    <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
+                                            Disabled="@(!HasKernel || string.IsNullOrWhiteSpace(_sql))"
+                                            Icon="@IconType.Outline.PlayCircle"
+                                            OnClick="RunAsync">
+                                        @(string.IsNullOrWhiteSpace(_selectedSql) ? "Run all" : "Run selected")
+                                    </Button>
+                                </Tooltip>
+                            </SpaceItem>
+                        }
+                    </Space>
+                </Flex>
+                <div style="flex: 1 1 0%; overflow: hidden;">
+                    <CodeCell Value="@_sql"
+                            ValueChanged="OnSqlChanged"
+                            OnSelectionChanged="OnSqlSelectionChanged"
+                            Language="sql"
+                            Height="@_editorHeight"
+                            ReadOnly="@_isExecuting"
+                            OnExecute="RunAsync" />
                 </div>
             </div>
-        }
-        else if (_resultText is not null)
-        {
-            <div style="flex: 1 1 0%; overflow: auto;">
-                <pre style="font-family: monospace; font-size: 0.875rem; margin: 0;">@_resultText</pre>
-            </div>
-        }
-        else
-        {
-            <div style="flex: 1 1 0%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                <Icon Type="@IconType.Outline.Table" Style="font-size: 40px; opacity: 0.25;" />
-                <p style="margin-top: 12px;"><Text Type="TextElementType.Secondary">Run a query to see results here.</Text></p>
-            </div>
-        }
-    </div>
-</div>
 
-</div>@* end .qp-page *@
+            @* Drag handle *@
+            <div id="qp-drag-handle" class="qp-drag-handle">
+                <div class="qp-drag-handle-inner"></div>
+            </div>
+
+            @* Bottom pane: results *@
+            <div class="qp-bottom-pane">
+                @if (_isExecuting)
+                {
+                    <Flex Justify="@("center")" Style="padding: 40px 0;"><Spin /></Flex>
+                }
+                else if (_resultDf is not null)
+                {
+                    <div style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">
+                            @_resultDf.TotalRows.ToString("N0")@(_resultDf.TotalRows == DataFrameOutput.RowCap ? "+" : "") rows
+                        </Text>
+                        @if (_lastExecutedAt.HasValue)
+                        {
+                            <span style="font-size: 0.75rem; opacity: 0.6;">Last run @_lastExecutedAt.Value.ToLocalTime().ToString("HH:mm:ss")</span>
+                        }
+                    </div>
+                    <div style="flex: 1 1 0%; overflow: auto;">
+                        <DataFrameView Data="_resultDf" Fill="true" />
+                    </div>
+                }
+                else if (_resultError is not null)
+                {
+                    <div style="flex: 1 1 0%; overflow: auto;">
+                        <div class="qp-error-bar">
+                            <Text Type="TextElementType.Danger" Strong Style="display: block; font-size: 0.875rem; margin-bottom: 4px;">@_resultError.Ename: @_resultError.Evalue</Text>
+                            <pre style="font-family: monospace; font-size: 0.875rem; margin: 0; white-space: pre-wrap;"><Text Type="TextElementType.Danger">@string.Join("\n", _resultError.Traceback.Select(StripAnsi))</Text></pre>
+                        </div>
+                    </div>
+                }
+                else if (_resultText is not null)
+                {
+                    <div style="flex: 1 1 0%; overflow: auto;">
+                        <pre style="font-family: monospace; font-size: 0.875rem; margin: 0;">@_resultText</pre>
+                    </div>
+                }
+                else
+                {
+                    <div style="flex: 1 1 0%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                        <Icon Type="@IconType.Outline.Table" Style="font-size: 40px; opacity: 0.25;" />
+                        <p style="margin-top: 12px;"><Text Type="TextElementType.Secondary">Run a query to see results here.</Text></p>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>@* end .qp-page *@
 </div>@* end .cp-layout *@
 
 @* Folder picker modal — shown when saving to workspace for the first time *@

@@ -19,232 +19,232 @@
 <PageTitle>Notebook — DuckHouse</PageTitle>
 
 <div class="cp-layout">
-<CatalogSidePanel AllCatalogs="@_allCatalogs"
-                  SelectedCatalogNames="@_selectedCatalogNames"
-                  SelectedCatalogNamesChanged="@(v => _selectedCatalogNames = v)"
-                  OnCatalogSelectionChanged="OnCatalogSelectionChanged"
-                  CatalogSetupRunning="@_catalogSetupRunning" />
-<div class="cp-main" style="overflow-y: auto;">
+    <CatalogSidePanel AllCatalogs="@_allCatalogs"
+                    SelectedCatalogNames="@_selectedCatalogNames"
+                    SelectedCatalogNamesChanged="@(v => _selectedCatalogNames = v)"
+                    OnCatalogSelectionChanged="OnCatalogSelectionChanged"
+                    CatalogSetupRunning="@_catalogSetupRunning" />
+    <div class="cp-main" style="margin-left: 24px; overflow-y: auto;">
 
-<Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-    <Space Align="SpaceAlign.End" Size="SpaceSize.Middle">
-        <SpaceItem>
-            <Icon Height="24px" Width="24px" Type="@IconType.Outline.FileText" />
-        </SpaceItem>
-        <SpaceItem>
-            <h2 style="margin: 0;">
-                @if (_editingTitle)
+        <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <Space Align="SpaceAlign.End" Size="SpaceSize.Middle">
+                <SpaceItem>
+                    <Icon Height="24px" Width="24px" Type="@IconType.Outline.FileText" />
+                </SpaceItem>
+                <SpaceItem>
+                    <h2 style="margin: 0;">
+                        @if (_editingTitle)
+                        {
+                            <Input Style="width: 30ch; font-size: inherit;"
+                                @bind-Value="_editingTitleValue"
+                                OnPressEnter="@(_ => CommitTitleEdit())"
+                                OnBlur="@(_ => CommitTitleEdit())" />
+                        }
+                        else
+                        {
+                            <span style="cursor: pointer;" @onclick="StartEditTitle">
+                                @_notebook.Title@(_notebook.IsDirty ? " *" : "")
+                            </span>
+                        }
+                    </h2>
+                </SpaceItem>
+            </Space>
+
+            @* File toolbar *@
+            <Space Size="SpaceSize.Small" Style="flex-wrap: wrap;">
+                <SpaceItem>
+                    <Button OnClick="@(() => Navigation.NavigateTo("/workspace"))" Icon="@IconType.Outline.FolderOpen">
+                        Browse workspace
+                    </Button>
+                </SpaceItem>
+                <SpaceItem>
+                    <Button OnClick="OpenFileDialogAsync" Icon="@IconType.Outline.Upload">
+                        Open from file
+                    </Button>
+                    <InputFile @ref="_fileInput" style="display:none;" accept=".ipynb" OnChange="OnFileSelectedAsync" />
+                </SpaceItem>
+                @if (_workspaceNotebookId.HasValue)
                 {
-                    <Input Style="width: 30ch; font-size: inherit;"
-                           @bind-Value="_editingTitleValue"
-                           OnPressEnter="@(_ => CommitTitleEdit())"
-                           OnBlur="@(_ => CommitTitleEdit())" />
+                    <SpaceItem>
+                        <Button Disabled="@(!_notebook.IsDirty)" Icon="@IconType.Outline.Save" OnClick="SaveToWorkspaceAsync">
+                            Save
+                        </Button>
+                    </SpaceItem>
                 }
                 else
                 {
-                    <span style="cursor: pointer;" @onclick="StartEditTitle">
-                        @_notebook.Title@(_notebook.IsDirty ? " *" : "")
-                    </span>
+                    <SpaceItem>
+                        <Button Disabled="@(!_notebook.IsDirty)" Icon="@IconType.Outline.CloudUpload" OnClick="OpenFolderPickerAsync">
+                            Save to workspace
+                        </Button>
+                    </SpaceItem>
                 }
-            </h2>
-        </SpaceItem>
-    </Space>
+                <SpaceItem>
+                    <Button Icon="@IconType.Outline.Download" OnClick="ExportFileAsync">
+                        Export
+                    </Button>
+                </SpaceItem>
+                <SpaceItem><Divider Type="DividerType.Vertical" /></SpaceItem>
+                <SpaceItem>
+                    @if (AnyExecuting)
+                    {
+                        <Button Disabled="@(!HasKernel || !AnyExecuting)"
+                                Icon="@IconType.Outline.Loading"
+                                OnClick="InterruptAsync">
+                            Interrupt
+                        </Button>
+                    }
+                    else
+                    {
+                        <Button Type="ButtonType.Primary"
+                                Disabled="@(!HasKernel)"
+                                Icon="@IconType.Outline.PlayCircle"
+                                OnClick="RunAllAsync">
+                            Run all
+                        </Button>
+                    }
+                </SpaceItem>
+                <SpaceItem>
+                    <Button Disabled="@(!_notebook.Cells.Any())"
+                            Icon="@IconType.Outline.Clear"
+                            OnClick="ClearAllOutputs">
+                        Clear outputs
+                    </Button>
+                </SpaceItem>
+            </Space>
+        </Flex>
 
-    @* File toolbar *@
-    <Space Size="SpaceSize.Small" Style="flex-wrap: wrap;">
-        <SpaceItem>
-            <Button OnClick="@(() => Navigation.NavigateTo("/workspace"))" Icon="@IconType.Outline.FolderOpen">
-                Browse workspace
-            </Button>
-        </SpaceItem>
-        <SpaceItem>
-            <Button OnClick="OpenFileDialogAsync" Icon="@IconType.Outline.Upload">
-                Open from file
-            </Button>
-            <InputFile @ref="_fileInput" style="display:none;" accept=".ipynb" OnChange="OnFileSelectedAsync" />
-        </SpaceItem>
-        @if (_workspaceNotebookId.HasValue)
+        @* Workspace breadcrumb — only visible when the notebook is saved in the workspace *@
+        @if (_workspaceNotebookId.HasValue && _breadcrumbs.Count > 0)
         {
-            <SpaceItem>
-                <Button Disabled="@(!_notebook.IsDirty)" Icon="@IconType.Outline.Save" OnClick="SaveToWorkspaceAsync">
-                    Save
-                </Button>
-            </SpaceItem>
+            <Breadcrumb Style="margin-bottom: 8px;">
+                @foreach (var crumb in _breadcrumbs)
+                {
+                    <BreadcrumbItem>
+                        <a @onclick="() => NavigateToWorkspace(crumb.Id)" @onclick:preventDefault style="cursor: pointer;">
+                            @crumb.Name
+                        </a>
+                    </BreadcrumbItem>
+                }
+                <BreadcrumbItem>@_notebook.Title</BreadcrumbItem>
+            </Breadcrumb>
         }
-        else
-        {
+
+        @* Kernel connection toolbar *@
+        <Space Align="SpaceAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap;" Size="SpaceSize.Small">
             <SpaceItem>
-                <Button Disabled="@(!_notebook.IsDirty)" Icon="@IconType.Outline.CloudUpload" OnClick="OpenFolderPickerAsync">
-                    Save to workspace
-                </Button>
+                <Icon Type="@IconType.Outline.CloudServer" />
             </SpaceItem>
-        }
-        <SpaceItem>
-            <Button Icon="@IconType.Outline.Download" OnClick="ExportFileAsync">
-                Export
-            </Button>
-        </SpaceItem>
-        <SpaceItem><Divider Type="DividerType.Vertical" /></SpaceItem>
-        <SpaceItem>
-            @if (AnyExecuting)
+            <SpaceItem>
+                <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">Node:</Text>
+            </SpaceItem>
+            @if (_loadingNodes)
             {
-                <Button Disabled="@(!HasKernel || !AnyExecuting)"
-                        Icon="@IconType.Outline.Loading"
-                        OnClick="InterruptAsync">
-                    Interrupt
-                </Button>
+                <SpaceItem><Spin Size="SpinSize.Small" /></SpaceItem>
             }
             else
             {
-                <Button Type="ButtonType.Primary"
-                        Disabled="@(!HasKernel)"
-                        Icon="@IconType.Outline.PlayCircle"
-                        OnClick="RunAllAsync">
-                    Run all
-                </Button>
+                <SpaceItem>
+                    <Select TItemValue="string"
+                            TItem="NodeInfo"
+                            DataSource="@_nodes.ToList()"
+                            @bind-Value="@_nodeName"
+                            ItemValue="n => n.Name"
+                            ItemLabel="n => n.Name"
+                            Placeholder="— select node —"
+                            AllowClear
+                            Disabled="@(_connecting || HasKernel)"
+                            DropdownMatchSelectWidth="false"
+                            Style="min-width: 150px;">
+                        <ItemTemplate>
+                            @{ var node = (NodeInfo)context!; }
+                            <span>@node.Name</span>
+                            <Tag Color="@NodeStateTagColor(node.State)" Style="margin-left: 6px; font-size: 0.75rem;">@node.State</Tag>
+                        </ItemTemplate>
+                    </Select>
+                </SpaceItem>
             }
-        </SpaceItem>
-        <SpaceItem>
-            <Button Disabled="@(!_notebook.Cells.Any())"
-                    Icon="@IconType.Outline.Clear"
-                    OnClick="ClearAllOutputs">
-                Clear outputs
-            </Button>
-        </SpaceItem>
-    </Space>
-</Flex>
 
-@* Workspace breadcrumb — only visible when the notebook is saved in the workspace *@
-@if (_workspaceNotebookId.HasValue && _breadcrumbs.Count > 0)
-{
-    <Breadcrumb Style="margin-bottom: 8px;">
-        @foreach (var crumb in _breadcrumbs)
+            @if (!HasKernel)
+            {
+                <SpaceItem>
+                    <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
+                            Disabled="@(string.IsNullOrEmpty(_nodeName) || _connecting)"
+                            Loading="_connecting"
+                            Icon="@IconType.Outline.Api"
+                            OnClick="ConnectAsync">
+                        @(SelectedNode?.State == NodeState.Running ? "Connect" : "Start and connect")
+                    </Button>
+                </SpaceItem>
+            }
+            else
+            {
+                <SpaceItem><Tag Color="@StatusTagColor(_kernel!.Status)">@_kernel!.Status</Tag></SpaceItem>
+                <SpaceItem>
+                    <Button Size="ButtonSize.Small"
+                            Disabled="_disconnecting"
+                            Loading="_disconnecting"
+                            Icon="@IconType.Outline.Disconnect"
+                            OnClick="DisconnectAsync">
+                        Disconnect
+                    </Button>
+                </SpaceItem>
+            }
+        </Space>
+
+        @* Catalog selector moved to the side panel *@
+
+        @if (_error is not null)
         {
-            <BreadcrumbItem>
-                <a @onclick="() => NavigateToWorkspace(crumb.Id)" @onclick:preventDefault style="cursor: pointer;">
-                    @crumb.Name
-                </a>
-            </BreadcrumbItem>
+            <Alert Type="AlertType.Error" Message="@_error" Closable ShowIcon="true"
+                OnClose="@(() => _error = null)" Style="margin-bottom: 16px;" />
         }
-        <BreadcrumbItem>@_notebook.Title</BreadcrumbItem>
-    </Breadcrumb>
-}
 
-@* Kernel connection toolbar *@
-<Space Align="SpaceAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap;" Size="SpaceSize.Small">
-    <SpaceItem>
-        <Icon Type="@IconType.Outline.CloudServer" />
-    </SpaceItem>
-    <SpaceItem>
-        <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">Node:</Text>
-    </SpaceItem>
-    @if (_loadingNodes)
-    {
-        <SpaceItem><Spin Size="SpinSize.Small" /></SpaceItem>
-    }
-    else
-    {
-        <SpaceItem>
-            <Select TItemValue="string"
-                    TItem="NodeInfo"
-                    DataSource="@_nodes.ToList()"
-                    @bind-Value="@_nodeName"
-                    ItemValue="n => n.Name"
-                    ItemLabel="n => n.Name"
-                    Placeholder="— select node —"
-                    AllowClear
-                    Disabled="@(_connecting || HasKernel)"
-                    DropdownMatchSelectWidth="false"
-                    Style="min-width: 150px;">
-                <ItemTemplate>
-                    @{ var node = (NodeInfo)context!; }
-                    <span>@node.Name</span>
-                    <Tag Color="@NodeStateTagColor(node.State)" Style="margin-left: 6px; font-size: 0.75rem;">@node.State</Tag>
-                </ItemTemplate>
-            </Select>
-        </SpaceItem>
-    }
+        @* Cell list *@
+        <AddCellBar OnAddPython="() => AddCell(0, NotebookCellType.Code, NotebookCellLanguage.Python)"
+                    OnAddSql="() => AddCell(0, NotebookCellType.Code, NotebookCellLanguage.Sql)"
+                    OnAddMarkdown="() => AddCell(0, NotebookCellType.Markdown)" />
 
-    @if (!HasKernel)
-    {
-        <SpaceItem>
-            <Button Type="ButtonType.Primary" Size="ButtonSize.Small"
-                    Disabled="@(string.IsNullOrEmpty(_nodeName) || _connecting)"
-                    Loading="_connecting"
-                    Icon="@IconType.Outline.Api"
-                    OnClick="ConnectAsync">
-                @(SelectedNode?.State == NodeState.Running ? "Connect" : "Start and connect")
-            </Button>
-        </SpaceItem>
-    }
-    else
-    {
-        <SpaceItem><Tag Color="@StatusTagColor(_kernel!.Status)">@_kernel!.Status</Tag></SpaceItem>
-        <SpaceItem>
-            <Button Size="ButtonSize.Small"
-                    Disabled="_disconnecting"
-                    Loading="_disconnecting"
-                    Icon="@IconType.Outline.Disconnect"
-                    OnClick="DisconnectAsync">
-                Disconnect
-            </Button>
-        </SpaceItem>
-    }
-</Space>
+        @for (int ci = 0; ci < _notebook.Cells.Count; ci++)
+        {
+            var cell = _notebook.Cells[ci];
+            var index = ci; // capture for closure
+            <NotebookCellView Cell="cell"
+                            NodeName="@_nodeName"
+                            KernelId="@_kernelId"
+                            CanMoveUp="@(index > 0)"
+                            CanMoveDown="@(index < _notebook.Cells.Count - 1)"
+                            PriorContext="@(() => PriorContextFor(index))"
+                            ProvideRunMagicCompletions="ProvideRunMagicCompletionsAsync"
+                            OnExecute="@(() => _ = ExecuteCellAsync(cell))"
+                            OnRunAbove="@(() => _ = RunAboveAsync(cell))"
+                            OnRunBelow="@(() => _ = RunBelowAsync(cell))"
+                            OnInterrupt="InterruptAsync"
+                            OnDelete="@(() => DeleteCell(cell))"
+                            OnMoveUp="@(() => MoveCell(index, -1))"
+                            OnMoveDown="@(() => MoveCell(index, 1))"
+                            OnCellChanged="@(() => _notebook.IsDirty = true)"
+                            OnToggleParameters="@(() => ToggleParameterCell(cell))" />
+            <AddCellBar OnAddPython="() => AddCell(index + 1, NotebookCellType.Code, NotebookCellLanguage.Python)"
+                        OnAddSql="() => AddCell(index + 1, NotebookCellType.Code, NotebookCellLanguage.Sql)"
+                        OnAddMarkdown="() => AddCell(index + 1, NotebookCellType.Markdown)" />
+        }
 
-@* Catalog selector moved to the side panel *@
+        @if (_notebook.Cells.Count == 0)
+        {
+            <div style="font-style: italic; font-size: 0.875rem; text-align: center; padding: 32px 0;">
+                <Text Type="TextElementType.Secondary">No cells yet — use the <strong>+</strong> buttons above to add your first cell.</Text>
+            </div>
+        }
 
-@if (_error is not null)
-{
-    <Alert Type="AlertType.Error" Message="@_error" Closable ShowIcon="true"
-           OnClose="@(() => _error = null)" Style="margin-bottom: 16px;" />
-}
+        @* Folder picker modal — shown when saving to workspace for the first time *@
+        <FolderPickerModal Visible="_showFolderPicker"
+                        Title="@("Choose folder to save in")"
+                        OkText="@("Save here")"
+                        OnConfirm="ConfirmSaveToFolderAsync"
+                        OnCancel="@(() => _showFolderPicker = false)" />
 
-@* Cell list *@
-<AddCellBar OnAddPython="() => AddCell(0, NotebookCellType.Code, NotebookCellLanguage.Python)"
-            OnAddSql="() => AddCell(0, NotebookCellType.Code, NotebookCellLanguage.Sql)"
-            OnAddMarkdown="() => AddCell(0, NotebookCellType.Markdown)" />
-
-@for (int ci = 0; ci < _notebook.Cells.Count; ci++)
-{
-    var cell = _notebook.Cells[ci];
-    var index = ci; // capture for closure
-    <NotebookCellView Cell="cell"
-                      NodeName="@_nodeName"
-                      KernelId="@_kernelId"
-                      CanMoveUp="@(index > 0)"
-                      CanMoveDown="@(index < _notebook.Cells.Count - 1)"
-                      PriorContext="@(() => PriorContextFor(index))"
-                      ProvideRunMagicCompletions="ProvideRunMagicCompletionsAsync"
-                      OnExecute="@(() => _ = ExecuteCellAsync(cell))"
-                      OnRunAbove="@(() => _ = RunAboveAsync(cell))"
-                      OnRunBelow="@(() => _ = RunBelowAsync(cell))"
-                      OnInterrupt="InterruptAsync"
-                      OnDelete="@(() => DeleteCell(cell))"
-                      OnMoveUp="@(() => MoveCell(index, -1))"
-                      OnMoveDown="@(() => MoveCell(index, 1))"
-                      OnCellChanged="@(() => _notebook.IsDirty = true)"
-                      OnToggleParameters="@(() => ToggleParameterCell(cell))" />
-    <AddCellBar OnAddPython="() => AddCell(index + 1, NotebookCellType.Code, NotebookCellLanguage.Python)"
-                OnAddSql="() => AddCell(index + 1, NotebookCellType.Code, NotebookCellLanguage.Sql)"
-                OnAddMarkdown="() => AddCell(index + 1, NotebookCellType.Markdown)" />
-}
-
-@if (_notebook.Cells.Count == 0)
-{
-    <div style="font-style: italic; font-size: 0.875rem; text-align: center; padding: 32px 0;">
-        <Text Type="TextElementType.Secondary">No cells yet — use the <strong>+</strong> buttons above to add your first cell.</Text>
-    </div>
-}
-
-@* Folder picker modal — shown when saving to workspace for the first time *@
-<FolderPickerModal Visible="_showFolderPicker"
-                   Title="@("Choose folder to save in")"
-                   OkText="@("Save here")"
-                   OnConfirm="ConfirmSaveToFolderAsync"
-                   OnCancel="@(() => _showFolderPicker = false)" />
-
-</div>@* end .cp-main *@
+    </div>@* end .cp-main *@
 </div>@* end .cp-layout *@
 
 @code {
