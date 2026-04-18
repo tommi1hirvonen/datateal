@@ -13,6 +13,28 @@ namespace DuckHouse.Data.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "Catalogs",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    CatalogType = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    DataPath = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
+                    EncryptedStorageConnectionString = table.Column<string>(type: "text", nullable: true),
+                    CatalogHost = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    CatalogPort = table.Column<int>(type: "integer", nullable: true),
+                    CatalogDatabase = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    CatalogUser = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    EncryptedCatalogPassword = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Catalogs", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DataProtectionKeys",
                 columns: table => new
                 {
@@ -142,6 +164,7 @@ namespace DuckHouse.Data.Migrations
                     Title = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
                     FolderId = table.Column<Guid>(type: "uuid", nullable: true),
                     Content = table.Column<string>(type: "text", nullable: false),
+                    CatalogNames = table.Column<string>(type: "jsonb", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     ItemType = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
@@ -315,8 +338,7 @@ namespace DuckHouse.Data.Migrations
                     StartedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CompletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     DurationMs = table.Column<double>(type: "double precision", nullable: true),
-                    NotebookOutputJson = table.Column<string>(type: "text", nullable: true),
-                    QueryResultJson = table.Column<string>(type: "text", nullable: true)
+                    OutputJson = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -335,35 +357,11 @@ namespace DuckHouse.Data.Migrations
                         onDelete: ReferentialAction.SetNull);
                 });
 
-            migrationBuilder.CreateTable(
-                name: "TaskRunCellOutputs",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    TaskRunId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CellIndex = table.Column<int>(type: "integer", nullable: false),
-                    CellSource = table.Column<string>(type: "text", nullable: false),
-                    CellType = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                    Language = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
-                    Status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                    CellRole = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
-                    OutputsJson = table.Column<string>(type: "jsonb", nullable: true),
-                    ErrorJson = table.Column<string>(type: "jsonb", nullable: true),
-                    ExecutionCount = table.Column<int>(type: "integer", nullable: true),
-                    DurationMs = table.Column<double>(type: "double precision", nullable: true),
-                    StartedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CompletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_TaskRunCellOutputs", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_TaskRunCellOutputs_TaskRuns_TaskRunId",
-                        column: x => x.TaskRunId,
-                        principalTable: "TaskRuns",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+            migrationBuilder.CreateIndex(
+                name: "IX_Catalogs_Name",
+                table: "Catalogs",
+                column: "Name",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_EnvironmentVariables_Key",
@@ -436,11 +434,6 @@ namespace DuckHouse.Data.Migrations
                 column: "TaskId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_TaskRunCellOutputs_TaskRunId_CellIndex",
-                table: "TaskRunCellOutputs",
-                columns: new[] { "TaskRunId", "CellIndex" });
-
-            migrationBuilder.CreateIndex(
                 name: "IX_TaskRuns_JobRunId",
                 table: "TaskRuns",
                 column: "JobRunId");
@@ -480,6 +473,9 @@ namespace DuckHouse.Data.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "Catalogs");
+
+            migrationBuilder.DropTable(
                 name: "DataProtectionKeys");
 
             migrationBuilder.DropTable(
@@ -501,7 +497,7 @@ namespace DuckHouse.Data.Migrations
                 name: "TaskDependencies");
 
             migrationBuilder.DropTable(
-                name: "TaskRunCellOutputs");
+                name: "TaskRuns");
 
             migrationBuilder.DropTable(
                 name: "WheelPackages");
@@ -510,16 +506,13 @@ namespace DuckHouse.Data.Migrations
                 name: "WorkspaceItems");
 
             migrationBuilder.DropTable(
-                name: "TaskRuns");
-
-            migrationBuilder.DropTable(
-                name: "Folders");
-
-            migrationBuilder.DropTable(
                 name: "JobRuns");
 
             migrationBuilder.DropTable(
                 name: "JobTasks");
+
+            migrationBuilder.DropTable(
+                name: "Folders");
 
             migrationBuilder.DropTable(
                 name: "Jobs");

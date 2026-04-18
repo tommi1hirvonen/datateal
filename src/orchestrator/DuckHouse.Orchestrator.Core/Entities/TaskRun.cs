@@ -26,8 +26,5 @@ public class TaskRun
     public DateTime? CompletedAt { get; set; }
     public double? DurationMs { get; set; }
 
-    public string? NotebookOutputJson { get; set; }
-    public string? QueryResultJson { get; set; }
-
-    public List<TaskRunCellOutput> CellOutputs { get; set; } = [];
+    public string? OutputJson { get; set; }
 }

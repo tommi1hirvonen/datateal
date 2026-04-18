@@ -54,7 +54,6 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
     public DbSet<NodePoolConfig> NodePoolConfigs => Set<NodePoolConfig>();
     public DbSet<JobRun> JobRuns => Set<JobRun>();
     public DbSet<TaskRun> TaskRuns => Set<TaskRun>();
-    public DbSet<TaskRunCellOutput> TaskRunCellOutputs => Set<TaskRunCellOutput>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -261,19 +260,6 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
             entity.Property(e => e.TaskName).HasMaxLength(256).IsRequired();
             entity.Property(e => e.TaskType).HasMaxLength(32).IsRequired();
             entity.HasOne(e => e.Task).WithMany().HasForeignKey(e => e.TaskId).OnDelete(DeleteBehavior.SetNull);
-            entity.HasMany(e => e.CellOutputs).WithOne(c => c.TaskRun).HasForeignKey(c => c.TaskRunId).OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<TaskRunCellOutput>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.CellType).HasMaxLength(32).IsRequired();
-            entity.Property(e => e.CellRole).HasMaxLength(32);
-            entity.Property(e => e.Language).HasMaxLength(32);
-            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32);
-            entity.Property(e => e.OutputsJson).HasColumnType("jsonb");
-            entity.Property(e => e.ErrorJson).HasColumnType("jsonb");
-            entity.HasIndex(e => new { e.TaskRunId, e.CellIndex });
         });
     }
 }

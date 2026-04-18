@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DuckHouse.Data.Migrations
 {
     [DbContext(typeof(DuckHouseDbContext))]
-    [Migration("20260416191528_InitialCreate")]
+    [Migration("20260418170619_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -24,6 +24,40 @@ namespace DuckHouse.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("DuckHouse.Core.Catalogs.Catalog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CatalogType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Catalogs");
+
+                    b.HasDiscriminator<string>("CatalogType").HasValue("Catalog");
+
+                    b.UseTphMappingStrategy();
+                });
 
             modelBuilder.Entity("DuckHouse.Core.Environment.EnvironmentVariable", b =>
                 {
@@ -154,6 +188,9 @@ namespace DuckHouse.Data.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CatalogNames")
+                        .HasColumnType("jsonb");
 
                     b.Property<string>("Content")
                         .IsRequired()
@@ -503,10 +540,7 @@ namespace DuckHouse.Data.Migrations
                     b.Property<string>("NodeName")
                         .HasColumnType("text");
 
-                    b.Property<string>("NotebookOutputJson")
-                        .HasColumnType("text");
-
-                    b.Property<string>("QueryResultJson")
+                    b.Property<string>("OutputJson")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("StartedAt")
@@ -539,65 +573,6 @@ namespace DuckHouse.Data.Migrations
                     b.ToTable("TaskRuns");
                 });
 
-            modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.TaskRunCellOutput", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("CellIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("CellRole")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("CellSource")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CellType")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<double?>("DurationMs")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("ErrorJson")
-                        .HasColumnType("jsonb");
-
-                    b.Property<int?>("ExecutionCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Language")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("OutputsJson")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<Guid>("TaskRunId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TaskRunId", "CellIndex");
-
-                    b.ToTable("TaskRunCellOutputs");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
@@ -615,6 +590,49 @@ namespace DuckHouse.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("DataProtectionKeys");
+                });
+
+            modelBuilder.Entity("DuckHouse.Core.Catalogs.ManagedCatalog", b =>
+                {
+                    b.HasBaseType("DuckHouse.Core.Catalogs.Catalog");
+
+                    b.HasDiscriminator().HasValue("Managed");
+                });
+
+            modelBuilder.Entity("DuckHouse.Core.Catalogs.UnmanagedCatalog", b =>
+                {
+                    b.HasBaseType("DuckHouse.Core.Catalogs.Catalog");
+
+                    b.Property<string>("CatalogDatabase")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("CatalogHost")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("CatalogPort")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CatalogUser")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("DataPath")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("EncryptedCatalogPassword")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EncryptedStorageConnectionString")
+                        .HasColumnType("text");
+
+                    b.HasDiscriminator().HasValue("Unmanaged");
                 });
 
             modelBuilder.Entity("DuckHouse.Core.Workspace.Notebook", b =>
@@ -811,17 +829,6 @@ namespace DuckHouse.Data.Migrations
                     b.Navigation("Task");
                 });
 
-            modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.TaskRunCellOutput", b =>
-                {
-                    b.HasOne("DuckHouse.Orchestrator.Core.Entities.TaskRun", "TaskRun")
-                        .WithMany("CellOutputs")
-                        .HasForeignKey("TaskRunId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TaskRun");
-                });
-
             modelBuilder.Entity("DuckHouse.Core.Workspace.Folder", b =>
                 {
                     b.Navigation("Children");
@@ -846,11 +853,6 @@ namespace DuckHouse.Data.Migrations
             modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.JobTask", b =>
                 {
                     b.Navigation("Dependencies");
-                });
-
-            modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.TaskRun", b =>
-                {
-                    b.Navigation("CellOutputs");
                 });
 #pragma warning restore 612, 618
         }

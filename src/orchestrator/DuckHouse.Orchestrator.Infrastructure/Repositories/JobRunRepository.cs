@@ -54,7 +54,6 @@ internal class JobRunRepository(DuckHouseDbContext db) : IJobRunRepository
 
     public async Task<TaskRun?> GetTaskRunAsync(Guid id, CancellationToken cancellationToken = default) =>
         await db.TaskRuns
-            .Include(tr => tr.CellOutputs.OrderBy(c => c.CellIndex))
             .FirstOrDefaultAsync(tr => tr.Id == id, cancellationToken);
 
     public async Task<TaskRun> CreateTaskRunAsync(TaskRun taskRun, CancellationToken cancellationToken = default)
@@ -68,25 +67,6 @@ internal class JobRunRepository(DuckHouseDbContext db) : IJobRunRepository
     public async Task UpdateTaskRunAsync(TaskRun taskRun, CancellationToken cancellationToken = default)
     {
         db.TaskRuns.Update(taskRun);
-        await db.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<TaskRunCellOutput>> GetCellOutputsAsync(Guid taskRunId, CancellationToken cancellationToken = default) =>
-        await db.TaskRunCellOutputs
-            .Where(c => c.TaskRunId == taskRunId)
-            .OrderBy(c => c.CellIndex)
-            .ToListAsync(cancellationToken);
-
-    public async Task CreateCellOutputAsync(TaskRunCellOutput cellOutput, CancellationToken cancellationToken = default)
-    {
-        cellOutput.Id = Guid.CreateVersion7();
-        db.TaskRunCellOutputs.Add(cellOutput);
-        await db.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task UpdateCellOutputAsync(TaskRunCellOutput cellOutput, CancellationToken cancellationToken = default)
-    {
-        db.TaskRunCellOutputs.Update(cellOutput);
         await db.SaveChangesAsync(cancellationToken);
     }
 

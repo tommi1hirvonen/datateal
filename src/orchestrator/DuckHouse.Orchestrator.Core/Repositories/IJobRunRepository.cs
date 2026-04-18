@@ -18,11 +18,6 @@ public interface IJobRunRepository
     Task<TaskRun> CreateTaskRunAsync(TaskRun taskRun, CancellationToken cancellationToken = default);
     Task UpdateTaskRunAsync(TaskRun taskRun, CancellationToken cancellationToken = default);
 
-    // Cell outputs
-    Task<IReadOnlyList<TaskRunCellOutput>> GetCellOutputsAsync(Guid taskRunId, CancellationToken cancellationToken = default);
-    Task CreateCellOutputAsync(TaskRunCellOutput cellOutput, CancellationToken cancellationToken = default);
-    Task UpdateCellOutputAsync(TaskRunCellOutput cellOutput, CancellationToken cancellationToken = default);
-
     // History retention
     Task<int> PurgeRunsOlderThanAsync(DateTime cutoff, CancellationToken cancellationToken = default);
 }

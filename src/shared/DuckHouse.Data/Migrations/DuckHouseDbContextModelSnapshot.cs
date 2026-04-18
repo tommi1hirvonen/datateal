@@ -537,10 +537,7 @@ namespace DuckHouse.Data.Migrations
                     b.Property<string>("NodeName")
                         .HasColumnType("text");
 
-                    b.Property<string>("NotebookOutputJson")
-                        .HasColumnType("text");
-
-                    b.Property<string>("QueryResultJson")
+                    b.Property<string>("OutputJson")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("StartedAt")
@@ -571,65 +568,6 @@ namespace DuckHouse.Data.Migrations
                     b.HasIndex("TaskId");
 
                     b.ToTable("TaskRuns");
-                });
-
-            modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.TaskRunCellOutput", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("CellIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("CellRole")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("CellSource")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CellType")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<double?>("DurationMs")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("ErrorJson")
-                        .HasColumnType("jsonb");
-
-                    b.Property<int?>("ExecutionCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Language")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("OutputsJson")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<Guid>("TaskRunId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TaskRunId", "CellIndex");
-
-                    b.ToTable("TaskRunCellOutputs");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
@@ -888,17 +826,6 @@ namespace DuckHouse.Data.Migrations
                     b.Navigation("Task");
                 });
 
-            modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.TaskRunCellOutput", b =>
-                {
-                    b.HasOne("DuckHouse.Orchestrator.Core.Entities.TaskRun", "TaskRun")
-                        .WithMany("CellOutputs")
-                        .HasForeignKey("TaskRunId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TaskRun");
-                });
-
             modelBuilder.Entity("DuckHouse.Core.Workspace.Folder", b =>
                 {
                     b.Navigation("Children");
@@ -923,11 +850,6 @@ namespace DuckHouse.Data.Migrations
             modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.JobTask", b =>
                 {
                     b.Navigation("Dependencies");
-                });
-
-            modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.TaskRun", b =>
-                {
-                    b.Navigation("CellOutputs");
                 });
 #pragma warning restore 612, 618
         }

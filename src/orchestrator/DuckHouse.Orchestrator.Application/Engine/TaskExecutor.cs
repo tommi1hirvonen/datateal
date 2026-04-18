@@ -74,24 +74,22 @@ public class TaskExecutor(
         logger.LogInformation("Executing notebook '{Title}' with {Count} code cells",
             content.Title, cells.Count);
 
-        // Create cell output records
-        for (var i = 0; i < cells.Count; i++)
+        // Build in-memory run notebook with all cells initialised to Pending
+        var runCells = cells.Select((c, i) => new RunCell
         {
-            var cell = cells[i];
-            await jobRunRepository.CreateCellOutputAsync(new TaskRunCellOutput
-            {
-                Id = Guid.CreateVersion7(),
-                TaskRunId = taskRun.Id,
-                CellIndex = i,
-                CellSource = cell.Source,
-                CellType = cell.Type,
-                Language = cell.Type == "Markdown" ? null : cell.Language,
-                CellRole = cell.Tags.Contains("parameters") ? "parameters"
-                         : cell.Tags.Contains("injected-parameters") ? "injected-parameters"
-                         : null,
-                Status = CellExecutionStatus.Pending,
-            }, ct);
-        }
+            Index = i,
+            Source = c.Source,
+            CellType = c.Type,
+            Language = c.Language,
+            CellRole = c.Tags.Contains("parameters") ? "parameters"
+                     : c.Tags.Contains("injected-parameters") ? "injected-parameters"
+                     : null,
+            Status = "Pending",
+        }).ToList();
+
+        var notebook = new RunNotebook { Title = content.Title, Cells = runCells };
+        taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
+        await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
 
         // Provision node and kernel
         if (task.NodePoolRef is null)
@@ -116,12 +114,11 @@ public class TaskExecutor(
                 if (cell.Type != "Code")
                     continue;
 
-                var cellOutputs = await jobRunRepository.GetCellOutputsAsync(taskRun.Id, ct);
-                var cellOutput = cellOutputs.First(c => c.CellIndex == i);
-
-                cellOutput.Status = CellExecutionStatus.Running;
-                cellOutput.StartedAt = DateTime.UtcNow;
-                await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
+                var runCell = runCells[i];
+                runCell.Status = "Running";
+                runCell.StartedAt = DateTime.UtcNow;
+                taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
+                await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
 
                 // Wrap SQL cells; expand %run magic in Python cells
                 var code = cell.Language == "Sql"
@@ -135,38 +132,37 @@ public class TaskExecutor(
                 {
                     var result = await ExecuteCodeAsync(nodeName, kernelId, code, ct);
 
-                    cellOutput.Status = CellExecutionStatus.Succeeded;
-                    cellOutput.CompletedAt = DateTime.UtcNow;
-                    cellOutput.DurationMs = result.DurationMs;
-                    cellOutput.ExecutionCount = result.ExecutionCount;
-                    cellOutput.OutputsJson = JsonSerializer.Serialize(result.Outputs, JsonOptions);
+                    runCell.Status = result.Error is not null ? "Failed" : "Succeeded";
+                    runCell.CompletedAt = DateTime.UtcNow;
+                    runCell.DurationMs = result.DurationMs;
+                    runCell.ExecutionCount = result.ExecutionCount;
+                    runCell.OutputsJson = JsonSerializer.Serialize(result.Outputs, JsonOptions);
                     if (result.Error is not null)
-                    {
-                        cellOutput.Status = CellExecutionStatus.Failed;
-                        cellOutput.ErrorJson = JsonSerializer.Serialize(result.Error, JsonOptions);
-                    }
-                    await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
+                        runCell.ErrorJson = JsonSerializer.Serialize(result.Error, JsonOptions);
+
+                    taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
+                    await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
 
                     if (result.Error is not null)
                     {
-                        // Mark remaining code cells as skipped
-                        await SkipRemainingCells(taskRun.Id, i + 1, cells, ct);
+                        await SkipRemainingCells(taskRun, notebook, runCells, i + 1, cells, ct);
                         throw new InvalidOperationException(
                             $"Cell {i} failed: {result.Error.Ename}: {result.Error.Evalue}");
                     }
                 }
                 catch (InvalidOperationException)
                 {
-                    throw; // Re-throw cell failure
+                    throw;
                 }
                 catch (Exception ex)
                 {
-                    cellOutput.Status = CellExecutionStatus.Failed;
-                    cellOutput.CompletedAt = DateTime.UtcNow;
-                    cellOutput.ErrorJson = JsonSerializer.Serialize(
+                    runCell.Status = "Failed";
+                    runCell.CompletedAt = DateTime.UtcNow;
+                    runCell.ErrorJson = JsonSerializer.Serialize(
                         new ErrorInfo("ExecutionError", ex.Message, []), JsonOptions);
-                    await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
-                    await SkipRemainingCells(taskRun.Id, i + 1, cells, ct);
+                    taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
+                    await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+                    await SkipRemainingCells(taskRun, notebook, runCells, i + 1, cells, ct);
                     throw;
                 }
             }
@@ -177,18 +173,17 @@ public class TaskExecutor(
         }
     }
 
-    private async Task SkipRemainingCells(Guid taskRunId, int startIndex, List<CellInfo> cells, CancellationToken ct)
+    private async Task SkipRemainingCells(TaskRun taskRun, RunNotebook notebook, List<RunCell> runCells,
+        int startIndex, List<CellInfo> cells, CancellationToken ct)
     {
-        var cellOutputs = await jobRunRepository.GetCellOutputsAsync(taskRunId, ct);
         for (var j = startIndex; j < cells.Count; j++)
         {
             if (cells[j].Type != "Code") continue;
-            var remaining = cellOutputs.FirstOrDefault(c => c.CellIndex == j);
-            if (remaining is null) continue;
-            remaining.Status = CellExecutionStatus.Skipped;
-            remaining.CompletedAt = DateTime.UtcNow;
-            await jobRunRepository.UpdateCellOutputAsync(remaining, ct);
+            runCells[j].Status = "Skipped";
+            runCells[j].CompletedAt = DateTime.UtcNow;
         }
+        taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
+        await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
     }
 
     // ── SQL execution ───────────────────────────────────────────────
@@ -207,18 +202,17 @@ public class TaskExecutor(
             throw new InvalidOperationException(
                 $"SQL query task '{task.Name}' requires a NodePoolRef to execute.");
 
-        // Create a cell output record so the UI can display the query source and result.
-        var cellOutput = new TaskRunCellOutput
+        var runCell = new RunCell
         {
-            Id = Guid.CreateVersion7(),
-            TaskRunId = taskRun.Id,
-            CellIndex = 0,
-            CellSource = content.Content,
+            Index = 0,
+            Source = content.Content,
             CellType = "Code",
             Language = "Sql",
-            Status = CellExecutionStatus.Pending,
+            Status = "Pending",
         };
-        await jobRunRepository.CreateCellOutputAsync(cellOutput, ct);
+        var notebook = new RunNotebook { Title = content.Title, Cells = [runCell] };
+        taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
+        await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
 
         var (nodeName, kernelId) = await nodeManager.CreateKernelAsync(task.NodePoolRef, ct);
         taskRun.NodeName = nodeName;
@@ -230,31 +224,32 @@ public class TaskExecutor(
             // Attach DuckLake catalogs if configured
             await SetupCatalogsForWorkspaceItemAsync(task.QueryId, nodeName, kernelId, ct);
 
-            cellOutput.Status = CellExecutionStatus.Running;
-            cellOutput.StartedAt = DateTime.UtcNow;
-            await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
+            runCell.Status = "Running";
+            runCell.StartedAt = DateTime.UtcNow;
+            taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
+            await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
 
             var code = $"import duckdb; duckdb.sql(\"\"\"{content.Content}\"\"\")";
             var result = await ExecuteCodeAsync(nodeName, kernelId, code, ct);
 
-            taskRun.QueryResultJson = JsonSerializer.Serialize(result, JsonOptions);
-
-            cellOutput.CompletedAt = DateTime.UtcNow;
-            cellOutput.DurationMs = result.DurationMs;
-            cellOutput.ExecutionCount = result.ExecutionCount;
-            cellOutput.OutputsJson = JsonSerializer.Serialize(result.Outputs, JsonOptions);
+            runCell.CompletedAt = DateTime.UtcNow;
+            runCell.DurationMs = result.DurationMs;
+            runCell.ExecutionCount = result.ExecutionCount;
+            runCell.OutputsJson = JsonSerializer.Serialize(result.Outputs, JsonOptions);
 
             if (result.Error is not null)
             {
-                cellOutput.Status = CellExecutionStatus.Failed;
-                cellOutput.ErrorJson = JsonSerializer.Serialize(result.Error, JsonOptions);
-                await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
+                runCell.Status = "Failed";
+                runCell.ErrorJson = JsonSerializer.Serialize(result.Error, JsonOptions);
+                taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
+                await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
                 throw new InvalidOperationException(
                     $"SQL query failed: {result.Error.Ename}: {result.Error.Evalue}");
             }
 
-            cellOutput.Status = CellExecutionStatus.Succeeded;
-            await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
+            runCell.Status = "Succeeded";
+            taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
+            await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
         }
         catch (InvalidOperationException)
         {
@@ -262,11 +257,12 @@ public class TaskExecutor(
         }
         catch (Exception ex)
         {
-            cellOutput.Status = CellExecutionStatus.Failed;
-            cellOutput.CompletedAt = DateTime.UtcNow;
-            cellOutput.ErrorJson = JsonSerializer.Serialize(
+            runCell.Status = "Failed";
+            runCell.CompletedAt = DateTime.UtcNow;
+            runCell.ErrorJson = JsonSerializer.Serialize(
                 new ErrorInfo("ExecutionError", ex.Message, []), JsonOptions);
-            await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
+            taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
+            await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
             throw;
         }
         finally
