@@ -1,3 +1,4 @@
+using DuckHouse.Core.Catalogs;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Server.Core.Catalogs;
 using DuckHouse.Ui.Server.Core.Repositories;
@@ -28,7 +29,7 @@ internal class GetCatalogMetadataHandler(
         string catalogHost, catalogDatabase, catalogUser, catalogPassword;
         int catalogPort;
 
-        if (catalog.IsManaged)
+        if (catalog is ManagedCatalog)
         {
             catalogHost = opts.CatalogHost;
             catalogPort = opts.CatalogPort;
@@ -38,12 +39,13 @@ internal class GetCatalogMetadataHandler(
         }
         else
         {
-            catalogHost = catalog.CatalogHost ?? string.Empty;
-            catalogPort = catalog.CatalogPort ?? 5432;
-            catalogDatabase = catalog.CatalogDatabase ?? catalog.Name;
-            catalogUser = catalog.CatalogUser ?? string.Empty;
-            catalogPassword = catalog.EncryptedCatalogPassword is not null
-                ? _protector.Unprotect(catalog.EncryptedCatalogPassword)
+            var u = (UnmanagedCatalog)catalog;
+            catalogHost = u.CatalogHost;
+            catalogPort = u.CatalogPort;
+            catalogDatabase = u.CatalogDatabase;
+            catalogUser = u.CatalogUser;
+            catalogPassword = u.EncryptedCatalogPassword is not null
+                ? _protector.Unprotect(u.EncryptedCatalogPassword)
                 : string.Empty;
         }
 

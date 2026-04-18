@@ -17,19 +17,34 @@ internal class CatalogService(HttpClient httpClient) : ICatalogService
     public async Task<IReadOnlyList<CatalogDto>> GetCatalogsAsync(CancellationToken ct = default) =>
         await httpClient.GetFromJsonAsync<IReadOnlyList<CatalogDto>>("api/catalogs", JsonOptions, ct) ?? [];
 
-    public async Task<CatalogDto> CreateCatalogAsync(CreateCatalogRequest request, CancellationToken ct = default)
+    public async Task<ManagedCatalogDto> CreateManagedCatalogAsync(CreateManagedCatalogRequest request, CancellationToken ct = default)
     {
-        var response = await httpClient.PostAsJsonAsync("api/catalogs", request, JsonOptions, ct);
+        var response = await httpClient.PostAsJsonAsync("api/catalogs/managed", request, JsonOptions, ct);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CatalogDto>(JsonOptions, ct))!;
+        return (await response.Content.ReadFromJsonAsync<ManagedCatalogDto>(JsonOptions, ct))!;
     }
 
-    public async Task<CatalogDto?> UpdateCatalogAsync(Guid id, UpdateCatalogRequest request, CancellationToken ct = default)
+    public async Task<UnmanagedCatalogDto> CreateUnmanagedCatalogAsync(CreateUnmanagedCatalogRequest request, CancellationToken ct = default)
     {
-        var response = await httpClient.PutAsJsonAsync($"api/catalogs/{id}", request, JsonOptions, ct);
+        var response = await httpClient.PostAsJsonAsync("api/catalogs/unmanaged", request, JsonOptions, ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<UnmanagedCatalogDto>(JsonOptions, ct))!;
+    }
+
+    public async Task<ManagedCatalogDto?> UpdateManagedCatalogAsync(Guid id, UpdateManagedCatalogRequest request, CancellationToken ct = default)
+    {
+        var response = await httpClient.PutAsJsonAsync($"api/catalogs/{id}/managed", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<CatalogDto>(JsonOptions, ct);
+        return await response.Content.ReadFromJsonAsync<ManagedCatalogDto>(JsonOptions, ct);
+    }
+
+    public async Task<UnmanagedCatalogDto?> UpdateUnmanagedCatalogAsync(Guid id, UpdateUnmanagedCatalogRequest request, CancellationToken ct = default)
+    {
+        var response = await httpClient.PutAsJsonAsync($"api/catalogs/{id}/unmanaged", request, JsonOptions, ct);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<UnmanagedCatalogDto>(JsonOptions, ct);
     }
 
     public async Task DeleteCatalogAsync(Guid id, CancellationToken ct = default)

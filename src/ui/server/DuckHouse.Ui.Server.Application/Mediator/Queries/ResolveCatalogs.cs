@@ -26,7 +26,7 @@ internal class ResolveCatalogsHandler(
 
         return catalogs.Select(c =>
         {
-            if (c.IsManaged)
+            if (c is ManagedCatalog)
             {
                 return new ResolvedCatalog(
                     c.Name,
@@ -41,18 +41,19 @@ internal class ResolveCatalogsHandler(
                     CatalogPassword: opts.CatalogPassword);
             }
 
+            var u = (UnmanagedCatalog)c;
             return new ResolvedCatalog(
-                c.Name,
-                DataPath: c.DataPath ?? string.Empty,
-                StorageConnectionString: c.EncryptedStorageConnectionString is not null
-                    ? _protector.Unprotect(c.EncryptedStorageConnectionString)
+                u.Name,
+                DataPath: u.DataPath,
+                StorageConnectionString: u.EncryptedStorageConnectionString is not null
+                    ? _protector.Unprotect(u.EncryptedStorageConnectionString)
                     : null,
-                CatalogHost: c.CatalogHost ?? string.Empty,
-                CatalogPort: c.CatalogPort ?? 5432,
-                CatalogDatabase: c.CatalogDatabase ?? c.Name,
-                CatalogUser: c.CatalogUser ?? string.Empty,
-                CatalogPassword: c.EncryptedCatalogPassword is not null
-                    ? _protector.Unprotect(c.EncryptedCatalogPassword)
+                CatalogHost: u.CatalogHost,
+                CatalogPort: u.CatalogPort,
+                CatalogDatabase: u.CatalogDatabase,
+                CatalogUser: u.CatalogUser,
+                CatalogPassword: u.EncryptedCatalogPassword is not null
+                    ? _protector.Unprotect(u.EncryptedCatalogPassword)
                     : string.Empty);
         }).ToList();
     }

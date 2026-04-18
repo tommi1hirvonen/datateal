@@ -24,22 +24,36 @@ public class CatalogsController(IMediator mediator) : ControllerBase
         return catalog is null ? NotFound() : Ok(catalog);
     }
 
-    [HttpPost]
-    public async Task<IActionResult> Create(SharedCat.CreateCatalogRequest body, CancellationToken ct)
+    [HttpPost("managed")]
+    public async Task<IActionResult> CreateManaged(SharedCat.CreateManagedCatalogRequest body, CancellationToken ct)
+    {
+        var catalog = await mediator.SendAsync(new Cmd.CreateManagedCatalogCommand(body.Name), ct);
+        return Created($"api/catalogs/{catalog.Id}", catalog);
+    }
+
+    [HttpPost("unmanaged")]
+    public async Task<IActionResult> CreateUnmanaged(SharedCat.CreateUnmanagedCatalogRequest body, CancellationToken ct)
     {
         var catalog = await mediator.SendAsync(
-            new Cmd.CreateCatalogRequest(
-                body.Name, body.IsManaged, body.DataPath, body.StorageConnectionString,
+            new Cmd.CreateUnmanagedCatalogCommand(
+                body.Name, body.DataPath, body.StorageConnectionString,
                 body.CatalogHost, body.CatalogPort, body.CatalogDatabase,
                 body.CatalogUser, body.CatalogPassword), ct);
         return Created($"api/catalogs/{catalog.Id}", catalog);
     }
 
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, SharedCat.UpdateCatalogRequest body, CancellationToken ct)
+    [HttpPut("{id:guid}/managed")]
+    public async Task<IActionResult> UpdateManaged(Guid id, SharedCat.UpdateManagedCatalogRequest body, CancellationToken ct)
+    {
+        var catalog = await mediator.SendAsync(new Cmd.UpdateManagedCatalogCommand(id, body.Name), ct);
+        return catalog is null ? NotFound() : Ok(catalog);
+    }
+
+    [HttpPut("{id:guid}/unmanaged")]
+    public async Task<IActionResult> UpdateUnmanaged(Guid id, SharedCat.UpdateUnmanagedCatalogRequest body, CancellationToken ct)
     {
         var catalog = await mediator.SendAsync(
-            new Cmd.UpdateCatalogRequest(
+            new Cmd.UpdateUnmanagedCatalogCommand(
                 id, body.Name, body.DataPath, body.StorageConnectionString,
                 body.CatalogHost, body.CatalogPort, body.CatalogDatabase,
                 body.CatalogUser, body.CatalogPassword), ct);

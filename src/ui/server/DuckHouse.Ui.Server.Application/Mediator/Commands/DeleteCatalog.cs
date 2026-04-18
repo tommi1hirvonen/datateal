@@ -1,3 +1,4 @@
+using DuckHouse.Core.Catalogs;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Server.Core.Catalogs;
 using DuckHouse.Ui.Server.Core.Repositories;
@@ -19,7 +20,7 @@ internal class DeleteCatalogHandler(
         if (catalog is null) return false;
 
         // Drop the PostgreSQL database for managed catalogs
-        if (catalog.IsManaged)
+        if (catalog is ManagedCatalog)
         {
             var opts = settings.Value;
             await databaseService.DropDatabaseAsync(

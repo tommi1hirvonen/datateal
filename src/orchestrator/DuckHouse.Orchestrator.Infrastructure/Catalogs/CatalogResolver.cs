@@ -38,7 +38,7 @@ internal class CatalogResolver(
             string catalogUser;
             string catalogPassword;
 
-            if (catalog.IsManaged)
+            if (catalog is ManagedCatalog)
             {
                 var basePath = _settings.BaseDataPath.TrimEnd('/');
                 dataPath = $"{basePath}/{catalog.Name}";
@@ -51,15 +51,18 @@ internal class CatalogResolver(
             }
             else
             {
-                dataPath = catalog.DataPath!;
-                storageConnectionString = catalog.EncryptedStorageConnectionString is not null
-                    ? _protector.Unprotect(catalog.EncryptedStorageConnectionString)
+                var u = (UnmanagedCatalog)catalog;
+                dataPath = u.DataPath;
+                storageConnectionString = u.EncryptedStorageConnectionString is not null
+                    ? _protector.Unprotect(u.EncryptedStorageConnectionString)
                     : null;
-                catalogHost = catalog.CatalogHost!;
-                catalogPort = catalog.CatalogPort!.Value;
-                catalogDatabase = catalog.CatalogDatabase!;
-                catalogUser = catalog.CatalogUser!;
-                catalogPassword = _protector.Unprotect(catalog.EncryptedCatalogPassword!);
+                catalogHost = u.CatalogHost;
+                catalogPort = u.CatalogPort;
+                catalogDatabase = u.CatalogDatabase;
+                catalogUser = u.CatalogUser;
+                catalogPassword = u.EncryptedCatalogPassword is not null
+                    ? _protector.Unprotect(u.EncryptedCatalogPassword)
+                    : string.Empty;
             }
 
             results.Add(new ResolvedCatalog(

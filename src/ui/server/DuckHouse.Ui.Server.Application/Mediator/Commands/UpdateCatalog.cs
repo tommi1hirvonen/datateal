@@ -1,3 +1,4 @@
+using DuckHouse.Core.Catalogs;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Server.Core.Catalogs;
 using DuckHouse.Ui.Server.Core.Repositories;
@@ -7,7 +8,9 @@ using Microsoft.Extensions.Options;
 
 namespace DuckHouse.Ui.Server.Application.Mediator.Commands;
 
-public record UpdateCatalogRequest(
+public record UpdateManagedCatalogCommand(Guid Id, string Name) : IRequest<ManagedCatalogDto?>;
+
+public record UpdateUnmanagedCatalogCommand(
     Guid Id,
     string Name,
     string? DataPath,
@@ -16,50 +19,71 @@ public record UpdateCatalogRequest(
     int? CatalogPort,
     string? CatalogDatabase,
     string? CatalogUser,
-    string? CatalogPassword) : IRequest<CatalogDto?>;
+    string? CatalogPassword) : IRequest<UnmanagedCatalogDto?>;
 
-internal class UpdateCatalogHandler(
+internal class UpdateManagedCatalogHandler(
     ICatalogRepository repository,
-    IDataProtectionProvider dataProtection,
     IOptions<CatalogSettings> settings)
-    : IRequestHandler<UpdateCatalogRequest, CatalogDto?>
+    : IRequestHandler<UpdateManagedCatalogCommand, ManagedCatalogDto?>
 {
-    private readonly IDataProtector _protector = dataProtection.CreateProtector("DuckHouse.Catalogs");
-
-    public async Task<CatalogDto?> Handle(UpdateCatalogRequest request, CancellationToken cancellationToken)
+    public async Task<ManagedCatalogDto?> Handle(UpdateManagedCatalogCommand request, CancellationToken cancellationToken)
     {
         CatalogNameValidationException.Validate(request.Name);
 
         var existing = await repository.GetByIdAsync(request.Id, cancellationToken);
-        if (existing is null) return null;
+        if (existing is not ManagedCatalog managed) return null;
 
-        if (existing.Name != request.Name &&
+        if (managed.Name != request.Name &&
             await repository.CatalogNameExistsAsync(request.Name, request.Id, cancellationToken))
             throw new CatalogNameConflictException(request.Name);
 
-        existing.Name = request.Name;
+        managed.Name = request.Name;
 
-        if (!existing.IsManaged)
-        {
-            // External catalogs: update any provided connection fields
-            if (request.DataPath is not null)
-                existing.DataPath = request.DataPath;
-            if (request.CatalogHost is not null)
-                existing.CatalogHost = request.CatalogHost;
-            if (request.CatalogPort.HasValue)
-                existing.CatalogPort = request.CatalogPort;
-            if (request.CatalogDatabase is not null)
-                existing.CatalogDatabase = request.CatalogDatabase;
-            if (request.CatalogUser is not null)
-                existing.CatalogUser = request.CatalogUser;
-            if (request.StorageConnectionString is not null)
-                existing.EncryptedStorageConnectionString = _protector.Protect(request.StorageConnectionString);
-            if (request.CatalogPassword is not null)
-                existing.EncryptedCatalogPassword = _protector.Protect(request.CatalogPassword);
-        }
-        // For managed catalogs only the name is persisted; connection info comes from settings at runtime.
+        var updated = await repository.UpdateAsync(managed, cancellationToken);
+        return updated is ManagedCatalog updatedManaged
+            ? CatalogDtoMapper.ToDto(updatedManaged, settings.Value)
+            : null;
+    }
+}
 
-        var updated = await repository.UpdateAsync(existing, cancellationToken);
-        return updated is null ? null : CreateCatalogHandler.ToDto(updated, settings.Value);
+internal class UpdateUnmanagedCatalogHandler(
+    ICatalogRepository repository,
+    IDataProtectionProvider dataProtection)
+    : IRequestHandler<UpdateUnmanagedCatalogCommand, UnmanagedCatalogDto?>
+{
+    private readonly IDataProtector _protector = dataProtection.CreateProtector("DuckHouse.Catalogs");
+
+    public async Task<UnmanagedCatalogDto?> Handle(UpdateUnmanagedCatalogCommand request, CancellationToken cancellationToken)
+    {
+        CatalogNameValidationException.Validate(request.Name);
+
+        var existing = await repository.GetByIdAsync(request.Id, cancellationToken);
+        if (existing is not UnmanagedCatalog unmanaged) return null;
+
+        if (unmanaged.Name != request.Name &&
+            await repository.CatalogNameExistsAsync(request.Name, request.Id, cancellationToken))
+            throw new CatalogNameConflictException(request.Name);
+
+        unmanaged.Name = request.Name;
+
+        if (request.DataPath is not null)
+            unmanaged.DataPath = request.DataPath;
+        if (request.CatalogHost is not null)
+            unmanaged.CatalogHost = request.CatalogHost;
+        if (request.CatalogPort.HasValue)
+            unmanaged.CatalogPort = request.CatalogPort.Value;
+        if (request.CatalogDatabase is not null)
+            unmanaged.CatalogDatabase = request.CatalogDatabase;
+        if (request.CatalogUser is not null)
+            unmanaged.CatalogUser = request.CatalogUser;
+        if (request.StorageConnectionString is not null)
+            unmanaged.EncryptedStorageConnectionString = _protector.Protect(request.StorageConnectionString);
+        if (request.CatalogPassword is not null)
+            unmanaged.EncryptedCatalogPassword = _protector.Protect(request.CatalogPassword);
+
+        var updated = await repository.UpdateAsync(unmanaged, cancellationToken);
+        return updated is UnmanagedCatalog updatedUnmanaged
+            ? CatalogDtoMapper.ToDto(updatedUnmanaged)
+            : null;
     }
 }

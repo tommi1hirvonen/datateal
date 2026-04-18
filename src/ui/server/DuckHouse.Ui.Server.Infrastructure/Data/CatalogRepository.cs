@@ -37,15 +37,18 @@ internal class CatalogRepository(DuckHouseDbContext db) : ICatalogRepository
         if (existing is null) return null;
 
         existing.Name = catalog.Name;
-        existing.IsManaged = catalog.IsManaged;
-        existing.DataPath = catalog.DataPath;
-        existing.EncryptedStorageConnectionString = catalog.EncryptedStorageConnectionString;
-        existing.CatalogHost = catalog.CatalogHost;
-        existing.CatalogPort = catalog.CatalogPort;
-        existing.CatalogDatabase = catalog.CatalogDatabase;
-        existing.CatalogUser = catalog.CatalogUser;
-        existing.EncryptedCatalogPassword = catalog.EncryptedCatalogPassword;
         existing.UpdatedAt = DateTime.UtcNow;
+
+        if (existing is UnmanagedCatalog existingExternal && catalog is UnmanagedCatalog updateExternal)
+        {
+            existingExternal.DataPath = updateExternal.DataPath;
+            existingExternal.EncryptedStorageConnectionString = updateExternal.EncryptedStorageConnectionString;
+            existingExternal.CatalogHost = updateExternal.CatalogHost;
+            existingExternal.CatalogPort = updateExternal.CatalogPort;
+            existingExternal.CatalogDatabase = updateExternal.CatalogDatabase;
+            existingExternal.CatalogUser = updateExternal.CatalogUser;
+            existingExternal.EncryptedCatalogPassword = updateExternal.EncryptedCatalogPassword;
+        }
 
         await db.SaveChangesAsync(ct);
         return existing;

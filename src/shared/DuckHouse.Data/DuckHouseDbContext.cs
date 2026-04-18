@@ -32,6 +32,8 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
 
     // ── Catalogs ─────────────────────────────────────────────────────────
     public DbSet<Catalog> Catalogs => Set<Catalog>();
+    public DbSet<ManagedCatalog> ManagedCatalogs => Set<ManagedCatalog>();
+    public DbSet<UnmanagedCatalog> UnmanagedCatalogs => Set<UnmanagedCatalog>();
 
     // ── Runtime packages ──────────────────────────────────────────────────
     public DbSet<WheelPackage> WheelPackages => Set<WheelPackage>();
@@ -116,6 +118,14 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(128).IsRequired();
             entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasDiscriminator<string>("CatalogType")
+                .HasValue<ManagedCatalog>("Managed")
+                .HasValue<UnmanagedCatalog>("Unmanaged");
+            entity.Property("CatalogType").HasMaxLength(32).IsRequired();
+        });
+
+        modelBuilder.Entity<UnmanagedCatalog>(entity =>
+        {
             entity.Property(e => e.DataPath).HasMaxLength(1024);
             entity.Property(e => e.CatalogHost).HasMaxLength(256);
             entity.Property(e => e.CatalogDatabase).HasMaxLength(256);

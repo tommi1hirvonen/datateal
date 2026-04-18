@@ -8,27 +8,25 @@ using Microsoft.Extensions.Options;
 
 namespace DuckHouse.Ui.Server.Application.Mediator.Commands;
 
-public record CreateCatalogRequest(
-    string Name,
-    bool IsManaged,
-    string? DataPath,
-    string? StorageConnectionString,
-    string? CatalogHost,
-    int? CatalogPort,
-    string? CatalogDatabase,
-    string? CatalogUser,
-    string? CatalogPassword) : IRequest<CatalogDto>;
+public record CreateManagedCatalogCommand(string Name) : IRequest<ManagedCatalogDto>;
 
-internal class CreateCatalogHandler(
+public record CreateUnmanagedCatalogCommand(
+    string Name,
+    string DataPath,
+    string? StorageConnectionString,
+    string CatalogHost,
+    int CatalogPort,
+    string CatalogDatabase,
+    string CatalogUser,
+    string? CatalogPassword) : IRequest<UnmanagedCatalogDto>;
+
+internal class CreateManagedCatalogHandler(
     ICatalogRepository repository,
     ICatalogDatabaseService databaseService,
-    IDataProtectionProvider dataProtection,
     IOptions<CatalogSettings> settings)
-    : IRequestHandler<CreateCatalogRequest, CatalogDto>
+    : IRequestHandler<CreateManagedCatalogCommand, ManagedCatalogDto>
 {
-    private readonly IDataProtector _protector = dataProtection.CreateProtector("DuckHouse.Catalogs");
-
-    public async Task<CatalogDto> Handle(CreateCatalogRequest request, CancellationToken cancellationToken)
+    public async Task<ManagedCatalogDto> Handle(CreateManagedCatalogCommand request, CancellationToken cancellationToken)
     {
         CatalogNameValidationException.Validate(request.Name);
 
@@ -38,57 +36,16 @@ internal class CreateCatalogHandler(
         var opts = settings.Value;
         var now = DateTime.UtcNow;
 
-        Catalog catalog;
-
-        if (request.IsManaged)
+        var catalog = new ManagedCatalog
         {
-            // Managed catalogs: only Name and IsManaged are persisted.
-            // All connection info and the data path are derived from CatalogSettings at runtime.
-            catalog = new Catalog
-            {
-                Id = Guid.CreateVersion7(),
-                Name = request.Name,
-                IsManaged = true,
-                CreatedAt = now,
-                UpdatedAt = now,
-            };
+            Id = Guid.CreateVersion7(),
+            Name = request.Name,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
 
-            await databaseService.CreateDatabaseAsync(
-                request.Name, opts.CatalogHost, opts.CatalogPort, opts.CatalogUser, opts.CatalogPassword, cancellationToken);
-        }
-        else
-        {
-            var dataPath = request.DataPath
-                ?? throw new InvalidOperationException("DataPath is required for external catalogs.");
-            var catalogHost = request.CatalogHost
-                ?? throw new InvalidOperationException("CatalogHost is required for external catalogs.");
-            var catalogPort = request.CatalogPort
-                ?? throw new InvalidOperationException("CatalogPort is required for external catalogs.");
-            var catalogDatabase = request.CatalogDatabase
-                ?? throw new InvalidOperationException("CatalogDatabase is required for external catalogs.");
-            var catalogUser = request.CatalogUser
-                ?? throw new InvalidOperationException("CatalogUser is required for external catalogs.");
-
-            catalog = new Catalog
-            {
-                Id = Guid.CreateVersion7(),
-                Name = request.Name,
-                IsManaged = false,
-                DataPath = dataPath,
-                EncryptedStorageConnectionString = !string.IsNullOrEmpty(request.StorageConnectionString)
-                    ? _protector.Protect(request.StorageConnectionString)
-                    : null,
-                CatalogHost = catalogHost,
-                CatalogPort = catalogPort,
-                CatalogDatabase = catalogDatabase,
-                CatalogUser = catalogUser,
-                EncryptedCatalogPassword = !string.IsNullOrEmpty(request.CatalogPassword)
-                    ? _protector.Protect(request.CatalogPassword)
-                    : null,
-                CreatedAt = now,
-                UpdatedAt = now,
-            };
-        }
+        await databaseService.CreateDatabaseAsync(
+            request.Name, opts.CatalogHost, opts.CatalogPort, opts.CatalogUser, opts.CatalogPassword, cancellationToken);
 
         try
         {
@@ -96,47 +53,85 @@ internal class CreateCatalogHandler(
         }
         catch
         {
-            // Compensating transaction: drop the database if entity creation fails
-            if (request.IsManaged)
+            try
             {
-                try
-                {
-                    await databaseService.DropDatabaseAsync(
-                        request.Name, opts.CatalogHost, opts.CatalogPort, opts.CatalogUser, opts.CatalogPassword, cancellationToken);
-                }
-                catch
-                {
-                    // Best effort cleanup
-                }
+                await databaseService.DropDatabaseAsync(
+                    request.Name, opts.CatalogHost, opts.CatalogPort, opts.CatalogUser, opts.CatalogPassword, cancellationToken);
             }
-
+            catch { /* Best effort cleanup */ }
             throw;
         }
 
-        return ToDto(catalog, opts);
+        return CatalogDtoMapper.ToDto(catalog, opts);
     }
+}
 
-    internal static CatalogDto ToDto(Catalog c, CatalogSettings? settings = null)
+internal class CreateUnmanagedCatalogHandler(
+    ICatalogRepository repository,
+    IDataProtectionProvider dataProtection)
+    : IRequestHandler<CreateUnmanagedCatalogCommand, UnmanagedCatalogDto>
+{
+    private readonly IDataProtector _protector = dataProtection.CreateProtector("DuckHouse.Catalogs");
+
+    public async Task<UnmanagedCatalogDto> Handle(CreateUnmanagedCatalogCommand request, CancellationToken cancellationToken)
     {
-        if (c.IsManaged && settings is not null)
-        {
-            return new CatalogDto(
-                c.Id, c.Name, true,
-                DataPath: settings.BaseDataPath.TrimEnd('/') + "/" + c.Name,
-                CatalogHost: settings.CatalogHost,
-                CatalogPort: settings.CatalogPort,
-                CatalogDatabase: c.Name,
-                CatalogUser: settings.CatalogUser,
-                HasStorageConnectionString: !string.IsNullOrEmpty(settings.StorageConnectionString),
-                HasCatalogPassword: !string.IsNullOrEmpty(settings.CatalogPassword),
-                c.CreatedAt, c.UpdatedAt);
-        }
+        CatalogNameValidationException.Validate(request.Name);
 
-        return new CatalogDto(
-            c.Id, c.Name, c.IsManaged,
-            c.DataPath, c.CatalogHost, c.CatalogPort, c.CatalogDatabase, c.CatalogUser,
-            c.EncryptedStorageConnectionString is not null,
-            c.EncryptedCatalogPassword is not null,
-            c.CreatedAt, c.UpdatedAt);
+        if (await repository.CatalogNameExistsAsync(request.Name, ct: cancellationToken))
+            throw new CatalogNameConflictException(request.Name);
+
+        var now = DateTime.UtcNow;
+
+        var catalog = new UnmanagedCatalog
+        {
+            Id = Guid.CreateVersion7(),
+            Name = request.Name,
+            DataPath = request.DataPath,
+            EncryptedStorageConnectionString = !string.IsNullOrEmpty(request.StorageConnectionString)
+                ? _protector.Protect(request.StorageConnectionString)
+                : null,
+            CatalogHost = request.CatalogHost,
+            CatalogPort = request.CatalogPort,
+            CatalogDatabase = request.CatalogDatabase,
+            CatalogUser = request.CatalogUser,
+            EncryptedCatalogPassword = !string.IsNullOrEmpty(request.CatalogPassword)
+                ? _protector.Protect(request.CatalogPassword)
+                : null,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+
+        await repository.CreateAsync(catalog, cancellationToken);
+        return CatalogDtoMapper.ToDto(catalog);
     }
+}
+
+/// <summary>Maps domain catalog entities to DTOs.</summary>
+internal static class CatalogDtoMapper
+{
+    internal static CatalogDto ToDto(Catalog catalog, CatalogSettings? settings = null) =>
+        catalog switch
+        {
+            ManagedCatalog m when settings is not null => ToDto(m, settings),
+            UnmanagedCatalog u => ToDto(u),
+            _ => throw new InvalidOperationException($"Unknown catalog type: {catalog.GetType().Name}")
+        };
+
+    internal static ManagedCatalogDto ToDto(ManagedCatalog c, CatalogSettings settings) =>
+        new(c.Id, c.Name,
+            DataPath: settings.BaseDataPath.TrimEnd('/') + "/" + c.Name,
+            CatalogHost: settings.CatalogHost,
+            CatalogPort: settings.CatalogPort,
+            CatalogDatabase: c.Name,
+            CatalogUser: settings.CatalogUser,
+            HasStorageConnectionString: !string.IsNullOrEmpty(settings.StorageConnectionString),
+            HasCatalogPassword: !string.IsNullOrEmpty(settings.CatalogPassword),
+            c.CreatedAt, c.UpdatedAt);
+
+    internal static UnmanagedCatalogDto ToDto(UnmanagedCatalog c) =>
+        new(c.Id, c.Name,
+            c.DataPath, c.CatalogHost, c.CatalogPort, c.CatalogDatabase, c.CatalogUser,
+            HasStorageConnectionString: c.EncryptedStorageConnectionString is not null,
+            HasCatalogPassword: c.EncryptedCatalogPassword is not null,
+            c.CreatedAt, c.UpdatedAt);
 }

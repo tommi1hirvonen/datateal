@@ -32,14 +32,14 @@
         <PropertyColumn Property="c => c.Name" Title="Name" Sortable>
             <span style="font-family: monospace;">@context.Name</span>
         </PropertyColumn>
-        <PropertyColumn Property="c => c.IsManaged" Title="Type" Sortable>
-            @if (context.IsManaged)
+        <PropertyColumn Property="c => c.GetType().Name" Title="Type" Sortable>
+            @if (context is ManagedCatalogDto)
             {
                 <Tag Color="@("blue")">Managed</Tag>
             }
             else
             {
-                <Tag Color="@("orange")">External</Tag>
+                <Tag Color="@("orange")">Unmanaged</Tag>
             }
         </PropertyColumn>
         <PropertyColumn Property="c => c.CatalogHost" Title="Host">
@@ -59,7 +59,7 @@
                     </Button>
                 </SpaceItem>
                 <SpaceItem>
-                    <Popconfirm Title="@(context.IsManaged ? $"Delete catalog '{context.Name}'? The PostgreSQL database will also be dropped." : $"Delete catalog '{context.Name}'?")"
+                    <Popconfirm Title="@(context is ManagedCatalogDto ? $"Delete catalog '{context.Name}'? The PostgreSQL database will also be dropped." : $"Delete catalog '{context.Name}'?")"
                                 OnConfirm="() => DeleteAsync(context)">
                         <Button Danger Size="@ButtonSize.Small">
                             <Icon Type="@IconType.Outline.Delete" />
@@ -93,7 +93,7 @@
                 <label style="display: block; margin-bottom: 4px; font-weight: 500;">Type</label>
                 <RadioGroup @bind-Value="_formIsManaged">
                     <Radio Value="true">Managed</Radio>
-                    <Radio Value="false">External</Radio>
+                    <Radio Value="false">Unmanaged</Radio>
                 </RadioGroup>
             </div>
         }
@@ -110,7 +110,7 @@
                     <span style="font-weight: normal; color: #8c8c8c; margin-left: 4px;">(Azure only)</span>
                 </label>
                 <InputPassword @bind-Value="_formStorageConnectionString"
-                    Placeholder="@(_editTarget is not null && _editTarget.HasStorageConnectionString ? "••••••••" : "DefaultEndpointsProtocol=https;...")" />
+                    Placeholder="@(_editTarget is UnmanagedCatalogDto u1 && u1.HasStorageConnectionString ? "••••••••" : "DefaultEndpointsProtocol=https;...")" />
             </div>
             <div>
                 <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog host</label>
@@ -137,7 +137,7 @@
                     }
                 </label>
                 <InputPassword @bind-Value="_formCatalogPassword"
-                    Placeholder="@(_editTarget is not null && _editTarget.HasCatalogPassword ? "••••••••" : "Enter password")" />
+                    Placeholder="@(_editTarget is UnmanagedCatalogDto u2 && u2.HasCatalogPassword ? "••••••••" : "Enter password")" />
             </div>
         }
     </div>
@@ -210,14 +210,27 @@
     {
         _editTarget = catalog;
         _formName = catalog.Name;
-        _formIsManaged = catalog.IsManaged;
-        _formDataPath = catalog.DataPath ?? "";
+        _formIsManaged = catalog is ManagedCatalogDto;
         _formStorageConnectionString = "";
-        _formCatalogHost = catalog.CatalogHost ?? "";
-        _formCatalogPort = catalog.CatalogPort ?? 5432;
-        _formCatalogDatabase = catalog.CatalogDatabase ?? "";
-        _formCatalogUser = catalog.CatalogUser ?? "";
         _formCatalogPassword = "";
+
+        if (catalog is UnmanagedCatalogDto u)
+        {
+            _formDataPath = u.DataPath;
+            _formCatalogHost = u.CatalogHost;
+            _formCatalogPort = u.CatalogPort;
+            _formCatalogDatabase = u.CatalogDatabase;
+            _formCatalogUser = u.CatalogUser;
+        }
+        else
+        {
+            _formDataPath = "";
+            _formCatalogHost = "";
+            _formCatalogPort = 5432;
+            _formCatalogDatabase = "";
+            _formCatalogUser = "";
+        }
+
         _showModal = true;
     }
 
@@ -229,20 +242,31 @@
         {
             if (_editTarget is null)
             {
-                await CatalogService.CreateCatalogAsync(new CreateCatalogRequest(
-                    _formName.Trim(),
-                    _formIsManaged,
-                    _formIsManaged ? null : _formDataPath.Trim(),
-                    _formIsManaged ? null : (string.IsNullOrWhiteSpace(_formStorageConnectionString) ? null : _formStorageConnectionString),
-                    _formIsManaged ? null : _formCatalogHost.Trim(),
-                    _formIsManaged ? null : _formCatalogPort,
-                    _formIsManaged ? null : _formCatalogDatabase.Trim(),
-                    _formIsManaged ? null : _formCatalogUser.Trim(),
-                    _formIsManaged ? null : (string.IsNullOrWhiteSpace(_formCatalogPassword) ? null : _formCatalogPassword)));
+                if (_formIsManaged)
+                {
+                    await CatalogService.CreateManagedCatalogAsync(new CreateManagedCatalogRequest(_formName.Trim()));
+                }
+                else
+                {
+                    await CatalogService.CreateUnmanagedCatalogAsync(new CreateUnmanagedCatalogRequest(
+                        _formName.Trim(),
+                        _formDataPath.Trim(),
+                        string.IsNullOrWhiteSpace(_formStorageConnectionString) ? null : _formStorageConnectionString,
+                        _formCatalogHost.Trim(),
+                        _formCatalogPort,
+                        _formCatalogDatabase.Trim(),
+                        _formCatalogUser.Trim(),
+                        string.IsNullOrWhiteSpace(_formCatalogPassword) ? null : _formCatalogPassword));
+                }
+            }
+            else if (_editTarget is ManagedCatalogDto)
+            {
+                await CatalogService.UpdateManagedCatalogAsync(_editTarget.Id,
+                    new UpdateManagedCatalogRequest(_formName.Trim()));
             }
             else
             {
-                await CatalogService.UpdateCatalogAsync(_editTarget.Id, new UpdateCatalogRequest(
+                await CatalogService.UpdateUnmanagedCatalogAsync(_editTarget.Id, new UpdateUnmanagedCatalogRequest(
                     _formName.Trim(),
                     string.IsNullOrWhiteSpace(_formDataPath) ? null : _formDataPath.Trim(),
                     string.IsNullOrWhiteSpace(_formStorageConnectionString) ? null : _formStorageConnectionString,

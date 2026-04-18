@@ -15,6 +15,6 @@ internal class GetCatalogsHandler(ICatalogRepository repository, IOptions<Catalo
     {
         var catalogs = await repository.GetAllAsync(cancellationToken);
         var opts = settings.Value;
-        return catalogs.Select(c => Commands.CreateCatalogHandler.ToDto(c, opts)).ToList();
+        return catalogs.Select(c => Commands.CatalogDtoMapper.ToDto(c, opts)).ToList();
     }
 }

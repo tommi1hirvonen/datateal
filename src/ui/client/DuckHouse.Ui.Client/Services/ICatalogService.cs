@@ -6,8 +6,10 @@ namespace DuckHouse.Ui.Client.Services;
 public interface ICatalogService
 {
     Task<IReadOnlyList<CatalogDto>> GetCatalogsAsync(CancellationToken ct = default);
-    Task<CatalogDto> CreateCatalogAsync(CreateCatalogRequest request, CancellationToken ct = default);
-    Task<CatalogDto?> UpdateCatalogAsync(Guid id, UpdateCatalogRequest request, CancellationToken ct = default);
+    Task<ManagedCatalogDto> CreateManagedCatalogAsync(CreateManagedCatalogRequest request, CancellationToken ct = default);
+    Task<UnmanagedCatalogDto> CreateUnmanagedCatalogAsync(CreateUnmanagedCatalogRequest request, CancellationToken ct = default);
+    Task<ManagedCatalogDto?> UpdateManagedCatalogAsync(Guid id, UpdateManagedCatalogRequest request, CancellationToken ct = default);
+    Task<UnmanagedCatalogDto?> UpdateUnmanagedCatalogAsync(Guid id, UpdateUnmanagedCatalogRequest request, CancellationToken ct = default);
     Task DeleteCatalogAsync(Guid id, CancellationToken ct = default);
     Task<CatalogMetadataDto> GetMetadataAsync(Guid catalogId, CancellationToken ct = default);
     Task<IReadOnlyList<ResolvedCatalog>> ResolveCatalogsAsync(List<string> catalogNames, CancellationToken ct = default);
