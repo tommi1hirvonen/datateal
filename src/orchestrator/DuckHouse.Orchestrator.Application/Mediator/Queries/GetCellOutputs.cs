@@ -31,9 +31,9 @@ internal class GetCellOutputsHandler(IJobRunRepository jobRunRepository)
     public async Task<IReadOnlyList<CellOutputResult>> Handle(GetCellOutputsRequest request, CancellationToken cancellationToken)
     {
         var taskRun = await jobRunRepository.GetTaskRunAsync(request.TaskRunId, cancellationToken);
-        if (taskRun?.OutputJson is null) return [];
+        if (taskRun is not ComputeTaskRun computeRun || computeRun.OutputJson is null) return [];
 
-        var notebook = JsonSerializer.Deserialize<RunNotebook>(taskRun.OutputJson, JsonOptions);
+        var notebook = JsonSerializer.Deserialize<RunNotebook>(computeRun.OutputJson, JsonOptions);
         if (notebook is null) return [];
 
         return notebook.Cells.Select(c => new CellOutputResult(

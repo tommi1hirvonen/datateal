@@ -28,26 +28,27 @@ public class TaskExecutor(
     public async Task ExecuteAsync(TaskRun taskRun, JobTask task, NodeManager nodeManager,
         Dictionary<string, string>? jobRunParameters, CancellationToken ct)
     {
-        switch (task)
+        switch ((taskRun, task))
         {
-            case NotebookTask notebook:
-                await ExecuteNotebookAsync(taskRun, notebook, nodeManager, jobRunParameters, ct);
+            case (NotebookTaskRun nbRun, NotebookTask nbTask):
+                await ExecuteNotebookAsync(nbRun, nbTask, nodeManager, jobRunParameters, ct);
                 break;
-            case SqlQueryTask sqlQuery:
-                await ExecuteSqlQueryAsync(taskRun, sqlQuery, nodeManager, jobRunParameters, ct);
+            case (SqlQueryTaskRun sqlRun, SqlQueryTask sqlTask):
+                await ExecuteSqlQueryAsync(sqlRun, sqlTask, nodeManager, jobRunParameters, ct);
                 break;
-            case SubJobTask subJob:
-                await ExecuteSubJobAsync(taskRun, subJob, jobRunParameters, ct);
+            case (SubJobTaskRun subRun, SubJobTask subJobTask):
+                await ExecuteSubJobAsync(subRun, subJobTask, jobRunParameters, ct);
                 break;
             default:
-                throw new InvalidOperationException($"Unknown task type: {task.GetType().Name}");
+                throw new InvalidOperationException(
+                    $"Mismatched task run type {taskRun.GetType().Name} and task type {task.GetType().Name}.");
         }
     }
 
     // ── Notebook execution ──────────────────────────────────────────
 
     private async Task ExecuteNotebookAsync(
-        TaskRun taskRun, NotebookTask task, NodeManager nodeManager,
+        NotebookTaskRun taskRun, NotebookTask task, NodeManager nodeManager,
         Dictionary<string, string>? jobRunParameters, CancellationToken ct)
     {
         var content = await workspaceReader.GetNotebookContentAsync(task.NotebookId, ct)
@@ -173,7 +174,7 @@ public class TaskExecutor(
         }
     }
 
-    private async Task SkipRemainingCells(TaskRun taskRun, RunNotebook notebook, List<RunCell> runCells,
+    private async Task SkipRemainingCells(ComputeTaskRun taskRun, RunNotebook notebook, List<RunCell> runCells,
         int startIndex, List<CellInfo> cells, CancellationToken ct)
     {
         for (var j = startIndex; j < cells.Count; j++)
@@ -189,7 +190,7 @@ public class TaskExecutor(
     // ── SQL execution ───────────────────────────────────────────────
 
     private async Task ExecuteSqlQueryAsync(
-        TaskRun taskRun, SqlQueryTask task, NodeManager nodeManager,
+        SqlQueryTaskRun taskRun, SqlQueryTask task, NodeManager nodeManager,
         Dictionary<string, string>? jobRunParameters, CancellationToken ct)
     {
         var content = await workspaceReader.GetQueryContentAsync(task.QueryId, ct)
@@ -273,7 +274,7 @@ public class TaskExecutor(
 
     // ── SubJob execution ────────────────────────────────────────────
 
-    private async Task ExecuteSubJobAsync(TaskRun taskRun, SubJobTask task,
+    private async Task ExecuteSubJobAsync(SubJobTaskRun taskRun, SubJobTask task,
         Dictionary<string, string>? jobRunParameters, CancellationToken ct)
     {
         logger.LogInformation("Triggering sub-job {SubJobId} for task '{TaskName}'",

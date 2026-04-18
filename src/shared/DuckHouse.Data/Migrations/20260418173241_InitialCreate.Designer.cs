@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DuckHouse.Data.Migrations
 {
     [DbContext(typeof(DuckHouseDbContext))]
-    [Migration("20260418170619_InitialCreate")]
+    [Migration("20260418173241_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -534,15 +534,6 @@ namespace DuckHouse.Data.Migrations
                     b.Property<Guid>("JobRunId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("KernelId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("NodeName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("OutputJson")
-                        .HasColumnType("text");
-
                     b.Property<DateTime?>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -571,6 +562,10 @@ namespace DuckHouse.Data.Migrations
                     b.HasIndex("TaskId");
 
                     b.ToTable("TaskRuns");
+
+                    b.HasDiscriminator<string>("TaskType").HasValue("TaskRun");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
@@ -718,6 +713,51 @@ namespace DuckHouse.Data.Migrations
                             t.Property("Parameters")
                                 .HasColumnName("SubJobTask_Parameters");
                         });
+
+                    b.HasDiscriminator().HasValue("SubJob");
+                });
+
+            modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.NotebookTaskRun", b =>
+                {
+                    b.HasBaseType("DuckHouse.Orchestrator.Core.Entities.TaskRun");
+
+                    b.Property<string>("KernelId")
+                        .ValueGeneratedOnUpdateSometimes()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NodeName")
+                        .ValueGeneratedOnUpdateSometimes()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OutputJson")
+                        .ValueGeneratedOnUpdateSometimes()
+                        .HasColumnType("text");
+
+                    b.HasDiscriminator().HasValue("Notebook");
+                });
+
+            modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.SqlQueryTaskRun", b =>
+                {
+                    b.HasBaseType("DuckHouse.Orchestrator.Core.Entities.TaskRun");
+
+                    b.Property<string>("KernelId")
+                        .ValueGeneratedOnUpdateSometimes()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NodeName")
+                        .ValueGeneratedOnUpdateSometimes()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OutputJson")
+                        .ValueGeneratedOnUpdateSometimes()
+                        .HasColumnType("text");
+
+                    b.HasDiscriminator().HasValue("SqlQuery");
+                });
+
+            modelBuilder.Entity("DuckHouse.Orchestrator.Core.Entities.SubJobTaskRun", b =>
+                {
+                    b.HasBaseType("DuckHouse.Orchestrator.Core.Entities.TaskRun");
 
                     b.HasDiscriminator().HasValue("SubJob");
                 });

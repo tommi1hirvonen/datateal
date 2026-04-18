@@ -329,15 +329,15 @@ namespace DuckHouse.Data.Migrations
                     JobRunId = table.Column<Guid>(type: "uuid", nullable: false),
                     TaskId = table.Column<Guid>(type: "uuid", nullable: true),
                     TaskName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                    TaskType = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     Status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     AttemptNumber = table.Column<int>(type: "integer", nullable: false),
-                    NodeName = table.Column<string>(type: "text", nullable: true),
-                    KernelId = table.Column<string>(type: "text", nullable: true),
                     ErrorMessage = table.Column<string>(type: "text", nullable: true),
                     StartedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CompletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     DurationMs = table.Column<double>(type: "double precision", nullable: true),
+                    TaskType = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    NodeName = table.Column<string>(type: "text", nullable: true),
+                    KernelId = table.Column<string>(type: "text", nullable: true),
                     OutputJson = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
