@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace DuckHouse.Ui.Server.Application.Mediator.Commands;
 
-public record CreateManagedCatalogCommand(string Name) : IRequest<ManagedCatalogDto>;
+public record CreateManagedCatalogCommand(string Name, bool AllowExistingDatabase = false) : IRequest<ManagedCatalogDto>;
 
 public record CreateUnmanagedCatalogCommand(
     string Name,
@@ -44,8 +44,9 @@ internal class CreateManagedCatalogHandler(
             UpdatedAt = now,
         };
 
-        await databaseService.CreateDatabaseAsync(
-            request.Name, opts.CatalogHost, opts.CatalogPort, opts.CatalogUser, opts.CatalogPassword, cancellationToken);
+        var databaseCreated = await databaseService.CreateDatabaseAsync(
+            request.Name, opts.CatalogHost, opts.CatalogPort, opts.CatalogUser, opts.CatalogPassword,
+            request.AllowExistingDatabase, cancellationToken);
 
         try
         {
@@ -53,12 +54,15 @@ internal class CreateManagedCatalogHandler(
         }
         catch
         {
-            try
+            if (databaseCreated)
             {
-                await databaseService.DropDatabaseAsync(
-                    request.Name, opts.CatalogHost, opts.CatalogPort, opts.CatalogUser, opts.CatalogPassword, cancellationToken);
+                try
+                {
+                    await databaseService.DropDatabaseAsync(
+                        request.Name, opts.CatalogHost, opts.CatalogPort, opts.CatalogUser, opts.CatalogPassword, cancellationToken);
+                }
+                catch { /* Best effort cleanup */ }
             }
-            catch { /* Best effort cleanup */ }
             throw;
         }
 

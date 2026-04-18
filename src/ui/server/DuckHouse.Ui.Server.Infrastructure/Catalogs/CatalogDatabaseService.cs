@@ -5,17 +5,28 @@ namespace DuckHouse.Ui.Server.Infrastructure.Catalogs;
 
 internal class CatalogDatabaseService : ICatalogDatabaseService
 {
-    public async Task CreateDatabaseAsync(string databaseName, string host, int port, string user, string password,
-        CancellationToken cancellationToken = default)
+    public async Task<bool> CreateDatabaseAsync(string databaseName, string host, int port, string user, string password,
+        bool allowExistingDatabase = false, CancellationToken cancellationToken = default)
     {
         var connectionString = BuildConnectionString(host, port, user, password, "postgres");
         await using var conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync(cancellationToken);
 
+        if (allowExistingDatabase)
+        {
+            var checkSql = "SELECT 1 FROM pg_database WHERE datname = @name";
+            await using var checkCmd = new NpgsqlCommand(checkSql, conn);
+            checkCmd.Parameters.AddWithValue("name", databaseName);
+            var exists = await checkCmd.ExecuteScalarAsync(cancellationToken) is not null;
+            if (exists)
+                return false;
+        }
+
         // Database names are sanitized via quoting to prevent SQL injection
         var sql = $"CREATE DATABASE \"{databaseName}\"";
         await using var cmd = new NpgsqlCommand(sql, conn);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
+        return true;
     }
 
     public async Task DropDatabaseAsync(string databaseName, string host, int port, string user, string password,

@@ -1,6 +1,6 @@
 namespace DuckHouse.Ui.Shared.Catalogs;
 
-public record CreateManagedCatalogRequest(string Name);
+public record CreateManagedCatalogRequest(string Name, bool AllowExistingDatabase = false);
 
 public record CreateUnmanagedCatalogRequest(
     string Name,

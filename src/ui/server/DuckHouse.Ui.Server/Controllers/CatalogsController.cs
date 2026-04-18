@@ -27,7 +27,7 @@ public class CatalogsController(IMediator mediator) : ControllerBase
     [HttpPost("managed")]
     public async Task<IActionResult> CreateManaged(SharedCat.CreateManagedCatalogRequest body, CancellationToken ct)
     {
-        var catalog = await mediator.SendAsync(new Cmd.CreateManagedCatalogCommand(body.Name), ct);
+        var catalog = await mediator.SendAsync(new Cmd.CreateManagedCatalogCommand(body.Name, body.AllowExistingDatabase), ct);
         return Created($"api/catalogs/{catalog.Id}", catalog);
     }
 

@@ -96,6 +96,18 @@
                     <Radio Value="false">Unmanaged</Radio>
                 </RadioGroup>
             </div>
+
+            @if (_formIsManaged)
+            {
+                <div>
+                    <Checkbox @bind-Value="_formAllowExistingDatabase">
+                        Allow existing PostgreSQL database
+                    </Checkbox>
+                    <div style="color: #8c8c8c; font-size: 12px; margin-top: 2px;">
+                        When checked, the catalog will be registered even if a PostgreSQL database with this name already exists. Useful when migrating an environment.
+                    </div>
+                </div>
+            }
         }
 
         @if (!_formIsManaged)
@@ -153,6 +165,7 @@
     private CatalogDto? _editTarget;
     private string _formName = "";
     private bool _formIsManaged = true;
+    private bool _formAllowExistingDatabase = false;
     private string _formDataPath = "";
     private string _formStorageConnectionString = "";
     private string _formCatalogHost = "";
@@ -196,6 +209,7 @@
         _editTarget = null;
         _formName = "";
         _formIsManaged = true;
+        _formAllowExistingDatabase = false;
         _formDataPath = "";
         _formStorageConnectionString = "";
         _formCatalogHost = "";
@@ -244,7 +258,7 @@
             {
                 if (_formIsManaged)
                 {
-                    await CatalogService.CreateManagedCatalogAsync(new CreateManagedCatalogRequest(_formName.Trim()));
+                    await CatalogService.CreateManagedCatalogAsync(new CreateManagedCatalogRequest(_formName.Trim(), _formAllowExistingDatabase));
                 }
                 else
                 {
