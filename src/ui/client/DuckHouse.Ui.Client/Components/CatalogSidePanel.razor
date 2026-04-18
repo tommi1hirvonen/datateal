@@ -18,9 +18,15 @@ else
                 <Icon Type="@IconType.Outline.Database" />
                 <span style="margin-left: 6px;">Catalogs</span>
             </span>
-            <button class="cp-collapse-btn" title="Collapse catalog explorer" @onclick="@(() => SetCollapsed(true))">
-                <Icon Type="@IconType.Outline.DoubleLeft" />
-            </button>
+            <div style="display: flex; align-items: center; gap: 2px;">
+                <button class="cp-collapse-btn" title="Refresh catalog explorer" disabled="@_refreshing"
+                        @onclick="RefreshExplorerAsync">
+                    <Icon Type="@(_refreshing ? IconType.Outline.Loading : IconType.Outline.Reload)" />
+                </button>
+                <button class="cp-collapse-btn" title="Collapse catalog explorer" @onclick="@(() => SetCollapsed(true))">
+                    <Icon Type="@IconType.Outline.DoubleLeft" />
+                </button>
+            </div>
         </div>
         <div class="cp-panel-body">
             <div class="cp-panel-section">
@@ -45,7 +51,7 @@ else
                     </div>
                 }
             </div>
-            <CatalogExplorer CatalogNames="@SelectedCatalogNames.ToList()" />
+            <CatalogExplorer @ref="_explorerRef" CatalogNames="@SelectedCatalogNames.ToList()" />
         </div>
     </div>
     <div id="cp-handle" class="cp-drag-handle">
@@ -63,12 +69,21 @@ else
     private bool _collapsed;
     private int _widthPx = 260;
     private bool _splitterInitialized;
+    private bool _refreshing;
 
+    private CatalogExplorer _explorerRef = default!;
     private DotNetObjectReference<CatalogSidePanel>? _dotNetRef;
 
     private async Task HandleValuesChanged(IEnumerable<string> values)
     {
         await SelectedCatalogNamesChanged.InvokeAsync(values);
+    }
+
+    private async Task RefreshExplorerAsync()
+    {
+        _refreshing = true;
+        try { await _explorerRef.RefreshAsync(); }
+        finally { _refreshing = false; }
     }
 
     private void SetCollapsed(bool value)

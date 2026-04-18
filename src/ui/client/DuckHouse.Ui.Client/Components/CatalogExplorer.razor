@@ -60,6 +60,15 @@
         }
     }
 
+    /// <summary>Clears the tree and re-fetches all metadata from scratch.</summary>
+    public async Task RefreshAsync()
+    {
+        _treeData = [];
+        _previousCatalogNames = [];
+        _previousCatalogNames = CatalogNames.ToList();
+        await LoadRootNodesAsync();
+    }
+
     private async Task LoadRootNodesAsync()
     {
         if (CatalogNames.Count == 0)
@@ -70,6 +79,7 @@
 
         _loading = true;
         _error = null;
+        StateHasChanged();
 
         try
         {
