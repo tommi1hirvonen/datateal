@@ -159,12 +159,14 @@ public static partial class ValidationHelper
         return null;
     }
 
-    // DuckDB identifier: letter or underscore, followed by letters, digits, or underscores.
+    // DuckDB/Postgres catalog identifier: letter or underscore, followed by letters, digits, or underscores.
     [GeneratedRegex(@"^[a-zA-Z_][a-zA-Z0-9_]*$")]
-    private static partial Regex DuckDbIdentifierRegex();
+    private static partial Regex CatalogIdentifierRegex();
 
     /// <summary>
-    /// Validates a DuckDB catalog name (valid identifier).
+    /// Validates a catalog name. Must be a valid DuckDB identifier and a valid PostgreSQL database name:
+    /// letters, digits, and underscores only; cannot start with a digit; max 63 characters (PostgreSQL limit);
+    /// cannot start with "pg_" (reserved for PostgreSQL system catalogs).
     /// Returns an error message, or null if valid.
     /// </summary>
     public static string? ValidateCatalogName(string? name)
@@ -172,15 +174,18 @@ public static partial class ValidationHelper
         if (string.IsNullOrEmpty(name))
             return null;
 
-        if (name.Length > 128)
-            return "Catalog name must be 128 characters or fewer.";
+        if (name.Length > 63)
+            return "Catalog name must be 63 characters or fewer (PostgreSQL database name limit).";
 
-        if (!DuckDbIdentifierRegex().IsMatch(name))
+        if (!CatalogIdentifierRegex().IsMatch(name))
         {
             if (char.IsDigit(name[0]))
                 return "Catalog name must not start with a digit.";
             return "Catalog name may only contain letters, digits, and underscores.";
         }
+
+        if (name.StartsWith("pg_", StringComparison.OrdinalIgnoreCase))
+            return "Catalog name must not start with \"pg_\" (reserved for PostgreSQL system catalogs).";
 
         return null;
     }
