@@ -3,10 +3,12 @@
 @using DuckHouse.Ui.Shared.Orchestration
 @using DuckHouse.Core.Kernels
 @using Markdig
+@using System.Text
 @using System.Text.Json
 @using System.Text.RegularExpressions
 @inject IJobService JobService
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Notebook Output — DuckHouse</PageTitle>
 
@@ -22,12 +24,22 @@
                 <h2 style="margin: 0;">@(_taskName ?? "Notebook output")</h2>
             </SpaceItem>
         </Space>
-        @if (_hasRunningCells)
-        {
-            <Button OnClick="RefreshAsync">
-                <Icon Type="@IconType.Outline.Reload" /> Refresh
-            </Button>
-        }
+        <Space Size="SpaceSize.Small">
+            @if (_cells.Count > 0)
+            {
+                <SpaceItem>
+                    <Button Icon="@IconType.Outline.Download" OnClick="ExportAsync">Export</Button>
+                </SpaceItem>
+            }
+            @if (_hasRunningCells)
+            {
+                <SpaceItem>
+                    <Button OnClick="RefreshAsync">
+                        <Icon Type="@IconType.Outline.Reload" /> Refresh
+                    </Button>
+                </SpaceItem>
+            }
+        </Space>
     </Flex>
 
     @if (!string.IsNullOrEmpty(_error))
@@ -243,6 +255,262 @@
     }
 
     private async Task RefreshAsync() => await LoadAsync();
+
+    private async Task ExportAsync()
+    {
+        try
+        {
+            var json = BuildNotebookJson();
+            var title = _taskName?.Trim() is { Length: > 0 } t ? t : "notebook";
+            var filename = SanitizeFilename(title) + ".ipynb";
+            await JS.InvokeVoidAsync("downloadFile", filename, json);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to export: {ex.Message}";
+        }
+    }
+
+    private string BuildNotebookJson()
+    {
+        using var ms = new MemoryStream();
+        using var writer = new Utf8JsonWriter(ms, new JsonWriterOptions { Indented = true });
+
+        writer.WriteStartObject();
+        writer.WriteNumber("nbformat", 4);
+        writer.WriteNumber("nbformat_minor", 5);
+
+        writer.WriteStartObject("metadata");
+        writer.WriteStartObject("kernelspec");
+        writer.WriteString("display_name", "DuckHouse");
+        writer.WriteString("language", "python");
+        writer.WriteString("name", "duckhouse");
+        writer.WriteEndObject();
+        writer.WriteStartObject("language_info");
+        writer.WriteString("name", "python");
+        writer.WriteEndObject();
+        writer.WriteStartObject("duckhouse");
+        writer.WriteString("version", "1");
+        writer.WriteString("title", _taskName ?? "Notebook");
+        writer.WriteEndObject();
+        writer.WriteEndObject(); // metadata
+
+        writer.WriteStartArray("cells");
+        foreach (var cell in _cells)
+            WriteExportCell(writer, cell);
+        writer.WriteEndArray();
+
+        writer.WriteEndObject();
+        writer.Flush();
+
+        return Encoding.UTF8.GetString(ms.ToArray());
+    }
+
+    private static void WriteExportCell(Utf8JsonWriter writer, CellOutputDto cell)
+    {
+        bool isMarkdown = cell.CellType == "Markdown";
+
+        writer.WriteStartObject();
+        writer.WriteString("id", cell.Id.ToString("N")[..8]);
+        writer.WriteString("cell_type", isMarkdown ? "markdown" : "code");
+        writer.WriteString("source", cell.CellSource);
+
+        if (isMarkdown)
+        {
+            writer.WriteStartObject("metadata");
+            writer.WriteEndObject();
+        }
+        else
+        {
+            if (cell.ExecutionCount.HasValue)
+                writer.WriteNumber("execution_count", cell.ExecutionCount.Value);
+            else
+                writer.WriteNull("execution_count");
+
+            writer.WriteStartObject("metadata");
+            writer.WriteString("language", cell.Language?.ToLower() ?? "python");
+
+            var tags = new List<string>();
+            if (cell.CellRole == "parameters") tags.Add("parameters");
+            else if (cell.CellRole == "injected-parameters") tags.Add("injected-parameters");
+            if (tags.Count > 0)
+            {
+                writer.WriteStartArray("tags");
+                foreach (var tag in tags) writer.WriteStringValue(tag);
+                writer.WriteEndArray();
+            }
+
+            writer.WriteStartObject("duckhouse");
+            if (cell.DurationMs.HasValue)
+                writer.WriteNumber("duration_ms", cell.DurationMs.Value);
+            else
+                writer.WriteNull("duration_ms");
+            writer.WriteString("status", cell.Status);
+            writer.WriteEndObject(); // duckhouse
+            writer.WriteEndObject(); // metadata
+
+            writer.WriteStartArray("outputs");
+            var outputs = ParseOutputs(cell.OutputsJson);
+            if (outputs is not null)
+                foreach (var output in outputs)
+                    WriteExportOutput(writer, output, cell.ExecutionCount);
+            var error = ParseError(cell.ErrorJson);
+            if (error is not null)
+                WriteExportError(writer, error);
+            writer.WriteEndArray();
+        }
+
+        writer.WriteEndObject();
+    }
+
+    private static void WriteExportOutput(Utf8JsonWriter writer, Output output, int? cellExecutionCount)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("output_type", output.Type);
+
+        if (output.Type == "stream")
+        {
+            writer.WriteString("name", output.Name ?? "stdout");
+            writer.WriteString("text", output.Text ?? "");
+        }
+        else if (output.Type is "execute_result" or "display_data")
+        {
+            if (output.Type == "execute_result")
+            {
+                int? ec = output.ExecutionCount ?? cellExecutionCount;
+                if (ec.HasValue)
+                    writer.WriteNumber("execution_count", ec.Value);
+                else
+                    writer.WriteNull("execution_count");
+            }
+
+            writer.WriteStartObject("data");
+            if (output.Data is not null)
+            {
+                if (output.Data.TryGetValue(DataFrameOutput.MimeType, out var dfRaw)
+                    && DataFrameOutput.TryParse(dfRaw) is { } dfOutput)
+                {
+                    // Convert DuckHouse DataFrame to standard MIME types for VS Code compatibility
+                    writer.WriteString("text/html", DataFrameToHtml(dfOutput));
+                    writer.WriteString("text/plain", DataFrameToPlainText(dfOutput));
+                }
+                else
+                {
+                    foreach (var (key, value) in output.Data)
+                    {
+                        writer.WritePropertyName(key);
+                        if (value is JsonElement je)
+                            je.WriteTo(writer);
+                        else
+                            writer.WriteStringValue(value?.ToString() ?? "");
+                    }
+                }
+            }
+            writer.WriteEndObject(); // data
+
+            writer.WriteStartObject("metadata");
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndObject();
+    }
+
+    private static void WriteExportError(Utf8JsonWriter writer, ErrorInfo err)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("output_type", "error");
+        writer.WriteString("ename", err.Ename);
+        writer.WriteString("evalue", err.Evalue);
+        writer.WriteStartArray("traceback");
+        foreach (var line in err.Traceback)
+            writer.WriteStringValue(line);
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+    }
+
+    private static string DataFrameToHtml(DataFrameOutput df)
+    {
+        var sb = new StringBuilder();
+        sb.Append("<div><table border=\"1\" class=\"dataframe\"><thead><tr style=\"text-align: right;\"><th></th>");
+        foreach (var col in df.Columns)
+        {
+            sb.Append("<th>");
+            sb.Append(HtmlEncode(col.Name));
+            sb.Append("</th>");
+        }
+        sb.Append("</tr></thead><tbody>");
+
+        for (int i = 0; i < df.Rows.Count; i++)
+        {
+            sb.Append("<tr><th>");
+            sb.Append(i);
+            sb.Append("</th>");
+            foreach (var cell in df.Rows[i])
+            {
+                sb.Append("<td>");
+                if (cell is not null) sb.Append(HtmlEncode(cell.ToString()!));
+                sb.Append("</td>");
+            }
+            sb.Append("</tr>");
+        }
+
+        sb.Append("</tbody></table>");
+        if (df.TotalRows > df.DisplayedRows)
+            sb.Append($"<p>{df.DisplayedRows:N0} rows × {df.Columns.Count} columns (capped at {DataFrameOutput.RowCap:N0})</p>");
+        else
+            sb.Append($"<p>{df.TotalRows:N0} rows × {df.Columns.Count} columns</p>");
+        sb.Append("</div>");
+
+        return sb.ToString();
+    }
+
+    private static string DataFrameToPlainText(DataFrameOutput df)
+    {
+        if (df.Columns.Count == 0) return "";
+
+        var colWidths = new int[df.Columns.Count];
+        for (int c = 0; c < df.Columns.Count; c++)
+        {
+            colWidths[c] = df.Columns[c].Name.Length;
+            foreach (var row in df.Rows)
+                if (c < row.Count)
+                    colWidths[c] = Math.Max(colWidths[c], row[c]?.ToString()?.Length ?? 4);
+        }
+        int indexWidth = Math.Max(1, (df.Rows.Count - 1).ToString().Length);
+
+        var sb = new StringBuilder();
+
+        sb.Append("".PadRight(indexWidth));
+        for (int c = 0; c < df.Columns.Count; c++)
+        {
+            sb.Append("  ");
+            sb.Append(df.Columns[c].Name.PadLeft(colWidths[c]));
+        }
+        sb.AppendLine();
+
+        for (int r = 0; r < df.Rows.Count; r++)
+        {
+            sb.Append(r.ToString().PadRight(indexWidth));
+            for (int c = 0; c < df.Columns.Count; c++)
+            {
+                sb.Append("  ");
+                string val = c < df.Rows[r].Count ? (df.Rows[r][c]?.ToString() ?? "None") : "";
+                sb.Append(val.PadLeft(colWidths[c]));
+            }
+            sb.AppendLine();
+        }
+
+        if (df.TotalRows > df.DisplayedRows)
+            sb.Append($"\n[{df.TotalRows} rows x {df.Columns.Count} columns]");
+
+        return sb.ToString();
+    }
+
+    private static string HtmlEncode(string s) =>
+        s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
+
+    private static string SanitizeFilename(string name) =>
+        Regex.Replace(name, @"[^\w\s\-.]", "_").Trim();
 
     private static List<Output>? ParseOutputs(string? json)
     {
