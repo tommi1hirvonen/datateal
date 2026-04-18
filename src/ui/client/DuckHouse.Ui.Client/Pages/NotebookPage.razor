@@ -23,7 +23,7 @@
                     SelectedCatalogNames="@_selectedCatalogNames"
                     SelectedCatalogNamesChanged="@(v => _selectedCatalogNames = v)"
                     OnCatalogSelectionChanged="OnCatalogSelectionChanged"
-                    CatalogSetupRunning="@_catalogSetupRunning" />
+                    CatalogSetupRunning="@_catalog.SetupRunning" />
     <div class="cp-main" style="margin-left: 24px; overflow-y: auto;">
 
         <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
@@ -273,8 +273,7 @@
     // Catalogs
     private IReadOnlyList<CatalogDto> _allCatalogs = [];
     private IEnumerable<string> _selectedCatalogNames = [];
-    private HashSet<string> _attachedCatalogNames = new(StringComparer.OrdinalIgnoreCase);
-    private bool _catalogSetupRunning;
+    private CatalogSession _catalog = default!;
 
     private bool HasKernel => !string.IsNullOrEmpty(_kernelId);
     private bool AnyExecuting => _notebook.Cells.Any(c => c.IsExecuting);
@@ -304,6 +303,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _catalog = new CatalogSession(
+            KernelService, CatalogService,
+            () => _nodeName, () => _kernelId, () => _allCatalogs,
+            StateHasChanged, msg => _error = msg);
+
         // Load notebook from workspace if an Id was provided
         if (Id != Guid.Empty)
         {
@@ -421,7 +425,7 @@
                 await JS.InvokeVoidAsync("setItemNodePref", _workspaceNotebookId.Value.ToString(), _nodeName);
 
             // Attach catalogs if any are selected
-            await SetupCatalogsAsync();
+            await _catalog.SetupAllAsync(_selectedCatalogNames);
         }
         catch (Exception ex)
         {
@@ -445,7 +449,7 @@
             await KernelService.DeleteKernelAsync(_nodeName, _kernelId!);
             _kernelId = null;
             _kernel = null;
-            _attachedCatalogNames.Clear();
+            _catalog.Clear();
         }
         catch (Exception ex)
         {
@@ -791,209 +795,8 @@
 
     // ── Catalog management ───────────────────────────────────────────
 
-    private async Task OnCatalogSelectionChanged(IEnumerable<CatalogDto> selectedItems)
-    {
-        // Persist selection to workspace
-        if (_workspaceNotebookId.HasValue)
-        {
-            try
-            {
-                await CatalogService.UpdateWorkspaceItemCatalogsAsync(
-                    _workspaceNotebookId.Value, _selectedCatalogNames.ToList());
-            }
-            catch (Exception ex) { _error = $"Failed to save catalog selection: {ex.Message}"; }
-        }
-
-        // When already connected, diff the selection and attach/detach as needed
-        if (!HasKernel) return;
-
-        // Sync from the kernel before diffing so any manual ATTACH/DETACH the user ran
-        // in a cell is reflected in _attachedCatalogNames before we compute what to change.
-        await SyncAttachedCatalogsAsync();
-
-        var desired = new HashSet<string>(selectedItems.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
-        var toDetach = _attachedCatalogNames.Except(desired, StringComparer.OrdinalIgnoreCase).ToList();
-        var toAttach = desired.Except(_attachedCatalogNames, StringComparer.OrdinalIgnoreCase).ToList();
-
-        foreach (var name in toDetach)
-            await DetachCatalogAsync(name);
-
-        foreach (var name in toAttach)
-            await AttachCatalogAsync(name);
-    }
-
-    /// <summary>
-    /// Queries DuckDB for the currently attached databases and refreshes <see cref="_attachedCatalogNames"/>
-    /// so it reflects any ATTACH/DETACH commands the user ran manually in a cell.
-    /// Silently falls back to the cached set on any error.
-    /// </summary>
-    private async Task SyncAttachedCatalogsAsync()
-    {
-        if (!HasKernel || string.IsNullOrEmpty(_nodeName)) return;
-
-        // Use underscore-prefixed aliases to avoid polluting the user's kernel namespace.
-        const string script = """
-            import duckdb as _dh_ddb, json as _dh_json
-            print("__dh_dbs__:" + _dh_json.dumps([r[0] for r in _dh_ddb.execute("SELECT database_name FROM duckdb_databases() WHERE NOT internal AND database_name != 'memory'").fetchall()]))
-            del _dh_ddb, _dh_json
-            """;
-
-        try
-        {
-            var handle = await KernelService.StartExecuteAsync(
-                _nodeName, _kernelId!, new ExecuteKernelRequest(script));
-
-            PollExecutionResponse poll;
-            do
-            {
-                await Task.Delay(500);
-                poll = await KernelService.PollExecutionAsync(_nodeName, _kernelId!, handle.ExecutionId);
-            } while (!poll.IsComplete);
-
-            if (poll.Result?.Error is not null) return;
-
-            var knownNames = new HashSet<string>(_allCatalogs.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
-            var streamText = string.Concat(
-                poll.Result.Outputs
-                    .Where(o => o.Type == "stream" && o.Text is not null)
-                    .Select(o => o.Text));
-
-            var sentinelLine = streamText
-                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                .FirstOrDefault(l => l.StartsWith("__dh_dbs__:", StringComparison.Ordinal));
-
-            if (sentinelLine is null) return;
-
-            var names = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
-                sentinelLine["__dh_dbs__:".Length..]);
-
-            if (names is null) return;
-
-            _attachedCatalogNames = new HashSet<string>(
-                names.Where(n => knownNames.Contains(n)),
-                StringComparer.OrdinalIgnoreCase);
-        }
-        catch { /* fall back to cached state on any error */ }
-    }
-
-    private async Task SetupCatalogsAsync()
-    {
-        var names = _selectedCatalogNames.ToList();
-        if (names.Count == 0 || !HasKernel || string.IsNullOrEmpty(_nodeName)) return;
-
-        _catalogSetupRunning = true;
-        StateHasChanged();
-
-        try
-        {
-            var resolved = await CatalogService.ResolveCatalogsAsync(names);
-            if (resolved.Count == 0) return;
-
-            var script = CatalogSetupGenerator.GenerateSetupScript(resolved, isLinux: true);
-            var handle = await KernelService.StartExecuteAsync(
-                _nodeName, _kernelId!, new ExecuteKernelRequest(script));
-
-            PollExecutionResponse poll;
-            do
-            {
-                await Task.Delay(1000);
-                poll = await KernelService.PollExecutionAsync(_nodeName, _kernelId!, handle.ExecutionId);
-            } while (!poll.IsComplete);
-
-            if (poll.Result?.Error is not null)
-            {
-                _error = $"Catalog setup failed: {poll.Result.Error.Evalue}";
-            }
-            else
-            {
-                _attachedCatalogNames = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
-            }
-        }
-        catch (Exception ex)
-        {
-            _error = $"Catalog setup failed: {ex.Message}";
-        }
-        finally
-        {
-            _catalogSetupRunning = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task AttachCatalogAsync(string name)
-    {
-        if (!HasKernel || string.IsNullOrEmpty(_nodeName)) return;
-
-        _catalogSetupRunning = true;
-        StateHasChanged();
-
-        try
-        {
-            var resolved = await CatalogService.ResolveCatalogsAsync([name]);
-            if (resolved.Count == 0) return;
-
-            var script = CatalogSetupGenerator.GenerateAttachScript(resolved[0], isLinux: true);
-            var handle = await KernelService.StartExecuteAsync(
-                _nodeName, _kernelId!, new ExecuteKernelRequest(script));
-
-            PollExecutionResponse poll;
-            do
-            {
-                await Task.Delay(1000);
-                poll = await KernelService.PollExecutionAsync(_nodeName, _kernelId!, handle.ExecutionId);
-            } while (!poll.IsComplete);
-
-            if (poll.Result?.Error is not null)
-                _error = $"Catalog attach failed: {poll.Result.Error.Evalue}";
-            else
-                _attachedCatalogNames.Add(name);
-        }
-        catch (Exception ex)
-        {
-            _error = $"Catalog attach failed: {ex.Message}";
-        }
-        finally
-        {
-            _catalogSetupRunning = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task DetachCatalogAsync(string name)
-    {
-        if (!HasKernel || string.IsNullOrEmpty(_nodeName)) return;
-
-        _catalogSetupRunning = true;
-        StateHasChanged();
-
-        try
-        {
-            var script = CatalogSetupGenerator.GenerateDetachScript(name);
-            var handle = await KernelService.StartExecuteAsync(
-                _nodeName, _kernelId!, new ExecuteKernelRequest(script));
-
-            PollExecutionResponse poll;
-            do
-            {
-                await Task.Delay(1000);
-                poll = await KernelService.PollExecutionAsync(_nodeName, _kernelId!, handle.ExecutionId);
-            } while (!poll.IsComplete);
-
-            if (poll.Result?.Error is not null)
-                _error = $"Catalog detach failed: {poll.Result.Error.Evalue}";
-            else
-                _attachedCatalogNames.Remove(name);
-        }
-        catch (Exception ex)
-        {
-            _error = $"Catalog detach failed: {ex.Message}";
-        }
-        finally
-        {
-            _catalogSetupRunning = false;
-            StateHasChanged();
-        }
-    }
+    private Task OnCatalogSelectionChanged(IEnumerable<CatalogDto> selectedItems) =>
+        _catalog.OnSelectionChangedAsync(selectedItems, _selectedCatalogNames, _workspaceNotebookId);
 
     public async ValueTask DisposeAsync()
     {
