@@ -207,6 +207,19 @@ public class TaskExecutor(
             throw new InvalidOperationException(
                 $"SQL query task '{task.Name}' requires a NodePoolRef to execute.");
 
+        // Create a cell output record so the UI can display the query source and result.
+        var cellOutput = new TaskRunCellOutput
+        {
+            Id = Guid.CreateVersion7(),
+            TaskRunId = taskRun.Id,
+            CellIndex = 0,
+            CellSource = content.Content,
+            CellType = "Code",
+            Language = "Sql",
+            Status = CellExecutionStatus.Pending,
+        };
+        await jobRunRepository.CreateCellOutputAsync(cellOutput, ct);
+
         var (nodeName, kernelId) = await nodeManager.CreateKernelAsync(task.NodePoolRef, ct);
         taskRun.NodeName = nodeName;
         taskRun.KernelId = kernelId;
@@ -217,14 +230,44 @@ public class TaskExecutor(
             // Attach DuckLake catalogs if configured
             await SetupCatalogsForWorkspaceItemAsync(task.QueryId, nodeName, kernelId, ct);
 
+            cellOutput.Status = CellExecutionStatus.Running;
+            cellOutput.StartedAt = DateTime.UtcNow;
+            await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
+
             var code = $"import duckdb; duckdb.sql(\"\"\"{content.Content}\"\"\")";
             var result = await ExecuteCodeAsync(nodeName, kernelId, code, ct);
 
             taskRun.QueryResultJson = JsonSerializer.Serialize(result, JsonOptions);
 
+            cellOutput.CompletedAt = DateTime.UtcNow;
+            cellOutput.DurationMs = result.DurationMs;
+            cellOutput.ExecutionCount = result.ExecutionCount;
+            cellOutput.OutputsJson = JsonSerializer.Serialize(result.Outputs, JsonOptions);
+
             if (result.Error is not null)
+            {
+                cellOutput.Status = CellExecutionStatus.Failed;
+                cellOutput.ErrorJson = JsonSerializer.Serialize(result.Error, JsonOptions);
+                await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
                 throw new InvalidOperationException(
                     $"SQL query failed: {result.Error.Ename}: {result.Error.Evalue}");
+            }
+
+            cellOutput.Status = CellExecutionStatus.Succeeded;
+            await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            cellOutput.Status = CellExecutionStatus.Failed;
+            cellOutput.CompletedAt = DateTime.UtcNow;
+            cellOutput.ErrorJson = JsonSerializer.Serialize(
+                new ErrorInfo("ExecutionError", ex.Message, []), JsonOptions);
+            await jobRunRepository.UpdateCellOutputAsync(cellOutput, ct);
+            throw;
         }
         finally
         {

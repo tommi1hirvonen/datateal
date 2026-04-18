@@ -15,11 +15,11 @@
         <Space Align="SpaceAlign.Center" Size="SpaceSize.Small">
             <SpaceItem>
                 <Button OnClick="@(() => Navigation.NavigateTo($"/runs/{RunId}"))">
-                    <Icon Type="@IconType.Outline.ArrowLeft" /> Back to Run
+                    <Icon Type="@IconType.Outline.ArrowLeft" /> Back to run
                 </Button>
             </SpaceItem>
             <SpaceItem>
-                <h2 style="margin: 0;">Notebook Output</h2>
+                <h2 style="margin: 0;">Notebook output</h2>
             </SpaceItem>
         </Space>
         @if (_hasRunningCells)

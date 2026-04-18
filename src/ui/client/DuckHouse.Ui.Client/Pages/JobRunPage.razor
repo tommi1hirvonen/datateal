@@ -116,6 +116,13 @@
                             <Icon Type="@IconType.Outline.FileText" /> Notebook
                         </Button>
                     }
+                    else if (context.TaskType.Equals("SqlQuery", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <Button Size="@ButtonSize.Small"
+                                OnClick="@(() => Navigation.NavigateTo($"/runs/{Id}/tasks/{context.Id}/query"))">
+                            <Icon Type="@IconType.Outline.Code" /> Query
+                        </Button>
+                    }
                 </ActionColumn>
             </Table>
         }

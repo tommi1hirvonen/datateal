@@ -1,0 +1,232 @@
+@page "/runs/{RunId:guid}/tasks/{TaskRunId:guid}/query"
+
+@using DuckHouse.Ui.Shared.Orchestration
+@using DuckHouse.Core.Kernels
+@using System.Text.Json
+@using System.Text.RegularExpressions
+@inject IJobService JobService
+@inject NavigationManager Navigation
+
+<PageTitle>Query Output — DuckHouse</PageTitle>
+
+<div style="padding: 24px;">
+    <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+        <Space Align="SpaceAlign.Center" Size="SpaceSize.Small">
+            <SpaceItem>
+                <Button OnClick="@(() => Navigation.NavigateTo($"/runs/{RunId}"))">
+                    <Icon Type="@IconType.Outline.ArrowLeft" /> Back to run
+                </Button>
+            </SpaceItem>
+            <SpaceItem>
+                <h2 style="margin: 0;">SQL query output</h2>
+            </SpaceItem>
+        </Space>
+        @if (_hasRunningCell)
+        {
+            <Button OnClick="RefreshAsync">
+                <Icon Type="@IconType.Outline.Reload" /> Refresh
+            </Button>
+        }
+    </Flex>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
+               Style="margin-bottom: 16px;" />
+    }
+
+    <Spin Spinning="_loading">
+        @if (_cell is not null)
+        {
+            <div style="border: 1px solid #d9d9d9; border-radius: 4px; overflow: hidden;">
+                @* Cell header *@
+                <div style="display: flex; justify-content: space-between; align-items: center;
+                            padding: 4px 12px; background: #fafafa; border-bottom: 1px solid #d9d9d9; font-size: 12px;">
+                    <Space>
+                        <SpaceItem>
+                            <Tag Color="@GetCellStatusColor(_cell.Status)" Style="margin: 0;">@_cell.Status</Tag>
+                        </SpaceItem>
+                        <SpaceItem>
+                            <span style="color: #888;">SQL</span>
+                        </SpaceItem>
+                    </Space>
+                    <Space>
+                        @if (_cell.ExecutionCount.HasValue)
+                        {
+                            <SpaceItem>
+                                <span style="color: #888;">[@_cell.ExecutionCount]</span>
+                            </SpaceItem>
+                        }
+                        @if (_cell.DurationMs.HasValue)
+                        {
+                            <SpaceItem>
+                                <span style="color: #888;"><ExecutionTimer IsRunning="false" DurationMs="@_cell.DurationMs" /></span>
+                            </SpaceItem>
+                        }
+                    </Space>
+                </div>
+
+                @* Query source *@
+                <pre style="margin: 0; padding: 12px; background: #f5f5f5; font-size: 13px;
+                            font-family: 'Cascadia Code', 'Consolas', monospace; overflow-x: auto; white-space: pre-wrap;">@_cell.CellSource</pre>
+
+                @* Outputs *@
+                @{
+                    var outputs = ParseOutputs(_cell.OutputsJson);
+                    var error = ParseError(_cell.ErrorJson);
+                }
+
+                @if (outputs is not null)
+                {
+                    @foreach (var output in outputs)
+                    {
+                        @if (output.Type == "stream")
+                        {
+                            bool isStderr = output.Name == "stderr";
+                            <div style="padding: 8px 12px; border-top: 1px solid #f0f0f0;">
+                                @if (isStderr)
+                                {
+                                    <pre style="margin: 0; font-family: monospace; font-size: 13px; white-space: pre-wrap;
+                                                border-left: 3px solid #faad14; padding-left: 8px; color: #d46b08;">@output.Text</pre>
+                                }
+                                else
+                                {
+                                    <pre style="margin: 0; font-family: monospace; font-size: 13px; white-space: pre-wrap;
+                                                border-left: 3px solid #d9d9d9; padding-left: 8px;">@output.Text</pre>
+                                }
+                            </div>
+                        }
+                        else if (output.Type is "execute_result" or "display_data")
+                        {
+                            string outLabel = $"Out[{output.ExecutionCount ?? _cell.ExecutionCount}]:";
+
+                            @if (output.Data is not null
+                                 && output.Data.TryGetValue(DataFrameOutput.MimeType, out var dfRaw)
+                                 && DataFrameOutput.TryParse(dfRaw) is { } dfOutput)
+                            {
+                                <div style="padding: 8px 12px; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; align-items: flex-start;">
+                                    <span style="font-family: monospace; font-size: 13px; white-space: nowrap; padding-top: 4px;">@outLabel</span>
+                                    <div style="flex: 1 1 0%; border-left: 3px solid #d9d9d9; padding-left: 8px; min-width: 0;">
+                                        <DataFrameView Data="dfOutput" />
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                string? htmlText = GetDataText(output.Data, "text/html");
+                                string? plainText = GetDataText(output.Data, "text/plain") ?? output.Text;
+
+                                @if (htmlText is not null)
+                                {
+                                    <div style="padding: 8px 12px; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; align-items: flex-start;">
+                                        <span style="font-family: monospace; font-size: 13px; white-space: nowrap; padding-top: 4px;">@outLabel</span>
+                                        <div style="flex: 1 1 0%; border-left: 3px solid #d9d9d9; padding-left: 8px; font-size: 13px;">
+                                            @((MarkupString)htmlText)
+                                        </div>
+                                    </div>
+                                }
+                                else if (plainText is not null)
+                                {
+                                    <div style="padding: 8px 12px; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; align-items: flex-start;">
+                                        <span style="font-family: monospace; font-size: 13px; white-space: nowrap; padding-top: 4px;">@outLabel</span>
+                                        <pre style="margin: 0; font-family: monospace; font-size: 13px; flex: 1 1 0%;
+                                                    border-left: 3px solid #d9d9d9; padding-left: 8px; white-space: pre-wrap;">@plainText</pre>
+                                    </div>
+                                }
+                            }
+                        }
+                    }
+                }
+
+                @if (error is not null)
+                {
+                    <div style="padding: 8px 12px; border-top: 1px solid #f0f0f0; background: #fff2f0;">
+                        <div style="display: flex; gap: 8px; align-items: flex-start;">
+                            <span style="visibility: hidden; font-family: monospace; font-size: 13px; white-space: nowrap; padding-top: 4px;">Out[ ]:</span>
+                            <div style="flex: 1 1 0%; border-left: 3px solid #ff4d4f; padding-left: 8px;">
+                                <strong style="display: block; font-size: 13px; color: #ff4d4f; margin-bottom: 4px;">@error.Ename: @error.Evalue</strong>
+                                <pre style="margin: 0; font-family: monospace; font-size: 13px; color: #ff4d4f; white-space: pre-wrap;">@string.Join("\n", error.Traceback.Select(StripAnsi))</pre>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (_cell is null && !_loading)
+        {
+            <Alert Type="@AlertType.Info" Message="No query output available yet." />
+        }
+    </Spin>
+</div>
+
+@code {
+    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+
+    [Parameter] public Guid RunId { get; set; }
+    [Parameter] public Guid TaskRunId { get; set; }
+
+    private CellOutputDto? _cell;
+    private bool _loading = true;
+    private bool _hasRunningCell;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var cells = await JobService.GetCellOutputsAsync(RunId, TaskRunId);
+            // SQL tasks produce one cell per attempt; use the last one (latest attempt).
+            _cell = cells.LastOrDefault();
+            _hasRunningCell = _cell?.Status is "Running" or "Pending";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load query output: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RefreshAsync() => await LoadAsync();
+
+    private static List<Output>? ParseOutputs(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return null;
+        try { return JsonSerializer.Deserialize<List<Output>>(json, _jsonOptions); }
+        catch { return null; }
+    }
+
+    private static ErrorInfo? ParseError(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return null;
+        try { return JsonSerializer.Deserialize<ErrorInfo>(json, _jsonOptions); }
+        catch { return null; }
+    }
+
+    private static string? GetDataText(Dictionary<string, object>? data, string mimeType)
+    {
+        if (data?.TryGetValue(mimeType, out var value) != true) return null;
+        return value?.ToString();
+    }
+
+    private static string StripAnsi(string text) =>
+        Regex.Replace(text, @"\x1B\[[0-9;]*[a-zA-Z]", "");
+
+    private static string GetCellStatusColor(string status) => status.ToLowerInvariant() switch
+    {
+        "succeeded" => "green",
+        "failed" => "red",
+        "running" => "blue",
+        "pending" => "default",
+        _ => "default",
+    };
+}
