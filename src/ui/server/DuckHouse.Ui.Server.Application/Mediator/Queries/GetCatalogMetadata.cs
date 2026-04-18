@@ -25,16 +25,11 @@ internal class GetCatalogMetadataHandler(
 
         var opts = settings.Value;
 
-        string dataPath, catalogHost, catalogDatabase, catalogUser, catalogPassword;
+        string catalogHost, catalogDatabase, catalogUser, catalogPassword;
         int catalogPort;
-        string? storageConnectionString;
 
         if (catalog.IsManaged)
         {
-            dataPath = opts.BaseDataPath.TrimEnd('/') + "/" + catalog.Name;
-            storageConnectionString = !string.IsNullOrEmpty(opts.StorageConnectionString)
-                ? opts.StorageConnectionString
-                : null;
             catalogHost = opts.CatalogHost;
             catalogPort = opts.CatalogPort;
             catalogDatabase = catalog.Name;
@@ -43,10 +38,6 @@ internal class GetCatalogMetadataHandler(
         }
         else
         {
-            dataPath = catalog.DataPath ?? string.Empty;
-            storageConnectionString = catalog.EncryptedStorageConnectionString is not null
-                ? _protector.Unprotect(catalog.EncryptedStorageConnectionString)
-                : null;
             catalogHost = catalog.CatalogHost ?? string.Empty;
             catalogPort = catalog.CatalogPort ?? 5432;
             catalogDatabase = catalog.CatalogDatabase ?? catalog.Name;
@@ -57,9 +48,6 @@ internal class GetCatalogMetadataHandler(
         }
 
         var result = await metadataService.GetMetadataAsync(
-            catalog.Name,
-            dataPath,
-            storageConnectionString,
             catalogHost,
             catalogPort,
             catalogDatabase,

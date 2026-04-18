@@ -2,17 +2,11 @@ namespace DuckHouse.Ui.Server.Core.Catalogs;
 
 /// <summary>
 /// Retrieves DuckLake catalog metadata (schemas, tables, views, columns)
-/// via DuckDB with the DuckLake extension.
+/// by querying the DuckLake catalog tables directly in Postgres.
 /// </summary>
 public interface ICatalogMetadataService
 {
-    /// <summary>
-    /// Queries the catalog's information_schema and returns the full object tree.
-    /// </summary>
     Task<CatalogMetadataResult> GetMetadataAsync(
-        string catalogName,
-        string dataPath,
-        string? storageConnectionString,
         string catalogHost,
         int catalogPort,
         string catalogDatabase,

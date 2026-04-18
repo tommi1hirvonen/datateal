@@ -10,7 +10,6 @@
     <PackageVersion Include="AntDesign" Version="1.6.1" />
     <PackageVersion Include="BlazorMonaco" Version="3.4.0" />
     <PackageVersion Include="Cronos" Version="0.12.0" />
-    <PackageVersion Include="DuckDB.NET.Data.Full" Version="1.5.0" />
     <PackageVersion Include="KubernetesClient" Version="19.0.2" />
     <PackageVersion Include="Markdig" Version="1.1.2" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection" Version="10.0.6" />

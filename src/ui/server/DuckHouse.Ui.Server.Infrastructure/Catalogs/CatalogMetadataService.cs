@@ -1,14 +1,11 @@
-using DuckDB.NET.Data;
 using DuckHouse.Ui.Server.Core.Catalogs;
+using Npgsql;
 
 namespace DuckHouse.Ui.Server.Infrastructure.Catalogs;
 
 internal class CatalogMetadataService : ICatalogMetadataService
 {
     public async Task<CatalogMetadataResult> GetMetadataAsync(
-        string catalogName,
-        string dataPath,
-        string? storageConnectionString,
         string catalogHost,
         int catalogPort,
         string catalogDatabase,
@@ -16,172 +13,152 @@ internal class CatalogMetadataService : ICatalogMetadataService
         string catalogPassword,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = new DuckDBConnection("DataSource=:memory:");
-        await connection.OpenAsync(cancellationToken);
-
-        await ExecuteNonQueryAsync(connection, "INSTALL ducklake", cancellationToken);
-        await ExecuteNonQueryAsync(connection, "LOAD ducklake", cancellationToken);
-
-        var usesAzure = storageConnectionString is not null;
-        if (usesAzure)
+        var connectionString = new NpgsqlConnectionStringBuilder
         {
-            await ExecuteNonQueryAsync(connection, "INSTALL azure", cancellationToken);
-            await ExecuteNonQueryAsync(connection, "LOAD azure", cancellationToken);
+            Host = catalogHost,
+            Port = catalogPort,
+            Username = catalogUser,
+            Password = catalogPassword,
+            Database = catalogDatabase,
+        }.ConnectionString;
 
-            if (OperatingSystem.IsLinux())
-                await ExecuteNonQueryAsync(connection, "SET azure_transport_option_type = 'curl'", cancellationToken);
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync(cancellationToken);
 
-            await ExecuteNonQueryAsync(connection,
-                $"""
-                CREATE SECRET __metadata_azure (
-                    TYPE azure,
-                    CONNECTION_STRING '{EscapeSql(storageConnectionString!)}'
-                )
-                """,
-                cancellationToken);
-        }
+        var snapshotId = await GetCurrentSnapshotAsync(conn, cancellationToken);
+        if (snapshotId is null)
+            return new CatalogMetadataResult([]);
 
-        await ExecuteNonQueryAsync(connection,
-            $"""
-            CREATE SECRET (
-                TYPE postgres,
-                HOST '{EscapeSql(catalogHost)}',
-                PORT {catalogPort},
-                DATABASE '{EscapeSql(catalogDatabase)}',
-                USER '{EscapeSql(catalogUser)}',
-                PASSWORD '{EscapeSql(catalogPassword)}'
-            )
-            """,
-            cancellationToken);
+        var schemas = await QuerySchemasAsync(conn, snapshotId.Value, cancellationToken);
+        var tables = await QueryTablesAsync(conn, snapshotId.Value, cancellationToken);
+        var views = await QueryViewsAsync(conn, snapshotId.Value, cancellationToken);
+        var columns = await QueryColumnsAsync(conn, snapshotId.Value, cancellationToken);
 
-        await ExecuteNonQueryAsync(connection,
-            $"ATTACH 'ducklake:postgres:' AS {catalogName} (DATA_PATH '{EscapeSql(dataPath)}')",
-            cancellationToken);
-
-        // Bulk-fetch all metadata in 4 queries then assemble the tree in memory.
-        var schemaNames = await QuerySchemasAsync(connection, catalogName, cancellationToken);
-        var tables = await QueryTablesAsync(connection, catalogName, cancellationToken);
-        var views = await QueryViewsAsync(connection, catalogName, cancellationToken);
-        var columns = await QueryColumnsAsync(connection, catalogName, cancellationToken);
-
-        var columnsByTable = columns
-            .GroupBy(c => (c.SchemaName, c.TableName))
+        var columnsByTableId = columns
+            .GroupBy(c => c.TableId)
             .ToDictionary(
                 g => g.Key,
                 g => (IReadOnlyList<CatalogColumnResult>)g
-                    .OrderBy(c => c.ColumnIndex)
-                    .Select(c => new CatalogColumnResult(c.ColumnName, c.DataType, c.IsNullable, c.ColumnIndex))
+                    .OrderBy(c => c.ColumnOrder)
+                    .Select(c => new CatalogColumnResult(c.ColumnName, c.ColumnType, c.NullsAllowed, (int)c.ColumnOrder))
                     .ToList());
 
-        var schemaResults = schemaNames
-            .Select(schemaName =>
+        var schemaResults = schemas
+            .Select(schema =>
             {
                 var schemaTables = tables
-                    .Where(t => t.SchemaName == schemaName)
+                    .Where(t => t.SchemaId == schema.SchemaId)
                     .Select(t => new CatalogTableResult(
                         t.TableName, "BASE TABLE",
-                        columnsByTable.GetValueOrDefault((schemaName, t.TableName)) ?? []));
+                        columnsByTableId.GetValueOrDefault(t.TableId) ?? []));
 
                 var schemaViews = views
-                    .Where(v => v.SchemaName == schemaName)
-                    .Select(v => new CatalogTableResult(
-                        v.ViewName, "VIEW",
-                        columnsByTable.GetValueOrDefault((schemaName, v.ViewName)) ?? []));
+                    .Where(v => v.SchemaId == schema.SchemaId)
+                    .Select(v => new CatalogTableResult(v.ViewName, "VIEW", []));
 
                 var allObjects = schemaTables.Concat(schemaViews)
                     .OrderBy(o => o.Name)
                     .ToList();
 
-                return new CatalogSchemaResult(schemaName, allObjects);
+                return new CatalogSchemaResult(schema.SchemaName, allObjects);
             })
             .ToList();
 
         return new CatalogMetadataResult(schemaResults);
     }
 
-    private static async Task<IReadOnlyList<string>> QuerySchemasAsync(
-        DuckDBConnection connection, string catalogName, CancellationToken ct)
+    private static async Task<long?> GetCurrentSnapshotAsync(NpgsqlConnection conn, CancellationToken ct)
     {
-        var schemas = new List<string>();
-        await using var cmd = connection.CreateCommand();
-        cmd.CommandText = $"""
-            SELECT schema_name
-            FROM duckdb_schemas()
-            WHERE database_name = '{EscapeSql(catalogName)}' AND NOT internal
+        const string sql = """
+            SELECT snapshot_id
+            FROM ducklake_snapshot
+            WHERE snapshot_id = (SELECT max(snapshot_id) FROM ducklake_snapshot)
+            """;
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return result is DBNull or null ? null : (long)result;
+    }
+
+    private static async Task<IReadOnlyList<(long SchemaId, string SchemaName)>> QuerySchemasAsync(
+        NpgsqlConnection conn, long snapshotId, CancellationToken ct)
+    {
+        var schemas = new List<(long, string)>();
+        const string sql = """
+            SELECT schema_id, schema_name
+            FROM ducklake_schema
+            WHERE @snapshotId >= begin_snapshot
+              AND (@snapshotId < end_snapshot OR end_snapshot IS NULL)
             ORDER BY schema_name
             """;
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("snapshotId", snapshotId);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
-            schemas.Add(reader.GetString(0));
+            schemas.Add((reader.GetInt64(0), reader.GetString(1)));
         return schemas;
     }
 
-    private static async Task<IReadOnlyList<(string SchemaName, string TableName)>> QueryTablesAsync(
-        DuckDBConnection connection, string catalogName, CancellationToken ct)
+    private static async Task<IReadOnlyList<(long SchemaId, long TableId, string TableName)>> QueryTablesAsync(
+        NpgsqlConnection conn, long snapshotId, CancellationToken ct)
     {
-        var tables = new List<(string, string)>();
-        await using var cmd = connection.CreateCommand();
-        cmd.CommandText = $"""
-            SELECT schema_name, table_name
-            FROM duckdb_tables()
-            WHERE database_name = '{EscapeSql(catalogName)}' AND NOT internal
-            ORDER BY schema_name, table_name
+        var tables = new List<(long, long, string)>();
+        const string sql = """
+            SELECT schema_id, table_id, table_name
+            FROM ducklake_table
+            WHERE @snapshotId >= begin_snapshot
+              AND (@snapshotId < end_snapshot OR end_snapshot IS NULL)
+            ORDER BY schema_id, table_name
             """;
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("snapshotId", snapshotId);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
-            tables.Add((reader.GetString(0), reader.GetString(1)));
+            tables.Add((reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2)));
         return tables;
     }
 
-    private static async Task<IReadOnlyList<(string SchemaName, string ViewName)>> QueryViewsAsync(
-        DuckDBConnection connection, string catalogName, CancellationToken ct)
+    private static async Task<IReadOnlyList<(long SchemaId, long ViewId, string ViewName)>> QueryViewsAsync(
+        NpgsqlConnection conn, long snapshotId, CancellationToken ct)
     {
-        var views = new List<(string, string)>();
-        await using var cmd = connection.CreateCommand();
-        cmd.CommandText = $"""
-            SELECT schema_name, view_name
-            FROM duckdb_views()
-            WHERE database_name = '{EscapeSql(catalogName)}' AND NOT internal
-            ORDER BY schema_name, view_name
+        var views = new List<(long, long, string)>();
+        const string sql = """
+            SELECT schema_id, view_id, view_name
+            FROM ducklake_view
+            WHERE @snapshotId >= begin_snapshot
+              AND (@snapshotId < end_snapshot OR end_snapshot IS NULL)
+            ORDER BY schema_id, view_name
             """;
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("snapshotId", snapshotId);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
-            views.Add((reader.GetString(0), reader.GetString(1)));
+            views.Add((reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2)));
         return views;
     }
 
-    private static async Task<IReadOnlyList<(string SchemaName, string TableName, string ColumnName, string DataType, bool IsNullable, int ColumnIndex)>> QueryColumnsAsync(
-        DuckDBConnection connection, string catalogName, CancellationToken ct)
+    private static async Task<IReadOnlyList<(long TableId, string ColumnName, string ColumnType, bool NullsAllowed, long ColumnOrder)>> QueryColumnsAsync(
+        NpgsqlConnection conn, long snapshotId, CancellationToken ct)
     {
-        var columns = new List<(string, string, string, string, bool, int)>();
-        await using var cmd = connection.CreateCommand();
-        cmd.CommandText = $"""
-            SELECT schema_name, table_name, column_name, data_type, is_nullable, column_index
-            FROM duckdb_columns()
-            WHERE database_name = '{EscapeSql(catalogName)}' AND NOT internal
-            ORDER BY schema_name, table_name, column_index
+        var columns = new List<(long, string, string, bool, long)>();
+        const string sql = """
+            SELECT table_id, column_name, column_type, nulls_allowed, column_order
+            FROM ducklake_column
+            WHERE parent_column IS NULL
+              AND @snapshotId >= begin_snapshot
+              AND (@snapshotId < end_snapshot OR end_snapshot IS NULL)
+            ORDER BY table_id, column_order
             """;
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("snapshotId", snapshotId);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
-        {
             columns.Add((
-                reader.GetString(0),   // schema_name
-                reader.GetString(1),   // table_name
-                reader.GetString(2),   // column_name
-                reader.GetString(3),   // data_type
-                reader.GetBoolean(4),  // is_nullable (boolean in duckdb_columns)
-                reader.GetInt32(5)     // column_index (0-based)
+                reader.GetInt64(0),   // table_id
+                reader.GetString(1),  // column_name
+                reader.GetString(2),  // column_type
+                reader.GetBoolean(3), // nulls_allowed
+                reader.GetInt64(4)    // column_order
             ));
-        }
         return columns;
     }
-
-    private static async Task ExecuteNonQueryAsync(DuckDBConnection connection, string sql, CancellationToken ct)
-    {
-        await using var cmd = connection.CreateCommand();
-        cmd.CommandText = sql;
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
-
-    private static string EscapeSql(string value) => value.Replace("'", "''");
 }
