@@ -43,7 +43,9 @@ internal class CatalogResolver(
                 var basePath = _settings.BaseDataPath.TrimEnd('/');
                 dataPath = $"{basePath}/{catalog.Name}";
                 storageConnectionString = _settings.StorageConnectionString;
-                catalogHost = _settings.CatalogPodHost ?? _settings.CatalogHost;
+                catalogHost = !string.IsNullOrEmpty(_settings.CatalogPodHost)
+                    ? _settings.CatalogPodHost
+                    : _settings.CatalogHost;
                 catalogPort = _settings.CatalogPort;
                 catalogDatabase = catalog.Name;
                 catalogUser = _settings.CatalogUser;
