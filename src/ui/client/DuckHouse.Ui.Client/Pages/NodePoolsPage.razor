@@ -33,6 +33,12 @@
 
 <Tabs ActiveKey="@_activeTab" OnChange="key => _activeTab = key">
     <TabPane Key="interactive" Tab="Interactive">
+        <p style="margin: 0 0 16px; color: #888; font-size: 13px;">
+            An interactive pool has at most one underlying node at a time. When you connect from the notebook or query editor,
+            a node is started if none is running — otherwise you join the existing one. Job tasks that reference an interactive
+            pool behave the same way: they join a running node or start one, and the node pool is <strong>not</strong> stopped when
+            the job completes. Idling node pools are automatically stopped by the eviction service.
+        </p>
         <Flex Align="FlexAlign.Center" Justify="FlexJustify.End" Style="margin-bottom: 12px;">
             <Space Size="SpaceSize.Small">
                 <SpaceItem>
@@ -129,6 +135,12 @@
         </Spin>
     </TabPane>
     <TabPane Key="job" Tab="Job">
+        <p style="margin: 0 0 16px; color: #888; font-size: 13px;">
+            A job pool is managed entirely by the orchestrator. Each job run provisions a dedicated node for every unique
+            pool reference used by its tasks, and that node is deleted when the run finishes. Multiple concurrent runs can
+            each have their own node from the same pool config. Nodes left running after an orchestrator failure are cleaned
+            up by the eviction service.
+        </p>
         <Flex Align="FlexAlign.Center" Justify="FlexJustify.End" Style="margin-bottom: 12px;">
             <Space Size="SpaceSize.Small">
                 <SpaceItem>
