@@ -14,20 +14,13 @@
 
 <PageTitle>Node Pools — DuckHouse</PageTitle>
 
-<Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 24px;" Gap="FlexGap.Small">
+<Flex Justify="FlexJustify.FlexStart" Align="FlexAlign.Center" Style="margin-bottom: 24px;" Gap="FlexGap.Small">
     <Space Align="SpaceAlign.End" Size="SpaceSize.Middle">
         <SpaceItem>
             <Icon Height="24px" Width="24px" Type="@IconType.Outline.Cluster" />
         </SpaceItem>
         <SpaceItem>
             <h2 style="margin: 0;">Node pool configurations</h2>
-        </SpaceItem>
-    </Space>
-    <Space>
-        <SpaceItem>
-            <Button Type="@ButtonType.Primary" OnClick="StartCreate">
-                <Icon Type="@IconType.Outline.Plus" /> New node pool
-            </Button>
         </SpaceItem>
     </Space>
 </Flex>
@@ -40,6 +33,20 @@
 
 <Tabs ActiveKey="@_activeTab" OnChange="key => _activeTab = key">
     <TabPane Key="interactive" Tab="Interactive">
+        <Flex Align="FlexAlign.Center" Justify="FlexJustify.End" Style="margin-bottom: 12px;">
+            <Space Size="SpaceSize.Small">
+                <SpaceItem>
+                    <Button OnClick="LoadAsync" Loading="_loading">
+                        <Icon Type="@IconType.Outline.Reload" /> Refresh
+                    </Button>
+                </SpaceItem>
+                <SpaceItem>
+                    <Button Type="@ButtonType.Primary" OnClick="StartCreate">
+                        <Icon Type="@IconType.Outline.Plus" /> New interactive node pool
+                    </Button>
+                </SpaceItem>
+            </Space>
+        </Flex>
         <Spin Spinning="_loading">
             @if (_interactivePools.Count == 0 && !_loading)
             {
@@ -110,6 +117,15 @@
         </Spin>
     </TabPane>
     <TabPane Key="job" Tab="Job">
+        <Flex Align="FlexAlign.Center" Justify="FlexJustify.End" Style="margin-bottom: 12px;">
+            <Space Size="SpaceSize.Small">
+                <SpaceItem>
+                    <Button Type="@ButtonType.Primary" OnClick="StartCreate">
+                        <Icon Type="@IconType.Outline.Plus" /> New job node pool
+                    </Button>
+                </SpaceItem>
+            </Space>
+        </Flex>
         <Spin Spinning="_loading">
             @if (_jobPools.Count == 0 && !_loading)
             {
