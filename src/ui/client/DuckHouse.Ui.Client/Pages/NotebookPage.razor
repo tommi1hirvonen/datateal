@@ -173,7 +173,12 @@
                             Loading="_connecting"
                             Icon="@IconType.Outline.Api"
                             OnClick="ConnectAsync">
-                        @(SelectedNode?.State == NodeState.Running ? "Connect" : "Start and connect")
+                        @(SelectedNode?.State switch
+                        {
+                            NodeState.Running => "Connect",
+                            NodeState.Creating or NodeState.Resuming => "Wait and connect",
+                            _ => "Start and connect"
+                        })
                     </Button>
                 </SpaceItem>
             }
@@ -397,10 +402,12 @@
         _error = null;
         try
         {
-            // Start node first if it isn't already running
+            // Start node first if it isn't already running or being provisioned
             if (SelectedNode?.State != NodeState.Running)
             {
-                await NodeService.StartNodeAsync(_nodeName);
+                if (SelectedNode?.State is not (NodeState.Creating or NodeState.Resuming))
+                    await NodeService.StartNodeAsync(_nodeName);
+
                 var deadline = DateTime.UtcNow.AddMinutes(10);
                 while (DateTime.UtcNow < deadline)
                 {
