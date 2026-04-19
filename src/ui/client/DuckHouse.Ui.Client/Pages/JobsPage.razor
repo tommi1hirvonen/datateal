@@ -36,7 +36,7 @@
 }
 
 <Spin Spinning="_loading">
-    <Table TItem="JobSummary" DataSource="_jobs" Size="@TableSize.Small">
+    <Table TItem="JobSummary" DataSource="_jobs" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
         <PropertyColumn Property="c => c.Name" Title="Name" Sortable>
             <a @onclick="@(() => Navigation.NavigateTo($"/jobs/{context.Id}"))"
                @onclick:preventDefault style="cursor: pointer;">@context.Name</a>

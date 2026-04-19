@@ -60,7 +60,7 @@
             }
             else
             {
-                <Table TItem="InteractivePoolDto" DataSource="_interactivePools" Size="@TableSize.Small">
+                <Table TItem="InteractivePoolDto" DataSource="_interactivePools" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
                     <PropertyColumn Property="c => c.Name" Title="Name" Sortable />
                     <PropertyColumn Property="c => c.VmSize" Title="VM size" />
                     <PropertyColumn Property="c => c.KernelIdleTimeout" Title="Kernel idle">
@@ -168,7 +168,7 @@
             }
             else
             {
-                <Table TItem="NodePoolConfigDto" DataSource="_jobPools" Size="@TableSize.Small">
+                <Table TItem="NodePoolConfigDto" DataSource="_jobPools" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
                     <PropertyColumn Property="c => c.Name" Title="Name" Sortable />
                     <PropertyColumn Property="c => c.VmSize" Title="VM size" />
                     <PropertyColumn Property="c => c.KernelIdleTimeout" Title="Kernel idle timeout">

@@ -28,7 +28,7 @@
 </Flex>
 
 <Spin Spinning="_loading">
-    <Table TItem="CatalogDto" DataSource="_catalogs" Size="@TableSize.Small">
+    <Table TItem="CatalogDto" DataSource="_catalogs" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
         <PropertyColumn Property="c => c.Name" Title="Name" Sortable>
             <span style="font-family: monospace;">@context.Name</span>
         </PropertyColumn>

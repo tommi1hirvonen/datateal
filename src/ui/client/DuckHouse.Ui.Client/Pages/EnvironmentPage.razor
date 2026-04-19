@@ -29,7 +29,7 @@
             </Button>
         </Flex>
         <Spin Spinning="_loadingVars">
-            <Table TItem="EnvironmentVariableDto" DataSource="_variables" Size="@TableSize.Small">
+            <Table TItem="EnvironmentVariableDto" DataSource="_variables" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
                 <PropertyColumn Property="v => v.Key" Title="Key" Sortable>
                     <span style="font-family: monospace;">@context.Key</span>
                 </PropertyColumn>
@@ -70,7 +70,7 @@
             </Button>
         </Flex>
         <Spin Spinning="_loadingSecrets">
-            <Table TItem="SecretDto" DataSource="_secrets" Size="@TableSize.Small">
+            <Table TItem="SecretDto" DataSource="_secrets" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
                 <PropertyColumn Property="s => s.Key" Title="Key" Sortable>
                     <span style="font-family: monospace;">@context.Key</span>
                 </PropertyColumn>

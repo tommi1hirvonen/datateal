@@ -87,7 +87,7 @@
                             <Icon Type="@IconType.Outline.Plus" /> Add task
                         </Button>
                     </div>
-                    <Table TItem="EditableTask" DataSource="_editTasks" Size="@TableSize.Small">
+                    <Table TItem="EditableTask" DataSource="_editTasks" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
                         <PropertyColumn Property="c => c.Name" Title="Name" />
                         <PropertyColumn Property="c => c.TaskType" Title="Type">
                             <Tag Color="@GetTaskTypeColor(context.TaskType)">@context.TaskType</Tag>
@@ -136,7 +136,7 @@
                             <Icon Type="@IconType.Outline.Plus" /> Add parameter
                         </Button>
                     </div>
-                    <Table TItem="EditableParameter" DataSource="_editParams" Size="@TableSize.Small">
+                    <Table TItem="EditableParameter" DataSource="_editParams" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
                         <PropertyColumn Property="c => c.Name" Title="Name" />
                         <PropertyColumn Property="c => c.DefaultValue" Title="Default">
                             @(context.DefaultValue ?? "—")
@@ -181,7 +181,7 @@
                             <Icon Type="@IconType.Outline.Plus" /> Add schedule
                         </Button>
                     </div>
-                    <Table TItem="ScheduleDto" DataSource="_job.Schedules" Size="@TableSize.Small">
+                    <Table TItem="ScheduleDto" DataSource="_job.Schedules" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
                         <PropertyColumn Property="c => c.CronExpression" Title="Cron Expression">
                             <code>@context.CronExpression</code>
                         </PropertyColumn>
@@ -214,7 +214,7 @@
 
             <TabPane Key="runs" Tab="Runs">
                 <div style="margin-top: 16px;">
-                    <Table TItem="JobRunSummary" DataSource="_runs" Size="@TableSize.Small" Loading="_runsLoading">
+                    <Table TItem="JobRunSummary" DataSource="_runs" Size="@TableSize.Small" Loading="_runsLoading" PageSize="int.MaxValue" PaginationPosition="none">
                         <PropertyColumn Property="c => c.Status" Title="Status">
                             <a @onclick="@(() => Navigation.NavigateTo($"/runs/{context.Id}"))"
                                @onclick:preventDefault style="cursor: pointer;">
