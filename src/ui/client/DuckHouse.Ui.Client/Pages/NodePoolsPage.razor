@@ -171,12 +171,11 @@
     </TabPane>
 </Tabs>
 
-<Modal Title="@(_editTarget is null ? "New node pool" : "Edit node pool")"
-        Visible="_showModal"
-        OnOk="ConfirmSave"
-        OnCancel="() => _showModal = false"
-        OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_formName) || string.IsNullOrWhiteSpace(_formVmSize) || ValidationHelper.ValidateNodePoolName(_formName) is not null })">
-    <div style="display: flex; flex-direction: column; gap: 16px;">
+<Drawer Closable="true" @bind-Visible="_showDrawer" Placement="DrawerPlacement.Right"
+        Width="480" Title="@(_editTarget is null ? "New node pool" : "Edit node pool")"
+        OnClose="() => _showDrawer = false"
+        BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+    <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
         <div>
             <label style="display: block; margin-bottom: 4px; font-weight: 500;">Name</label>
             <Input @bind-Value="_formName" Placeholder="analyticsnode"
@@ -243,7 +242,14 @@
             <TextArea @bind-Value="_formDescription" Rows="2" />
         </div>
     </div>
-</Modal>
+    <div class="drawer-footer">
+        <Button OnClick="() => _showDrawer = false">Cancel</Button>
+        <Button Type="@ButtonType.Primary" OnClick="ConfirmSave" Loading="_saving"
+                Disabled="@(string.IsNullOrWhiteSpace(_formName) || string.IsNullOrWhiteSpace(_formVmSize) || ValidationHelper.ValidateNodePoolName(_formName) is not null)">
+            Save
+        </Button>
+    </div>
+</Drawer>
 
 @code {
     private IReadOnlyList<NodePoolConfigDto> _jobAndInteractivePools = [];
@@ -256,8 +262,9 @@
     private List<NodePoolConfigDto> _jobPools => _jobAndInteractivePools
         .Where(p => p.PoolType == "Job").ToList();
 
-    // Modal state
-    private bool _showModal;
+    // Drawer state
+    private bool _showDrawer;
+    private bool _saving;
     private NodePoolConfigDto? _editTarget;
     private string _formName = "";
     private string _formVmSize = "";
@@ -329,7 +336,7 @@
         _formWheelPackageIds = [];
         _formEnvVarIds = [];
         _formSecretIds = [];
-        _showModal = true;
+        _showDrawer = true;
     }
 
     private void StartEdit(NodePoolConfigDto pool)
@@ -344,7 +351,7 @@
         _formWheelPackageIds = pool.WheelPackageIds ?? [];
         _formEnvVarIds = pool.EnvironmentVariableIds ?? [];
         _formSecretIds = pool.SecretIds ?? [];
-        _showModal = true;
+        _showDrawer = true;
     }
 
     private async Task ConfirmSave()
@@ -354,6 +361,7 @@
         var kernelTimeout = _formKernelIdleMin > 0 ? TimeSpan.FromMinutes(_formKernelIdleMin) : (TimeSpan?)null;
         var nodeTimeout = _formNodeIdleMin > 0 ? TimeSpan.FromMinutes(_formNodeIdleMin) : (TimeSpan?)null;
 
+        _saving = true;
         try
         {
             if (_editTarget is null)
@@ -375,12 +383,16 @@
                     _formEnvVarIds.Any() ? [.. _formEnvVarIds] : null,
                     _formSecretIds.Any() ? [.. _formSecretIds] : null));
             }
-            _showModal = false;
+            _showDrawer = false;
             await LoadAsync();
         }
         catch (Exception ex)
         {
             _error = $"Failed to save: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
         }
     }
 
