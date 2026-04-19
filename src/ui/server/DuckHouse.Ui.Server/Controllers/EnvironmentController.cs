@@ -69,10 +69,4 @@ public class EnvironmentController(IMediator mediator) : ControllerBase
         return deleted ? NoContent() : NotFound();
     }
 
-    // ── Resolve ──────────────────────────────────────────────────────────
-
-    [HttpPost("resolve")]
-    public async Task<ResolvedEnvironment> Resolve(SharedEnv.ResolveEnvironmentRequest body, CancellationToken ct) =>
-        await mediator.SendAsync(
-            new Qry.ResolveEnvironmentRequest(body.EnvironmentVariableIds, body.SecretIds), ct);
 }
