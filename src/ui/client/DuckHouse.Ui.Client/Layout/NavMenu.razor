@@ -21,13 +21,13 @@
         <Icon Type="@IconType.Outline.Database" />
         <span>Catalogs</span>
     </MenuItem>
-    <MenuItem Key="nodes" OnClick="@(() => Navigation.NavigateTo("/nodes"))">
-        <Icon Type="@IconType.Outline.CloudServer" />
-        <span>Active nodes</span>
-    </MenuItem>
     <MenuItem Key="node-pools" OnClick="@(() => Navigation.NavigateTo("/node-pools"))">
         <Icon Type="@IconType.Outline.Cluster" />
         <span>Node pools</span>
+    </MenuItem>
+    <MenuItem Key="nodes" OnClick="@(() => Navigation.NavigateTo("/nodes"))">
+        <Icon Type="@IconType.Outline.CloudServer" />
+        <span>Active nodes</span>
     </MenuItem>
     <MenuItem Key="environment" OnClick="@(() => Navigation.NavigateTo("/environment"))">
         <Icon Type="@IconType.Outline.Tool" />

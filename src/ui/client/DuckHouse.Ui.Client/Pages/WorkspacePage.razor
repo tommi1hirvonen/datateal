@@ -124,26 +124,32 @@ else
             <PropertyColumn Property="i => i.Date" Title="Date" Width="160">
                 <Text Type="TextElementType.Secondary" Style="font-size: 0.85rem;">@FormatDate(context.Date)</Text>
             </PropertyColumn>
-            <ActionColumn Title="" Width="130">
+            <ActionColumn Title="" Width="130" Align="ColumnAlign.Right">
                 @if (context.IsFolder)
                 {
                     <Space Size="SpaceSize.Small">
                         <SpaceItem>
-                            <Button Size="ButtonSize.Small" Icon="@IconType.Outline.FolderOpen"
-                                    OnClick="() => StartMoveFolder(context.Folder!)">Move</Button>
+                            <Tooltip Title="Move">
+                                <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Import"
+                                        OnClick="() => StartMoveFolder(context.Folder!)" />
+                            </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
-                            <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Edit"
-                                    OnClick="() => StartRenameFolder(context.Folder!)">Rename</Button>
+                            <Tooltip Title="Rename">
+                                <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Edit"
+                                        OnClick="() => StartRenameFolder(context.Folder!)" />
+                            </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
-                            <Popconfirm Title="Delete this folder and all its contents?"
-                                        OnConfirm="@(() => DeleteFolderAsync(context.Folder!))"
-                                        OkText="@("Delete")" OkType="ButtonType.Primary"
-                                        OkButtonProps="new ButtonProps { Danger = true }"
-                                        CancelText="Cancel">
-                                <Button Size="ButtonSize.Small" Danger Icon="@IconType.Outline.Delete">Delete</Button>
-                            </Popconfirm>
+                            <Tooltip Title="Delete">
+                                <Popconfirm Title="Delete this folder and all its contents?"
+                                            OnConfirm="@(() => DeleteFolderAsync(context.Folder!))"
+                                            OkText="@("Delete")" OkType="ButtonType.Primary"
+                                            OkButtonProps="new ButtonProps { Danger = true }"
+                                            CancelText="Cancel">
+                                    <Button Size="ButtonSize.Small" Danger Icon="@IconType.Outline.Delete" />
+                                </Popconfirm>
+                            </Tooltip>
                         </SpaceItem>
                     </Space>
                 }
@@ -151,25 +157,33 @@ else
                 {
                     <Space Size="SpaceSize.Small">
                         <SpaceItem>
-                            <Button Size="ButtonSize.Small" Icon="@IconType.Outline.FolderOpen"
-                                    OnClick="() => StartMoveNotebook(context.Notebook!)">Move</Button>
+                            <Tooltip Title="Clone">
+                                <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Copy"
+                                        OnClick="() => CloneNotebookAsync(context.Notebook!)" />
+                            </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
-                            <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Edit"
-                                    OnClick="() => StartRenameNotebook(context.Notebook!)">Rename</Button>
+                            <Tooltip Title="Move">
+                                <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Import"
+                                        OnClick="() => StartMoveNotebook(context.Notebook!)" />
+                            </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
-                            <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Copy"
-                                    OnClick="() => CloneNotebookAsync(context.Notebook!)">Clone</Button>
+                            <Tooltip Title="Rename">
+                                <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Edit"
+                                        OnClick="() => StartRenameNotebook(context.Notebook!)" />
+                            </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
-                            <Popconfirm Title="Delete this notebook?"
-                                        OnConfirm="@(() => DeleteNotebookAsync(context.Notebook!))"
-                                        OkText="@("Delete")" OkType="ButtonType.Primary"
-                                        OkButtonProps="new ButtonProps { Danger = true }"
-                                        CancelText="Cancel">
-                                <Button Size="ButtonSize.Small" Danger Icon="@IconType.Outline.Delete">Delete</Button>
-                            </Popconfirm>
+                            <Tooltip Title="Delete">
+                                <Popconfirm Title="Delete this notebook?"
+                                            OnConfirm="@(() => DeleteNotebookAsync(context.Notebook!))"
+                                            OkText="@("Delete")" OkType="ButtonType.Primary"
+                                            OkButtonProps="new ButtonProps { Danger = true }"
+                                            CancelText="Cancel">
+                                    <Button Size="ButtonSize.Small" Danger Icon="@IconType.Outline.Delete" />
+                                </Popconfirm>
+                            </Tooltip>
                         </SpaceItem>
                     </Space>
                 }
@@ -177,25 +191,33 @@ else
                 {
                     <Space Size="SpaceSize.Small">
                         <SpaceItem>
-                            <Button Size="ButtonSize.Small" Icon="@IconType.Outline.FolderOpen"
-                                    OnClick="() => StartMoveQuery(context.Query!)">Move</Button>
+                            <Tooltip Title="Clone">
+                                <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Copy"
+                                        OnClick="() => CloneQueryAsync(context.Query!)" />
+                            </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
-                            <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Edit"
-                                    OnClick="() => StartRenameQuery(context.Query!)">Rename</Button>
+                            <Tooltip Title="Move">
+                                <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Import"
+                                        OnClick="() => StartMoveQuery(context.Query!)" />
+                            </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
-                            <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Copy"
-                                    OnClick="() => CloneQueryAsync(context.Query!)">Clone</Button>
+                            <Tooltip Title="Rename">
+                                <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Edit"
+                                        OnClick="() => StartRenameQuery(context.Query!)" />
+                            </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
-                            <Popconfirm Title="Delete this query?"
-                                        OnConfirm="@(() => DeleteQueryAsync(context.Query!))"
-                                        OkText="@("Delete")" OkType="ButtonType.Primary"
-                                        OkButtonProps="new ButtonProps { Danger = true }"
-                                        CancelText="Cancel">
-                                <Button Size="ButtonSize.Small" Danger Icon="@IconType.Outline.Delete">Delete</Button>
-                            </Popconfirm>
+                            <Tooltip Title="Delete">
+                                <Popconfirm Title="Delete this query?"
+                                            OnConfirm="@(() => DeleteQueryAsync(context.Query!))"
+                                            OkText="@("Delete")" OkType="ButtonType.Primary"
+                                            OkButtonProps="new ButtonProps { Danger = true }"
+                                            CancelText="Cancel">
+                                    <Button Size="ButtonSize.Small" Danger Icon="@IconType.Outline.Delete" />
+                                </Popconfirm>
+                            </Tooltip>
                         </SpaceItem>
                     </Space>
                 }
