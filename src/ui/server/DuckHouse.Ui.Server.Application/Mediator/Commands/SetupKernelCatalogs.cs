@@ -15,7 +15,7 @@ internal class SetupKernelCatalogsHandler(IMediator mediator, IKernelRepository 
     public async Task<ExecutionHandle> Handle(SetupKernelCatalogsCommand request, CancellationToken cancellationToken)
     {
         var resolved = await mediator.SendAsync(new ResolveCatalogsRequest(request.CatalogNames), cancellationToken);
-        var script = CatalogSetupGenerator.GenerateSetupScript(resolved, isLinux: true);
+        var script = CatalogSetupGenerator.GenerateSetupScript(resolved);
         return await kernelRepository.StartExecuteAsync(request.NodeName, request.KernelId, new ExecuteRequest(script), cancellationToken);
     }
 }

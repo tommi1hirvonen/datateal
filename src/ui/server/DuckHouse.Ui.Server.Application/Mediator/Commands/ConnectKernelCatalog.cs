@@ -18,7 +18,7 @@ internal class ConnectKernelCatalogHandler(IMediator mediator, IKernelRepository
         if (resolved.Count == 0)
             throw new InvalidOperationException($"Catalog '{request.CatalogName}' not found.");
 
-        var script = CatalogSetupGenerator.GenerateAttachScript(resolved[0], isLinux: true);
+        var script = CatalogSetupGenerator.GenerateAttachScript(resolved[0]);
         return await kernelRepository.StartExecuteAsync(request.NodeName, request.KernelId, new ExecuteRequest(script), cancellationToken);
     }
 }

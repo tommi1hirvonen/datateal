@@ -11,11 +11,7 @@ public static class CatalogSetupGenerator
     /// Generates the complete setup script for the given resolved catalogs as Python code
     /// that runs DuckDB commands via <c>duckdb.execute()</c>, matching the kernel's Python environment.
     /// </summary>
-    /// <param name="isLinux">
-    /// When <c>true</c>, sets <c>azure_transport_option_type = 'curl'</c> which is required on Linux.
-    /// Runtime containers always run Linux, so pass <c>true</c> for any server-side execution.
-    /// </param>
-    public static string GenerateSetupScript(IReadOnlyList<ResolvedCatalog> catalogs, bool isLinux = false)
+    public static string GenerateSetupScript(IReadOnlyList<ResolvedCatalog> catalogs)
     {
         if (catalogs.Count == 0) return string.Empty;
 
@@ -23,7 +19,7 @@ public static class CatalogSetupGenerator
         AppendPreamble(sb);
 
         if (catalogs.Any(c => c.StorageConnectionString is not null))
-            AppendAzureSetup(sb, isLinux);
+            AppendAzureSetup(sb);
 
         foreach (var catalog in catalogs)
         {
@@ -40,13 +36,13 @@ public static class CatalogSetupGenerator
     /// attach left secrets behind. The catalog name is always used as the secret-name suffix to
     /// avoid collisions when multiple catalogs are attached incrementally.
     /// </summary>
-    public static string GenerateAttachScript(ResolvedCatalog catalog, bool isLinux = false)
+    public static string GenerateAttachScript(ResolvedCatalog catalog)
     {
         var sb = new StringBuilder();
         AppendPreamble(sb);
 
         if (catalog.StorageConnectionString is not null)
-            AppendAzureSetup(sb, isLinux);
+            AppendAzureSetup(sb);
 
         AppendCatalogSecrets(sb, catalog, $"_{catalog.Name}", createOrReplace: true);
 
@@ -66,12 +62,13 @@ public static class CatalogSetupGenerator
         sb.AppendLine("duckdb.execute(\"LOAD ducklake\")");
     }
 
-    private static void AppendAzureSetup(StringBuilder sb, bool isLinux)
+    private static void AppendAzureSetup(StringBuilder sb)
     {
         sb.AppendLine("duckdb.execute(\"INSTALL azure\")");
         sb.AppendLine("duckdb.execute(\"LOAD azure\")");
-        if (isLinux)
-            sb.AppendLine("duckdb.execute(\"SET azure_transport_option_type = 'curl'\")");
+        // On Linux, this should solve the documented certificate issue:
+        // https://duckdb.org/docs/current/core_extensions/azure
+        sb.AppendLine("duckdb.execute(\"SET azure_transport_option_type = 'curl'\")");
     }
 
     private static void AppendCatalogSecrets(StringBuilder sb, ResolvedCatalog catalog, string secretSuffix, bool createOrReplace)
