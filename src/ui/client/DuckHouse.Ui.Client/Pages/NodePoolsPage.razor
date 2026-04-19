@@ -66,7 +66,7 @@
                     <PropertyColumn Property="c => c.Description" Title="Description">
                         @(context.Description ?? "—")
                     </PropertyColumn>
-                    <PropertyColumn Property="c => c.NodeState" Title="Node">
+                    <PropertyColumn Property="c => c.NodeState" Title="State">
                         @if (context.NodeState.HasValue)
                         {
                             <Tag Color="@NodeStateTagColor(context.NodeState.Value)">@context.NodeState.Value</Tag>
@@ -96,16 +96,28 @@
                                     </Button>
                                 </Popconfirm>
                             </SpaceItem>
+                            @if (!context.NodeState.HasValue || context.NodeState.Value == NodeState.Failure)
+                            {
+                                var poolName = context.Name;
+                                <SpaceItem>
+                                    <Button Size="@ButtonSize.Small"
+                                            Loading="@(_startingPool == poolName)"
+                                            Disabled="@(_startingPool is not null || _busyNode is not null)"
+                                            OnClick="() => StartInteractiveNodeAsync(poolName)">
+                                        <Icon Type="@IconType.Outline.PlayCircle" /> Start
+                                    </Button>
+                                </SpaceItem>
+                            }
                             @if (context.NodeState is NodeState.Running or NodeState.Creating)
                             {
                                 var nodeName = context.NodeName;
                                 <SpaceItem>
-                                    <Popconfirm Title="@($"Remove the running node for '{context.Name}'? The pool config will remain.")"
+                                    <Popconfirm Title="@($"Stop the node pool '{context.Name}'? The pool config will remain.")"
                                                 OnConfirm="() => RemoveInteractiveNodeAsync(nodeName)">
                                         <Button Size="@ButtonSize.Small"
                                                 Loading="@(_busyNode == nodeName)"
-                                                Disabled="@(_busyNode is not null)">
-                                            Remove node
+                                                Disabled="@(_busyNode is not null || _startingPool is not null)">
+                                            <Icon Type="@IconType.Outline.Poweroff" /> Stop
                                         </Button>
                                     </Popconfirm>
                                 </SpaceItem>
@@ -258,6 +270,7 @@
     private string? _error;
     private string _activeTab = "interactive";
     private string? _busyNode;
+    private string? _startingPool;
 
     private List<NodePoolConfigDto> _jobPools => _jobAndInteractivePools
         .Where(p => p.PoolType == "Job").ToList();
@@ -414,6 +427,25 @@
         var dto = _jobAndInteractivePools.FirstOrDefault(p => p.Id == pool.Id);
         if (dto is null) return;
         await DeleteAsync(dto);
+    }
+
+    private async Task StartInteractiveNodeAsync(string poolName)
+    {
+        _startingPool = poolName;
+        _error = null;
+        try
+        {
+            await InteractivePoolService.EnsureNodeAsync(poolName);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to start node: {ex.Message}";
+        }
+        finally
+        {
+            _startingPool = null;
+        }
     }
 
     private async Task RemoveInteractiveNodeAsync(string nodeName)
