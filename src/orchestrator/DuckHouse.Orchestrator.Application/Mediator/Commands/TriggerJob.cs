@@ -65,6 +65,13 @@ internal class TriggerJobHandler(
             taskRun.TaskName = task.Name;
             taskRun.Status = TaskRunStatus.Pending;
             taskRun.AttemptNumber = 1;
+            taskRun.Parameters = task switch
+            {
+                NotebookTask t => t.Parameters,
+                SqlQueryTask t => t.Parameters,
+                SubJobTask t => t.Parameters,
+                _ => null,
+            };
 
             run.TaskRuns.Add(taskRun);
         }

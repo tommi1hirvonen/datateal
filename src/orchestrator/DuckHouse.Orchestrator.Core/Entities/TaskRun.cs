@@ -19,6 +19,7 @@ public abstract class TaskRun
     public JobTask? Task { get; set; }
 
     public string TaskName { get; set; } = string.Empty;
+    public Dictionary<string, string>? Parameters { get; set; }
 
     public TaskRunStatus Status { get; set; }
     public int AttemptNumber { get; set; }

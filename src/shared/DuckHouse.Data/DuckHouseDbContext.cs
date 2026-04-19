@@ -262,6 +262,7 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32);
             entity.Property(e => e.TaskName).HasMaxLength(256).IsRequired();
+            entity.Property(e => e.Parameters).HasColumnType("jsonb").HasConversion(DictJsonConverter);
             entity.HasDiscriminator<string>("TaskType")
                 .HasValue<NotebookTaskRun>("Notebook")
                 .HasValue<SqlQueryTaskRun>("SqlQuery")

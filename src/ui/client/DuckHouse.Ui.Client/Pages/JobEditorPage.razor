@@ -235,6 +235,18 @@
                         <PropertyColumn Property="c => c.Trigger" Title="Trigger">
                             @context.Trigger
                         </PropertyColumn>
+                        <PropertyColumn Property="c => c.Parameters" Title="Parameters">
+                            @if (context.Parameters is { Count: > 0 })
+                            {
+                                <Popover ContentTemplate="@ParametersContent(context.Parameters)" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Click })">
+                                    <Tag Style="cursor:pointer;">@context.Parameters.Count param(s)</Tag>
+                                </Popover>
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </PropertyColumn>
                         <PropertyColumn Property="c => c.CreatedAt" Title="Started">
                             @context.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
                         </PropertyColumn>
@@ -669,4 +681,12 @@
         JobRunStatus.Cancelled => "orange",
         _ => "default",
     };
+
+    private static RenderFragment ParametersContent(Dictionary<string, string> parameters) =>
+        @<div style="font-family: monospace; font-size: 12px; min-width: 160px;">
+            @foreach (var kv in parameters)
+            {
+                <div><strong>@kv.Key</strong> = @kv.Value</div>
+            }
+        </div>;
 }

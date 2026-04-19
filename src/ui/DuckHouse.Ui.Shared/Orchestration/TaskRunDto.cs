@@ -12,4 +12,5 @@ public record TaskRunDto(
     string? ErrorMessage,
     DateTime? StartedAt,
     DateTime? CompletedAt,
-    double? DurationMs);
+    double? DurationMs,
+    Dictionary<string, string>? Parameters);

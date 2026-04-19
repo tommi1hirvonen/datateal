@@ -10,4 +10,5 @@ public record JobRunSummary(
     JobRunTrigger Trigger,
     DateTime CreatedAt,
     DateTime? StartedAt,
-    DateTime? CompletedAt);
+    DateTime? CompletedAt,
+    Dictionary<string, string>? Parameters);
