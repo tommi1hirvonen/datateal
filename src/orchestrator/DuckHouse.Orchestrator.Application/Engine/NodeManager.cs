@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
-using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using DuckHouse.Core.Nodes;
 using DuckHouse.Orchestrator.Application.Validation;
+using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Interfaces;
 using DuckHouse.Orchestrator.Core.Repositories;
 using Microsoft.Extensions.Logging;
@@ -33,6 +33,8 @@ public class NodeManager(
     /// <summary>
     /// Ensures a node is provisioned and running for the given NodePoolRef.
     /// Returns the node name. Provisions on first call, returns cached on subsequent calls.
+    /// For interactive pools: joins an existing running node or creates one, and never deletes it on cleanup.
+    /// For job pools: creates a run-scoped node and deletes it on cleanup.
     /// </summary>
     public async Task<string> EnsureNodeAsync(string nodePoolRef, CancellationToken ct)
     {
@@ -42,6 +44,9 @@ public class NodeManager(
         var config = await nodePoolConfigRepo.GetByNameAsync(nodePoolRef, ct)
             ?? throw new InvalidOperationException(
                 $"Node pool configuration '{nodePoolRef}' not found.");
+
+        if (config is InteractiveNodePoolConfig interactiveConfig)
+            return await EnsureInteractiveNodeAsync(nodePoolRef, interactiveConfig, ct);
 
         var nameError = NodeNameValidator.ValidateNodePoolName(nodePoolRef);
         if (nameError is not null)
@@ -89,7 +94,7 @@ public class NodeManager(
             if (node.State == NodeState.Running)
             {
                 logger.LogInformation("Node '{NodeName}' is running", nodeName);
-                _allocations[nodePoolRef] = new NodeAllocation(nodeName, true);
+                _allocations[nodePoolRef] = new NodeAllocation(nodeName, Provisioned: true);
                 return nodeName;
             }
 
@@ -100,6 +105,83 @@ public class NodeManager(
 
         throw new TimeoutException(
             $"Node '{nodeName}' did not become ready within {NodeReadyTimeout.TotalMinutes} minutes.");
+    }
+
+    /// <summary>
+    /// Ensures the interactive pool's persistent node is running and joins it.
+    /// Uses the pool's deterministic node name. Never marks the node as provisioned-by-us,
+    /// so <see cref="CleanupAllAsync"/> will not delete it when the job completes.
+    /// </summary>
+    private async Task<string> EnsureInteractiveNodeAsync(
+        string nodePoolRef, InteractiveNodePoolConfig config, CancellationToken ct)
+    {
+        var nodeName = config.GetNodeName();
+        logger.LogInformation(
+            "Ensuring interactive node '{NodeName}' for pool '{PoolRef}' (VM: {VmSize})",
+            nodeName, nodePoolRef, config.VmSize);
+
+        var node = await controlPlane.GetNodeAsync(nodeName, ct);
+
+        if (node?.State == NodeState.Running)
+        {
+            logger.LogInformation("Joining existing interactive node '{NodeName}'", nodeName);
+            _allocations[nodePoolRef] = new NodeAllocation(nodeName, Provisioned: false);
+            return nodeName;
+        }
+
+        if (node is null || node.State == NodeState.Failure)
+        {
+            IReadOnlyList<WheelContent>? wheelContents = null;
+            if (config.WheelPackageIds is { Count: > 0 })
+                wheelContents = await wheelPackageReader.GetWheelContentsAsync(config.WheelPackageIds, ct);
+
+            var resolved = await environmentResolver.ResolveAsync(
+                config.EnvironmentVariableIds, config.SecretIds, ct);
+
+            try
+            {
+                await controlPlane.CreateNodeAsync(
+                    nodeName,
+                    config.VmSize,
+                    config.KernelIdleTimeout,
+                    config.NodeIdleTimeout,
+                    config.KernelRequirements,
+                    wheelContents,
+                    resolved.Variables.Count > 0 ? resolved.Variables : null,
+                    resolved.Secrets.Count > 0 ? resolved.Secrets : null,
+                    ct);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                // Another caller (user or concurrent job task) created the node concurrently — fall through to poll.
+                logger.LogInformation("Interactive node '{NodeName}' was already being created concurrently", nodeName);
+            }
+        }
+
+        // Poll until running (node was Creating or just triggered creation)
+        var deadline = DateTime.UtcNow + NodeReadyTimeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            ct.ThrowIfCancellationRequested();
+            await Task.Delay(NodePollInterval, ct);
+
+            var polled = await controlPlane.GetNodeAsync(nodeName, ct);
+            if (polled is null) continue;
+
+            if (polled.State == NodeState.Running)
+            {
+                logger.LogInformation("Interactive node '{NodeName}' is running", nodeName);
+                _allocations[nodePoolRef] = new NodeAllocation(nodeName, Provisioned: false);
+                return nodeName;
+            }
+
+            if (polled.State == NodeState.Failure)
+                throw new InvalidOperationException(
+                    $"Interactive node '{nodeName}' failed to provision.");
+        }
+
+        throw new TimeoutException(
+            $"Interactive node '{nodeName}' did not become ready within {NodeReadyTimeout.TotalMinutes} minutes.");
     }
 
     /// <summary>
