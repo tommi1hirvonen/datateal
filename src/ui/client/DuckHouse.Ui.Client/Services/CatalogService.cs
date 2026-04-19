@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using DuckHouse.Core.Catalogs;
+using DuckHouse.Core.Kernels;
 using DuckHouse.Ui.Shared.Catalogs;
 
 namespace DuckHouse.Ui.Client.Services;
@@ -57,12 +57,29 @@ internal class CatalogService(HttpClient httpClient) : ICatalogService
         await httpClient.GetFromJsonAsync<CatalogMetadataDto>($"api/catalogs/{catalogId}/metadata", JsonOptions, ct)
         ?? new CatalogMetadataDto([]);
 
-    public async Task<IReadOnlyList<ResolvedCatalog>> ResolveCatalogsAsync(List<string> catalogNames, CancellationToken ct = default)
+    public async Task<ExecutionHandle> SetupCatalogsOnKernelAsync(string nodeName, string kernelId, List<string> catalogNames, CancellationToken ct = default)
     {
-        var response = await httpClient.PostAsJsonAsync("api/catalogs/resolve",
-            new ResolveCatalogsRequest(catalogNames), JsonOptions, ct);
+        var response = await httpClient.PostAsJsonAsync(
+            $"api/nodes/{nodeName}/kernels/{kernelId}/catalogs/setup",
+            new KernelCatalogSetupRequest(catalogNames), JsonOptions, ct);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<IReadOnlyList<ResolvedCatalog>>(JsonOptions, ct)) ?? [];
+        return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, ct))!;
+    }
+
+    public async Task<ExecutionHandle> ConnectCatalogOnKernelAsync(string nodeName, string kernelId, string catalogName, CancellationToken ct = default)
+    {
+        var response = await httpClient.PostAsync(
+            $"api/nodes/{nodeName}/kernels/{kernelId}/catalogs/{Uri.EscapeDataString(catalogName)}/connect", null, ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, ct))!;
+    }
+
+    public async Task<ExecutionHandle> DisconnectCatalogOnKernelAsync(string nodeName, string kernelId, string catalogName, CancellationToken ct = default)
+    {
+        var response = await httpClient.PostAsync(
+            $"api/nodes/{nodeName}/kernels/{kernelId}/catalogs/{Uri.EscapeDataString(catalogName)}/disconnect", null, ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, ct))!;
     }
 
     public async Task<List<string>> GetWorkspaceItemCatalogsAsync(Guid itemId, CancellationToken ct = default) =>

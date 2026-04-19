@@ -1,4 +1,3 @@
-using DuckHouse.Core.Catalogs;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Shared.Catalogs;
 using Microsoft.AspNetCore.Mvc;
@@ -73,8 +72,4 @@ public class CatalogsController(IMediator mediator) : ControllerBase
         var metadata = await mediator.SendAsync(new Qry.GetCatalogMetadataRequest(id), ct);
         return metadata is null ? NotFound() : Ok(metadata);
     }
-
-    [HttpPost("resolve")]
-    public async Task<IReadOnlyList<ResolvedCatalog>> Resolve(SharedCat.ResolveCatalogsRequest body, CancellationToken ct) =>
-        await mediator.SendAsync(new Qry.ResolveCatalogsRequest(body.CatalogNames), ct);
 }

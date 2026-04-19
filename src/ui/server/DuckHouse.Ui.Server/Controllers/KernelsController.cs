@@ -1,5 +1,6 @@
 using DuckHouse.Core.Kernels;
 using DuckHouse.Core.Mediator;
+using DuckHouse.Ui.Shared.Catalogs;
 using Microsoft.AspNetCore.Mvc;
 using Cmd = DuckHouse.Ui.Server.Application.Mediator.Commands;
 using Qry = DuckHouse.Ui.Server.Application.Mediator.Queries;
@@ -62,4 +63,25 @@ public class KernelsController(IMediator mediator) : ControllerBase
     [HttpPost("{kernelId}/diagnostics")]
     public async Task<DiagnoseResponse> Diagnose(string nodeName, string kernelId, [FromBody] DiagnoseRequest body, CancellationToken ct) =>
         await mediator.SendAsync(new Cmd.DiagnoseKernelRequest(nodeName, kernelId, body), ct);
+
+    [HttpPost("{kernelId}/catalogs/setup")]
+    public async Task<IActionResult> SetupCatalogs(string nodeName, string kernelId, KernelCatalogSetupRequest body, CancellationToken ct)
+    {
+        var handle = await mediator.SendAsync(new Cmd.SetupKernelCatalogsCommand(nodeName, kernelId, body.CatalogNames), ct);
+        return Accepted(handle);
+    }
+
+    [HttpPost("{kernelId}/catalogs/{catalogName}/connect")]
+    public async Task<IActionResult> ConnectCatalog(string nodeName, string kernelId, string catalogName, CancellationToken ct)
+    {
+        var handle = await mediator.SendAsync(new Cmd.ConnectKernelCatalogCommand(nodeName, kernelId, catalogName), ct);
+        return Accepted(handle);
+    }
+
+    [HttpPost("{kernelId}/catalogs/{catalogName}/disconnect")]
+    public async Task<IActionResult> DisconnectCatalog(string nodeName, string kernelId, string catalogName, CancellationToken ct)
+    {
+        var handle = await mediator.SendAsync(new Cmd.DisconnectKernelCatalogCommand(nodeName, kernelId, catalogName), ct);
+        return Accepted(handle);
+    }
 }

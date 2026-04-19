@@ -1,4 +1,3 @@
-using DuckHouse.Core.Catalogs;
 using DuckHouse.Core.Kernels;
 using DuckHouse.Ui.Client.Services;
 using DuckHouse.Ui.Shared.Catalogs;
@@ -87,7 +86,7 @@ internal sealed class CatalogSession
     }
 
     /// <summary>
-    /// Attaches all provided catalogs at once using a single setup script.
+    /// Attaches all provided catalogs at once using a single setup script executed server-side.
     /// Called at connect time when the user already has catalogs selected.
     /// </summary>
     public async Task SetupAllAsync(IEnumerable<string> names)
@@ -100,11 +99,10 @@ internal sealed class CatalogSession
 
         try
         {
-            var resolved = await _catalogService.ResolveCatalogsAsync(nameList);
-            if (resolved.Count == 0) return;
+            var handle = await _catalogService.SetupCatalogsOnKernelAsync(
+                _nodeName()!, _kernelId()!, nameList);
 
-            var poll = await ExecuteAndPollAsync(
-                CatalogSetupGenerator.GenerateSetupScript(resolved, isLinux: true));
+            var poll = await PollAsync(handle.ExecutionId);
 
             if (poll.Result?.Error is not null)
                 _setError($"Catalog setup failed: {poll.Result.Error.Evalue}");
@@ -137,7 +135,9 @@ internal sealed class CatalogSession
 
         try
         {
-            var poll = await ExecuteAndPollAsync(script, pollDelayMs: 500);
+            var handle = await _kernelService.StartExecuteAsync(
+                _nodeName()!, _kernelId()!, new ExecuteKernelRequest(script));
+            var poll = await PollAsync(handle.ExecutionId, pollDelayMs: 500);
             if (poll.Result is null || poll.Result.Error is not null) return;
 
             var knownNames = new HashSet<string>(
@@ -175,11 +175,10 @@ internal sealed class CatalogSession
 
         try
         {
-            var resolved = await _catalogService.ResolveCatalogsAsync([name]);
-            if (resolved.Count == 0) return;
+            var handle = await _catalogService.ConnectCatalogOnKernelAsync(
+                _nodeName()!, _kernelId()!, name);
 
-            var poll = await ExecuteAndPollAsync(
-                CatalogSetupGenerator.GenerateAttachScript(resolved[0], isLinux: true));
+            var poll = await PollAsync(handle.ExecutionId);
 
             if (poll.Result?.Error is not null)
                 _setError($"Catalog attach failed: {poll.Result.Error.Evalue}");
@@ -203,7 +202,10 @@ internal sealed class CatalogSession
 
         try
         {
-            var poll = await ExecuteAndPollAsync(CatalogSetupGenerator.GenerateDetachScript(name));
+            var handle = await _catalogService.DisconnectCatalogOnKernelAsync(
+                _nodeName()!, _kernelId()!, name);
+
+            var poll = await PollAsync(handle.ExecutionId);
 
             if (poll.Result?.Error is not null)
                 _setError($"Catalog detach failed: {poll.Result.Error.Evalue}");
@@ -218,16 +220,13 @@ internal sealed class CatalogSession
         }
     }
 
-    private async Task<PollExecutionResponse> ExecuteAndPollAsync(string script, int pollDelayMs = 1000)
+    private async Task<PollExecutionResponse> PollAsync(string executionId, int pollDelayMs = 1000)
     {
-        var handle = await _kernelService.StartExecuteAsync(
-            _nodeName()!, _kernelId()!, new ExecuteKernelRequest(script));
-
         PollExecutionResponse poll;
         do
         {
             await Task.Delay(pollDelayMs);
-            poll = await _kernelService.PollExecutionAsync(_nodeName()!, _kernelId()!, handle.ExecutionId);
+            poll = await _kernelService.PollExecutionAsync(_nodeName()!, _kernelId()!, executionId);
         } while (!poll.IsComplete);
 
         return poll;

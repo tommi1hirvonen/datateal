@@ -26,4 +26,4 @@ public record UpdateUnmanagedCatalogRequest(
 
 public record UpdateWorkspaceItemCatalogsRequest(List<string> CatalogNames);
 
-public record ResolveCatalogsRequest(List<string> CatalogNames);
+public record KernelCatalogSetupRequest(List<string> CatalogNames);
