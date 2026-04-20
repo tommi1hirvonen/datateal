@@ -44,6 +44,14 @@ internal class ControlPlaneClient(IHttpClientFactory httpClientFactory) : IContr
         return (await response.Content.ReadFromJsonAsync<NodeInfo>(JsonOptions, ct))!;
     }
 
+    public async Task<IReadOnlyList<NodeInfo>> ListNodesAsync(CancellationToken ct)
+    {
+        using var client = CreateClient();
+        var response = await client.GetAsync("/nodes", ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<List<NodeInfo>>(JsonOptions, ct))!;
+    }
+
     public async Task<NodeInfo?> GetNodeAsync(string name, CancellationToken ct)
     {
         using var client = CreateClient();

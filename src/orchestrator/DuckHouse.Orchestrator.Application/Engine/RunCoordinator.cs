@@ -24,6 +24,7 @@ public class RunCoordinator(
     IEnvironmentResolver environmentResolver,
     ICatalogResolver catalogResolver,
     IMediator mediator,
+    WarmPoolManager warmPoolManager,
     ILoggerFactory loggerFactory)
 {
     private static readonly JsonSerializerOptions SnapshotOptions = new(JsonSerializerDefaults.Web)
@@ -44,14 +45,13 @@ public class RunCoordinator(
 
         _logger.LogInformation("Starting job run {RunId} for job '{JobName}'", jobRunId, job.Name);
 
-        // Transition to Running
         run.Status = JobRunStatus.Running;
         run.StartedAt = DateTime.UtcNow;
         await jobRunRepository.UpdateJobRunStatusAsync(run.Id, JobRunStatus.Running, ct);
 
-        // Create a node manager for this run
         var nodeManager = new NodeManager(
             controlPlane, nodePoolConfigRepo, wheelPackageReader, environmentResolver, jobRunId,
+            warmPoolManager,
             loggerFactory.CreateLogger<NodeManager>());
 
         var taskExecutor = new TaskExecutor(

@@ -13,7 +13,10 @@ public record NodePoolConfigDto(
     DateTime UpdatedAt,
     IReadOnlyList<Guid>? WheelPackageIds,
     IReadOnlyList<Guid>? EnvironmentVariableIds,
-    IReadOnlyList<Guid>? SecretIds);
+    IReadOnlyList<Guid>? SecretIds,
+    int WarmNodes = 0,
+    int? MaxNodes = null,
+    TimeSpan? NodeAcquireTimeout = null);
 
 public record CreateNodePoolRequest(
     string Name,
@@ -25,7 +28,10 @@ public record CreateNodePoolRequest(
     string? Description,
     IReadOnlyList<Guid>? WheelPackageIds = null,
     IReadOnlyList<Guid>? EnvironmentVariableIds = null,
-    IReadOnlyList<Guid>? SecretIds = null);
+    IReadOnlyList<Guid>? SecretIds = null,
+    int WarmNodes = 0,
+    int? MaxNodes = null,
+    TimeSpan? NodeAcquireTimeout = null);
 
 public record UpdateNodePoolRequest(
     string Name,
@@ -36,4 +42,8 @@ public record UpdateNodePoolRequest(
     string? Description,
     IReadOnlyList<Guid>? WheelPackageIds = null,
     IReadOnlyList<Guid>? EnvironmentVariableIds = null,
-    IReadOnlyList<Guid>? SecretIds = null);
+    IReadOnlyList<Guid>? SecretIds = null,
+    int WarmNodes = 0,
+    int? MaxNodes = null,
+    TimeSpan? NodeAcquireTimeout = null);
+

@@ -16,6 +16,7 @@ public interface IControlPlaneClient
         IReadOnlyDictionary<string, string>? environmentVariables,
         IReadOnlyDictionary<string, string>? secrets,
         CancellationToken ct = default);
+    Task<IReadOnlyList<NodeInfo>> ListNodesAsync(CancellationToken ct = default);
     Task<NodeInfo?> GetNodeAsync(string name, CancellationToken ct = default);
     Task DeleteNodeAsync(string name, CancellationToken ct = default);
     Task UpdateNodeEvictionConfigAsync(string name, TimeSpan? kernelIdleTimeout, TimeSpan? nodeIdleTimeout, CancellationToken ct = default);

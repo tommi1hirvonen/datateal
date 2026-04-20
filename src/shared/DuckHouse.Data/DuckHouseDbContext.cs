@@ -241,6 +241,11 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
             entity.Property(e => e.PoolType).HasMaxLength(32).IsRequired();
         });
 
+        modelBuilder.Entity<JobNodePoolConfig>(entity =>
+        {
+            entity.Property(e => e.WarmNodes).HasDefaultValue(0);
+        });
+
         modelBuilder.Entity<JobRun>(entity =>
         {
             entity.HasKey(e => e.Id);

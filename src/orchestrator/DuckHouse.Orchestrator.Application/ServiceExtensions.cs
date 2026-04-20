@@ -15,10 +15,12 @@ public static class ServiceExtensions
 
             // Engine services
             services.AddSingleton<RunDispatcher>();
+            services.AddSingleton<WarmPoolManager>();
             services.AddScoped<RunCoordinator>();
             services.AddScoped<TaskExecutor>();
             services.AddHostedService<SchedulerService>();
             services.AddHostedService<RecoveryService>();
+            services.AddHostedService<WarmPoolReplenishmentService>();
             services.AddHostedService<HistoryRetentionService>();
 
             // YAML import/export
@@ -31,3 +33,4 @@ public static class ServiceExtensions
 }
 
 file class ScanEntryPoint;
+

@@ -20,6 +20,7 @@ public class NodeManager(
     IWheelPackageReader wheelPackageReader,
     IEnvironmentResolver environmentResolver,
     Guid jobRunId,
+    WarmPoolManager? warmPoolManager,
     ILogger logger)
 {
     private readonly ConcurrentDictionary<string, NodeAllocation> _allocations = new();
@@ -28,7 +29,7 @@ public class NodeManager(
     private static readonly TimeSpan KernelCreateRetryInterval = TimeSpan.FromSeconds(5);
     private const int KernelCreateMaxRetries = 6;
 
-    private record NodeAllocation(string NodeName, bool Provisioned);
+    private record NodeAllocation(string NodeName, bool Provisioned, Guid? WarmPoolId = null);
 
     /// <summary>
     /// Ensures a node is provisioned and running for the given NodePoolRef.
@@ -47,6 +48,11 @@ public class NodeManager(
 
         if (config is InteractiveNodePoolConfig interactiveConfig)
             return await EnsureInteractiveNodeAsync(nodePoolRef, interactiveConfig, ct);
+
+        if (config is JobNodePoolConfig jobConfig &&
+            warmPoolManager is not null &&
+            (jobConfig.WarmNodes > 0 || jobConfig.MaxNodes.HasValue))
+            return await EnsureWarmJobNodeAsync(nodePoolRef, jobConfig, ct);
 
         var nameError = NodeNameValidator.ValidateNodePoolName(nodePoolRef);
         if (nameError is not null)
@@ -105,6 +111,23 @@ public class NodeManager(
 
         throw new TimeoutException(
             $"Node '{nodeName}' did not become ready within {NodeReadyTimeout.TotalMinutes} minutes.");
+    }
+
+    /// <summary>
+    /// Claims a node for a warm-pool-enabled job pool. Waits for a pre-provisioned standby node
+    /// (or creates one fresh if the queue is empty), subject to the MaxNodes cap.
+    /// </summary>
+    private async Task<string> EnsureWarmJobNodeAsync(
+        string nodePoolRef, JobNodePoolConfig config, CancellationToken ct)
+    {
+        logger.LogInformation(
+            "Claiming warm node for pool '{PoolRef}' (WarmNodes={Warm}, MaxNodes={Max})",
+            nodePoolRef, config.WarmNodes, config.MaxNodes?.ToString() ?? "unlimited");
+
+        var nodeName = await warmPoolManager!.ClaimNodeAsync(config, controlPlane, wheelPackageReader, environmentResolver, ct);
+        _allocations[nodePoolRef] = new NodeAllocation(nodeName, Provisioned: false, WarmPoolId: config.Id);
+        logger.LogInformation("Acquired node '{NodeName}' for pool '{PoolRef}'", nodeName, nodePoolRef);
+        return nodeName;
     }
 
     /// <summary>
@@ -256,6 +279,16 @@ public class NodeManager(
     {
         foreach (var (poolRef, alloc) in _allocations)
         {
+            if (alloc.WarmPoolId.HasValue && warmPoolManager is not null)
+            {
+                var poolConfig = await GetPoolConfigSafeAsync(alloc.WarmPoolId.Value);
+                if (poolConfig is JobNodePoolConfig jobConfig)
+                    await warmPoolManager.ReleaseNodeAsync(alloc.WarmPoolId.Value, alloc.NodeName, jobConfig, controlPlane, wheelPackageReader, environmentResolver);
+                else
+                    await DeleteNodeSafeAsync(alloc.NodeName);
+                continue;
+            }
+
             if (!alloc.Provisioned) continue;
             try
             {
@@ -269,5 +302,31 @@ public class NodeManager(
             }
         }
         _allocations.Clear();
+    }
+
+    private async Task<NodePoolConfig?> GetPoolConfigSafeAsync(Guid poolId)
+    {
+        try
+        {
+            return await nodePoolConfigRepo.GetAsync(poolId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to load pool config {PoolId} during cleanup", poolId);
+            return null;
+        }
+    }
+
+    private async Task DeleteNodeSafeAsync(string nodeName)
+    {
+        try
+        {
+            logger.LogInformation("Deleting node '{NodeName}'", nodeName);
+            await controlPlane.DeleteNodeAsync(nodeName, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to delete node '{NodeName}'", nodeName);
+        }
     }
 }
