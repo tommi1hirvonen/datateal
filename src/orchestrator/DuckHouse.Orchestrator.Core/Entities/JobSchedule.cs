@@ -21,20 +21,19 @@ public class JobSchedule
     /// Returns null if the schedule is disabled or the expression is invalid.
     /// </summary>
     [NotMapped]
-    public DateTime? NextFireTime
+    public DateTimeOffset? NextFireTime
     {
         get
         {
             if (!IsEnabled) return null;
             try
             {
-                var cron = new CronExpression(CronExpression)
-                {
-                    TimeZone = !string.IsNullOrWhiteSpace(TimeZone)
-                        ? TimeZoneInfo.FindSystemTimeZoneById(TimeZone)
-                        : TimeZoneInfo.Local
-                };
-                return cron.GetNextValidTimeAfter(DateTimeOffset.UtcNow)?.UtcDateTime;
+                var tz = !string.IsNullOrWhiteSpace(TimeZone)
+                    ? TimeZoneInfo.FindSystemTimeZoneById(TimeZone)
+                    : TimeZoneInfo.Local;
+                var cron = new CronExpression(CronExpression) { TimeZone = tz };
+                var next = cron.GetNextValidTimeAfter(DateTimeOffset.UtcNow);
+                return next.HasValue ? TimeZoneInfo.ConvertTime(next.Value, tz) : null;
             }
             catch
             {

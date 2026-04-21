@@ -192,12 +192,19 @@
                     <Table TItem="ScheduleDto" DataSource="_job.Schedules" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
                         <PropertyColumn Property="c => c.CronExpression" Title="Cron Expression">
                             <code>@context.CronExpression</code>
+                            @{
+                                var desc = ValidationHelper.GetCronDescription(context.CronExpression);
+                            }
+                            @if (!string.IsNullOrWhiteSpace(desc))
+                            {
+                                <div style="color: #888; font-size: 11px; margin-top: 2px;">@desc</div>
+                            }
                         </PropertyColumn>
                         <PropertyColumn Property="c => c.IsEnabled" Title="Enabled">
                             <Switch Value="@context.IsEnabled" OnChange="@(async val => await ToggleScheduleEnabledAsync(context, val))" />
                         </PropertyColumn>
                         <PropertyColumn Property="c => c.NextFireTime" Title="Next Run">
-                            @(context.NextFireTime?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                            @(context.NextFireTime?.ToString("yyyy-MM-dd HH:mm zzz") ?? "—")
                         </PropertyColumn>
                         <ActionColumn Title="Actions">
                             <Tooltip Title="Edit">
@@ -261,7 +268,9 @@
             <div style="display: flex; flex-direction: column; gap: 16px;">
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: 500;">Cron Expression</label>
-                    <Input @bind-Value="_newCron" Placeholder="0 0 6 * * ?"
+                    <Input @bind-Value="_newCron"
+                           OnInput="@(e => _newCron = e.Value?.ToString() ?? "")"
+                           Placeholder="0 0 6 * * ?"
                            Status="@(ValidationHelper.ValidateCronExpression(_newCron) is not null ? "error" : "")" />
                     @if (ValidationHelper.ValidateCronExpression(_newCron) is { } cronErr)
                     {

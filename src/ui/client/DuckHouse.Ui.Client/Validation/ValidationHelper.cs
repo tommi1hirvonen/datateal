@@ -1,5 +1,6 @@
-using System.Text.RegularExpressions;
 using CronExpressionDescriptor;
+using Quartz;
+using System.Text.RegularExpressions;
 
 namespace DuckHouse.Ui.Client.Validation;
 
@@ -83,6 +84,7 @@ public static partial class ValidationHelper
 
     /// <summary>
     /// Validates a Quartz cron expression (6-field: seconds minutes hours day-of-month month day-of-week).
+    /// Uses Quartz.CronExpression directly so validation matches what the scheduler will accept.
     /// Returns an error message, or null if valid.
     /// </summary>
     public static string? ValidateCronExpression(string? cron)
@@ -92,15 +94,10 @@ public static partial class ValidationHelper
 
         try
         {
-            ExpressionDescriptor.GetDescription(cron.Trim(), new Options
-            {
-                ThrowExceptionOnParseError = true,
-                Use24HourTimeFormat = true,
-                Locale = "en",
-            });
+            _ = new CronExpression(cron.Trim());
             return null;
         }
-        catch (Exception ex)
+        catch (FormatException ex)
         {
             return ex.Message;
         }
