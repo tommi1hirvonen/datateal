@@ -1,6 +1,7 @@
 using System.Text.Json;
 using DuckHouse.Core.Catalogs;
 using DuckHouse.Core.Environment;
+using DuckHouse.Core.Nodes;
 using DuckHouse.Core.RuntimePackages;
 using DuckHouse.Core.Workspace;
 using DuckHouse.Orchestrator.Core.Entities;
@@ -239,9 +240,12 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
             entity.Property(e => e.EnvironmentVariableIds).HasColumnType("jsonb").HasConversion(GuidListJsonConverter);
             entity.Property(e => e.SecretIds).HasColumnType("jsonb").HasConversion(GuidListJsonConverter);
             entity.HasDiscriminator(e => e.PoolType)
-                .HasValue<InteractiveNodePoolConfig>("Interactive")
-                .HasValue<JobNodePoolConfig>("Job");
-            entity.Property(e => e.PoolType).HasMaxLength(32).IsRequired();
+                .HasValue<InteractiveNodePoolConfig>(NodePoolType.Interactive)
+                .HasValue<JobNodePoolConfig>(NodePoolType.Job);
+            entity.Property(e => e.PoolType)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .IsRequired();
         });
 
         modelBuilder.Entity<JobNodePoolConfig>(entity =>

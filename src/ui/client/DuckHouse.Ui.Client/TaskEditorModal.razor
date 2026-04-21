@@ -256,7 +256,7 @@
         try
         {
             var pools = await NodePoolService.GetNodePoolsAsync();
-            _nodePoolOptions = pools.Select(p => new NodePoolOption(p.Name, p.Name, p.PoolType ?? "Job", p.VmSize)).ToList();
+            _nodePoolOptions = pools.Select(p => new NodePoolOption(p.Name, p.Name, p.PoolType.ToString(), p.VmSize)).ToList();
         }
         catch { /* Node pools may not be available */ }
 

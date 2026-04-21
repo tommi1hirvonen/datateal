@@ -270,8 +270,7 @@
             <TextArea @bind-Value="_formKernelReqs" Rows="3" Placeholder="@("scipy>=1.14\nscikit-learn>=1.6")" />
         </div>
         @{
-            var isJobPool = _editTarget?.PoolType == "Job" || (_editTarget is null && _activeTab == "job");
-        }
+            var isJobPool = _editTarget?.PoolType == NodePoolType.Job || (_editTarget is null && _activeTab == "job");        }
         @if (isJobPool)
         {
             <div>
@@ -365,7 +364,7 @@
     private string? _startingPool;
 
     private List<NodePoolConfigDto> _jobPools => _jobAndInteractivePools
-        .Where(p => p.PoolType == "Job").ToList();
+        .Where(p => p.PoolType == NodePoolType.Job).ToList();
 
     // Drawer state
     private bool _showDrawer;
@@ -475,7 +474,7 @@
     {
         if (string.IsNullOrWhiteSpace(_formName) || string.IsNullOrWhiteSpace(_formVmSize)) return;
 
-        var isJobPool = _editTarget?.PoolType == "Job" || (_editTarget is null && _activeTab == "job");
+        var isJobPool = _editTarget?.PoolType == NodePoolType.Job || (_editTarget is null && _activeTab == "job");
         if (isJobPool)
         {
             if (_formMaxNodes.HasValue && _formMaxNodes.Value < 1)
@@ -501,7 +500,7 @@
         {
             if (_editTarget is null)
             {
-                var poolType = _activeTab == "interactive" ? "Interactive" : "Job";
+                var poolType = _activeTab == "interactive" ? NodePoolType.Interactive : NodePoolType.Job;
                 await NodePoolService.CreateNodePoolAsync(new CreateNodePoolRequest(
                     _formName.Trim(), poolType, _formVmSize.Trim(), kernelTimeout, nodeTimeout,
                     _formKernelReqs?.Trim(), _formDescription?.Trim(),

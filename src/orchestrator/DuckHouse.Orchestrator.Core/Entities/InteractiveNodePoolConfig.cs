@@ -1,8 +1,10 @@
+using DuckHouse.Core.Nodes;
+
 namespace DuckHouse.Orchestrator.Core.Entities;
 
 public class InteractiveNodePoolConfig : NodePoolConfig
 {
-    public InteractiveNodePoolConfig() => PoolType = "Interactive";
+    public InteractiveNodePoolConfig() => PoolType = NodePoolType.Interactive;
 
     /// <summary>
     /// Returns the deterministic K8s node name derived from the pool ID.

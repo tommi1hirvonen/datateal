@@ -1,8 +1,10 @@
+using DuckHouse.Core.Nodes;
+
 namespace DuckHouse.Orchestrator.Core.Entities;
 
 public class JobNodePoolConfig : NodePoolConfig
 {
-    public JobNodePoolConfig() => PoolType = "Job";
+    public JobNodePoolConfig() => PoolType = NodePoolType.Job;
 
     /// <summary>
     /// Number of idle standby nodes to keep running and ready for immediate use.

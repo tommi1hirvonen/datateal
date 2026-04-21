@@ -1,4 +1,5 @@
 using DuckHouse.Core.Mediator;
+using DuckHouse.Core.Nodes;
 using DuckHouse.Orchestrator.Application.Validation;
 using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Repositories;
@@ -7,7 +8,7 @@ namespace DuckHouse.Orchestrator.Application.Mediator.Commands;
 
 public record CreateNodePoolConfigRequest(
     string Name,
-    string PoolType,
+    NodePoolType PoolType,
     string VmSize,
     TimeSpan? KernelIdleTimeout,
     TimeSpan? NodeIdleTimeout,
@@ -29,10 +30,10 @@ internal class CreateNodePoolConfigHandler(INodePoolConfigRepository repository)
         if (nameError is not null)
             throw new ArgumentException(nameError, nameof(request.Name));
 
-        if (request.PoolType == "Job")
+        if (request.PoolType == NodePoolType.Job)
             ValidateWarmPoolFields(request.WarmNodes, request.MaxNodes);
 
-        NodePoolConfig config = request.PoolType == "Interactive"
+        NodePoolConfig config = request.PoolType == NodePoolType.Interactive
             ? new InteractiveNodePoolConfig
             {
                 Name = request.Name,

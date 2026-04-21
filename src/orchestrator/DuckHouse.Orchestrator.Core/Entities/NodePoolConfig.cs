@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using DuckHouse.Core.Nodes;
 
 namespace DuckHouse.Orchestrator.Core.Entities;
 
@@ -9,7 +10,7 @@ public abstract class NodePoolConfig
 {
     public Guid Id { get; set; }
     public required string Name { get; set; }
-    public string PoolType { get; set; } = string.Empty;
+    public NodePoolType PoolType { get; protected set; }
     public required string VmSize { get; set; }
     public TimeSpan? KernelIdleTimeout { get; set; }
     public TimeSpan? NodeIdleTimeout { get; set; }
