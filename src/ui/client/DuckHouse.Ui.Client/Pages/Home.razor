@@ -36,7 +36,8 @@
                     @{ var (optIcon, optColor) = GetIconForUrl(context.Value); }
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <Icon Type="@optIcon" Style="@($"color: {optColor}; width: 16px; text-align: center; flex-shrink: 0;")" />
-                        <span>@context.Label</span>
+                        <span style="flex: 1;">@context.Label</span>
+                        <Tag Color="@("default")" Style="font-size: 11px; flex-shrink: 0;">@GetTypeFromUrl(context.Value)</Tag>
                     </div>
                 </AutoCompleteOption>
             </OptionTemplate>
@@ -181,6 +182,14 @@
         if (url.StartsWith("/query/"))    return (IconType.Outline.Code,         "#52c41a");
         if (url.StartsWith("/jobs/"))     return (IconType.Outline.Partition,  "#faad14");
         return (IconType.Outline.File, "#8c8c8c");
+    }
+
+    private static string GetTypeFromUrl(string url)
+    {
+        if (url.StartsWith("/notebook/")) return "Notebook";
+        if (url.StartsWith("/query/"))    return "Query";
+        if (url.StartsWith("/jobs/"))     return "Job";
+        return "";
     }
 
     private static string GetItemIcon(string type) => type switch
