@@ -46,7 +46,7 @@ The orchestrator never executes code directly. It translates job tasks into kern
 | **Task timeout**               | Optional per-task `Timeout` field (passed to kernel execution)                                                                                                                                                                                                                                                   |
 | **Three task types**           | `NotebookTask`, `SqlQueryTask`, `SubJobTask`                                                                                                                                                                                                                                                                     |
 | **Sub-jobs**                   | A task can trigger another job and wait for its completion                                                                                                                                                                                                                                                       |
-| **Scheduled execution**        | Cron-based schedules (5- or 6-field) with timezone support; reloaded from DB every cycle without restart                                                                                                                                                                                                         |
+| **Scheduled execution**        | Quartz-backed cron triggers (6-field Quartz format) with per-schedule timezone and automatic DST handling; schedule changes take effect immediately without restart                                                                                                                                               |
 | **Manual trigger**             | `POST /api/jobs/{id}/trigger` with optional parameter overrides                                                                                                                                                                                                                                                  |
 | **Parameterised jobs**         | Named parameters with defaults; resolved into `${{ param_name }}` placeholders in task configs                                                                                                                                                                                                                   |
 | **Notebook parameterisation**  | Injects a parameter cell after a cell tagged `parameters` before execution                                                                                                                                                                                                                                       |
@@ -103,7 +103,7 @@ An edge in the task DAG. `DependsOnTaskId` points to the upstream task; `Conditi
 
 ### `JobSchedule`
 
-A cron rule attached to a job. `CronExpression` supports both 5-field (standard) and 6-field (with seconds) formats. `TimeZone` accepts any IANA or Windows timezone ID. `NextFireTime` is maintained by `SchedulerService`. Optional `Parameters` override job defaults for scheduled runs.
+A cron rule attached to a job. `CronExpression` must be a valid Quartz 6-field expression (`seconds minutes hours day-of-month month day-of-week`), e.g. `0 30 8 * * ?` — 5-field Unix cron is rejected by the scheduler. `TimeZone` accepts any IANA or Windows timezone ID recognised by `TimeZoneInfo.FindSystemTimeZoneById`; falls back to server local time if blank. `NextFireTime` is a `[NotMapped]` computed `DateTimeOffset?` property calculated on demand from `CronExpression` and `TimeZone` using `Quartz.CronExpression` — it is never persisted and must never be assigned or read through EF queries. Optional `Parameters` override job-level parameter defaults for scheduled runs; required parameters with no default must be present here or the run will be rejected at trigger time.
 
 ### `NodePoolConfig` (abstract)
 
@@ -145,7 +145,7 @@ A run is created by `TriggerJobHandler` (command: `TriggerJobRequest`), which:
 Triggers come from three sources:
 
 - **Manual**: `POST /api/jobs/{id}/trigger` (UI or external caller)
-- **Scheduled**: `SchedulerService` evaluates cron schedules and calls `TriggerJobRequest`
+- **Scheduled**: `SchedulesManager` fires a Quartz cron trigger and calls `TriggerJobRequest` via `ScheduledJobExecutor`
 - **Sub-job**: `TaskExecutor` calls `TriggerJobRequest` when executing a `SubJobTask`
 
 ### 2. Dispatch (`RunDispatcher`)
@@ -284,16 +284,18 @@ while (true):
 
 Runs as a `BackgroundService`. On startup it calls `WarmPoolManager.InitialiseAsync` to rediscover any warm standby nodes already running from a previous process instance. Then, every 60 seconds, it loads all `JobNodePoolConfig` records with `WarmNodes > 0` and calls `WarmPoolManager.ReplenishAsync` for each — ensuring the warm standby queues stay filled even if nodes are unexpectedly lost.
 
-#### `SchedulerService`
+#### `SchedulesManager`
 
-Runs as a `BackgroundService`. Every `Scheduling:EvaluationIntervalSeconds` seconds (default 30):
+Singleton `BackgroundService` that wraps a Quartz in-memory scheduler. On startup it loads all `JobSchedule` rows from the database and registers a Quartz cron trigger for each one; disabled schedules are registered but paused.
 
-1. Loads all enabled `JobSchedule` records from the database.
-2. For each schedule, parses the cron expression and computes the next fire time from `NextFireTime` (or `now - 30s` on first evaluation).
-3. If `nextFire <= now`, checks that the target job exists and is enabled, then calls `TriggerJobRequest` and `RunDispatcher.DispatchRun`.
-4. Updates `NextFireTime` in the database.
+`ScheduledJobExecutor` (Quartz `IJob`) fires when a trigger is due:
+1. Loads the job and verifies it is enabled.
+2. Finds the matching `JobSchedule` on `job.Schedules` to obtain parameter overrides.
+3. Calls `TriggerJobRequest` with those overrides — `TriggerJobHandler` then merges them with job-schema defaults and validates required parameters.
 
-Schedules are reloaded from the database every cycle, so adding, modifying, or deleting a schedule takes effect without restarting the service.
+Quartz stores all trigger fire times as UTC and recomputes the next fire time through the configured `TimeZoneInfo` after each execution, so DST transitions are handled automatically without a restart. The misfire policy is `DoNothing`: if the service was down when a trigger was due, that instance is skipped.
+
+**Immediate updates**: `CreateScheduleHandler`, `UpdateScheduleHandler`, `DeleteScheduleHandler`, and `DeleteJobHandler` call the corresponding `SchedulesManager` method immediately after persisting to the database — no polling or restart needed.
 
 #### `RecoveryService`
 
@@ -409,7 +411,7 @@ tasks:
         condition: onCompletion
 
 schedules:
-  - cron: "0 2 * * *"
+  - cron: "0 0 2 * * ?"
     timeZone: "Europe/Helsinki"
     parameters:
       run_date: "auto"
@@ -424,7 +426,6 @@ Valid dependency conditions: `onSuccess`, `onFailure`, `onCompletion`, `onSkip`.
 | Key                                    | Default                | Description                                                      |
 | -------------------------------------- | ---------------------- | ---------------------------------------------------------------- |
 | `ControlPlane:BaseAddress`             | `http://control-plane` | Base URL of the Control Plane service                            |
-| `Scheduling:EvaluationIntervalSeconds` | `30`                   | How often `SchedulerService` evaluates cron schedules            |
 | `History:RetentionDays`                | `30`                   | Age (in days) at which completed runs are purged; `≤ 0` disables |
 | `History:PurgeIntervalHours`           | `1`                    | How often `HistoryRetentionService` runs the purge               |
 

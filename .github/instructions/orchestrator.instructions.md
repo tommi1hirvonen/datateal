@@ -73,7 +73,15 @@ SQL cells and `SqlQueryTask` content are wrapped as DuckDB Python calls — the 
 
 ## Scheduling
 
-`SchedulerService` reloads all enabled schedules from the database every evaluation cycle — schedule changes take effect without restarting the service.
+Scheduling uses Quartz.NET (`SchedulesManager`, a singleton `BackgroundService`). On startup all `JobSchedule` rows are loaded and registered as Quartz cron triggers. When a trigger fires, `ScheduledJobExecutor` verifies the job is enabled, reads `schedule.Parameters` overrides, and calls `TriggerJobRequest`.
+
+**`JobSchedule.NextFireTime`** is a `[NotMapped]` computed `DateTimeOffset?` property — derived from `CronExpression` + `TimeZone` via `Quartz.CronExpression.GetNextValidTimeAfter()` + `TimeZoneInfo.ConvertTime`. Never persisted; never needs to be manually assigned. Do not add it back to migrations.
+
+**Cron format**: Quartz 6-field only (`seconds minutes hours day-of-month month day-of-week`). 5-field Unix cron is rejected. Example: `0 30 8 * * ?`.
+
+**Immediate updates**: `CreateScheduleHandler`, `UpdateScheduleHandler`, `DeleteScheduleHandler`, and `DeleteJobHandler` each call `SchedulesManager` directly after DB save — no polling lag.
+
+**Parameter validation**: `TriggerJobHandler.BuildEffectiveParameters` merges caller overrides with `DefaultValue` from the job schema. Any `IsRequired` parameter still missing after the merge causes an `InvalidOperationException` — the run is never created.
 
 ## YAML import
 
