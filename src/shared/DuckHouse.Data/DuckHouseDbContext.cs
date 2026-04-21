@@ -82,10 +82,13 @@ public class DuckHouseDbContext(DbContextOptions<DuckHouseDbContext> options)
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Title).HasMaxLength(512).IsRequired();
             entity.Property(e => e.Content).IsRequired();
-            entity.HasDiscriminator<string>("ItemType")
-                .HasValue<Notebook>("Notebook")
-                .HasValue<Query>("Query");
-            entity.Property("ItemType").HasMaxLength(32).IsRequired();
+            entity.HasDiscriminator(e => e.ItemType)
+                .HasValue<Notebook>(WorkspaceItemType.Notebook)
+                .HasValue<Query>(WorkspaceItemType.Query);
+            entity.Property(e => e.ItemType)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .IsRequired();
             entity.HasOne(e => e.Folder)
                 .WithMany(e => e.Items)
                 .HasForeignKey(e => e.FolderId)

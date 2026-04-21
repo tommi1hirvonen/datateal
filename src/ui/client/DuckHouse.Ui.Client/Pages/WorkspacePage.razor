@@ -1,6 +1,7 @@
 @page "/workspace"
 
 @using DuckHouse.Ui.Shared.Workspace
+@using DuckHouse.Core.Workspace
 @inject IWorkspaceService WorkspaceService
 @inject NavigationManager Navigation
 
@@ -82,7 +83,7 @@ else
     @* Combined folders + notebooks + queries table *@
     @if (_items.Count > 0 || _addingFolder)
     {
-        <Table TItem="WorkspaceItem" DataSource="_items" Bordered="false"
+        <Table TItem="WorkspacePageItem" DataSource="_items" Bordered="false"
                PageSize="int.MaxValue" PaginationPosition="none" Size="TableSize.Small">
             <PropertyColumn Property="i => i.Name" Title="Name">
                 @if (context.IsFolder)
@@ -92,16 +93,16 @@ else
                         @context.Name
                     </a>
                 }
-                else if (context.Notebook is not null)
+                else if (context.IsNotebook)
                 {
-                    <a @onclick="() => OpenNotebook(context.Notebook!)" @onclick:preventDefault style="cursor: pointer; font-weight: 500;">
+                    <a @onclick="() => OpenItem(context.Item!)" @onclick:preventDefault style="cursor: pointer; font-weight: 500;">
                         <Icon Type="@IconType.Outline.FileText" Style="margin-right: 6px; color: #1677ff;" />
                         @context.Name
                     </a>
                 }
                 else
                 {
-                    <a @onclick="() => OpenQuery(context.Query!)" @onclick:preventDefault style="cursor: pointer; font-weight: 500;">
+                    <a @onclick="() => OpenItem(context.Item!)" @onclick:preventDefault style="cursor: pointer; font-weight: 500;">
                         <Icon Type="@IconType.Outline.Code" Style="margin-right: 6px; color: #52c41a;" />
                         @context.Name
                     </a>
@@ -112,7 +113,7 @@ else
                 {
                     <Tag>Folder</Tag>
                 }
-                else if (context.Notebook is not null)
+                else if (context.IsNotebook)
                 {
                     <Tag Color="@("blue")">Notebook</Tag>
                 }
@@ -153,31 +154,31 @@ else
                         </SpaceItem>
                     </Space>
                 }
-                else if (context.Notebook is not null)
+                else if (context.IsNotebook)
                 {
                     <Space Size="SpaceSize.Small">
                         <SpaceItem>
                             <Tooltip Title="Clone">
                                 <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Copy"
-                                        OnClick="() => CloneNotebookAsync(context.Notebook!)" />
+                                        OnClick="() => CloneItemAsync(context.Item!)" />
                             </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
                             <Tooltip Title="Move">
                                 <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Import"
-                                        OnClick="() => StartMoveNotebook(context.Notebook!)" />
+                                        OnClick="() => StartMoveItem(context.Item!)" />
                             </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
                             <Tooltip Title="Rename">
                                 <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Edit"
-                                        OnClick="() => StartRenameNotebook(context.Notebook!)" />
+                                        OnClick="() => StartRenameItem(context.Item!)" />
                             </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
                             <Tooltip Title="Delete">
                                 <Popconfirm Title="Delete this notebook?"
-                                            OnConfirm="@(() => DeleteNotebookAsync(context.Notebook!))"
+                                            OnConfirm="@(() => DeleteItemAsync(context.Item!))"
                                             OkText="@("Delete")" OkType="ButtonType.Primary"
                                             OkButtonProps="new ButtonProps { Danger = true }"
                                             CancelText="Cancel">
@@ -193,25 +194,25 @@ else
                         <SpaceItem>
                             <Tooltip Title="Clone">
                                 <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Copy"
-                                        OnClick="() => CloneQueryAsync(context.Query!)" />
+                                        OnClick="() => CloneItemAsync(context.Item!)" />
                             </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
                             <Tooltip Title="Move">
                                 <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Import"
-                                        OnClick="() => StartMoveQuery(context.Query!)" />
+                                        OnClick="() => StartMoveItem(context.Item!)" />
                             </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
                             <Tooltip Title="Rename">
                                 <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Edit"
-                                        OnClick="() => StartRenameQuery(context.Query!)" />
+                                        OnClick="() => StartRenameItem(context.Item!)" />
                             </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
                             <Tooltip Title="Delete">
                                 <Popconfirm Title="Delete this query?"
-                                            OnConfirm="@(() => DeleteQueryAsync(context.Query!))"
+                                            OnConfirm="@(() => DeleteItemAsync(context.Item!))"
                                             OkText="@("Delete")" OkType="ButtonType.Primary"
                                             OkButtonProps="new ButtonProps { Danger = true }"
                                             CancelText="Cancel">
@@ -249,30 +250,16 @@ else
 </Modal>
 
 @* Rename notebook modal *@
-<Modal Title="@("Rename notebook")"
-       Visible="_renameNotebookTarget is not null"
-       OnOk="ConfirmRenameNotebookAsync"
-       OnCancel="CancelRenameNotebook"
+<Modal Title="@($"Rename {(_renameItemTarget?.ItemType == WorkspaceItemType.Notebook ? "notebook" : "query")}")"
+       Visible="_renameItemTarget is not null"
+       OnOk="ConfirmRenameItemAsync"
+       OnCancel="CancelRenameItem"
        OkText="@("Rename")"
-       OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_renameNotebookName) || _renameNotebookName.Contains('/') })">
-    <Input @bind-Value="_renameNotebookName" Placeholder="Notebook title" />
-    @if (_renameNotebookName.Contains('/'))
+       OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_renameItemName) || _renameItemName.Contains('/') })">
+    <Input @bind-Value="_renameItemName" Placeholder="Title" />
+    @if (_renameItemName.Contains('/'))
     {
-        <span style="font-size: 0.75rem; color: #ff4d4f; margin-top: 4px; display: block;">Notebook title cannot contain '/'.</span>
-    }
-</Modal>
-
-@* Rename query modal *@
-<Modal Title="@("Rename query")"
-       Visible="_renameQueryTarget is not null"
-       OnOk="ConfirmRenameQueryAsync"
-       OnCancel="CancelRenameQuery"
-       OkText="@("Rename")"
-       OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_renameQueryName) || _renameQueryName.Contains('/') })">
-    <Input @bind-Value="_renameQueryName" Placeholder="Query title" />
-    @if (_renameQueryName.Contains('/'))
-    {
-        <span style="font-size: 0.75rem; color: #ff4d4f; margin-top: 4px; display: block;">Query title cannot contain '/'.</span>
+        <span style="font-size: 0.75rem; color: #ff4d4f; margin-top: 4px; display: block;">Title cannot contain '/'.</span>
     }
 </Modal>
 
@@ -284,34 +271,29 @@ else
                    OnConfirm="ConfirmMoveFolderAsync"
                    OnCancel="@(() => _moveFolderTarget = null)" />
 
-@* Move notebook folder picker *@
-<FolderPickerModal Visible="_moveNotebookTarget is not null"
-                   Title="@("Move notebook to folder")"
+@* Move item folder picker *@
+<FolderPickerModal Visible="_moveItemTarget is not null"
+                   Title="@($"Move {(_moveItemTarget?.ItemType == WorkspaceItemType.Notebook ? "notebook" : "query")} to folder")"
                    OkText="@("Move here")"
-                   OnConfirm="ConfirmMoveNotebookAsync"
-                   OnCancel="@(() => _moveNotebookTarget = null)" />
-
-@* Move query folder picker *@
-<FolderPickerModal Visible="_moveQueryTarget is not null"
-                   Title="@("Move query to folder")"
-                   OkText="@("Move here")"
-                   OnConfirm="ConfirmMoveQueryAsync"
-                   OnCancel="@(() => _moveQueryTarget = null)" />
+                   OnConfirm="ConfirmMoveItemAsync"
+                   OnCancel="@(() => _moveItemTarget = null)" />
 
 @code {
     [Parameter, SupplyParameterFromQuery(Name = "folder")]
     public Guid? Folder { get; set; }
 
-    private sealed record WorkspaceItem(FolderSummary? Folder, NotebookSummary? Notebook, QuerySummary? Query)
+    private sealed record WorkspacePageItem(FolderSummary? Folder, WorkspaceItemSummary? Item)
     {
-        public bool IsFolder => Folder is not null;
-        public string Name => Folder?.Name ?? Notebook?.Title ?? Query!.Title;
-        public string ItemTypeLabel => IsFolder ? "Folder" : Notebook is not null ? "Notebook" : "Query";
-        public DateTime Date => Folder?.CreatedAt ?? Notebook?.UpdatedAt ?? Query!.UpdatedAt;
+        public bool IsFolder   => Folder is not null;
+        public bool IsNotebook => Item?.ItemType == WorkspaceItemType.Notebook;
+        public bool IsQuery    => Item?.ItemType == WorkspaceItemType.Query;
+        public string Name          => Folder?.Name ?? Item!.Title;
+        public string ItemTypeLabel => IsFolder ? "Folder" : IsNotebook ? "Notebook" : "Query";
+        public DateTime Date        => Folder?.CreatedAt ?? Item!.UpdatedAt;
     }
 
-    private WorkspaceListing _listing = new([], [], []);
-    private List<WorkspaceItem> _items = [];
+    private WorkspaceListing _listing = new([], []);
+    private List<WorkspacePageItem> _items = [];
     private List<(Guid? Id, string Name)> _breadcrumbs = [(null, "Workspace")];
     private Guid? _lastLoadedFolder = Guid.Empty; // sentinel — differs from null (root)
     private bool _loading;
@@ -326,22 +308,15 @@ else
     private FolderSummary? _renameFolderTarget;
     private string _renameFolderName = "";
 
-    // Rename notebook
-    private NotebookSummary? _renameNotebookTarget;
-    private string _renameNotebookName = "";
-
-    // Rename query
-    private QuerySummary? _renameQueryTarget;
-    private string _renameQueryName = "";
+    // Rename item (notebook or query)
+    private WorkspaceItemSummary? _renameItemTarget;
+    private string _renameItemName = "";
 
     // Move folder
     private FolderSummary? _moveFolderTarget;
 
-    // Move notebook
-    private NotebookSummary? _moveNotebookTarget;
-
-    // Move query
-    private QuerySummary? _moveQueryTarget;
+    // Move item (notebook or query)
+    private WorkspaceItemSummary? _moveItemTarget;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -375,15 +350,19 @@ else
         finally
         {
             _items = [
-                .._listing.Folders.Select(f => new WorkspaceItem(f, null, null))
+                .._listing.Folders.Select(f => new WorkspacePageItem(f, null))
                                   .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase),
-                .._listing.Notebooks.Select(n => new WorkspaceItem(null, n, null))
-                    .Concat(_listing.Queries.Select(q => new WorkspaceItem(null, null, q)))
-                    .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase),
+                .._listing.Items.Select(i => new WorkspacePageItem(null, i))
+                                .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase),
             ];
             _loading = false;
         }
     }
+
+    private void OpenItem(WorkspaceItemSummary item) =>
+        Navigation.NavigateTo(item.ItemType == WorkspaceItemType.Notebook
+            ? $"/notebook/{item.Id}"
+            : $"/query/{item.Id}");
 
     private void OpenFolder(FolderSummary folder) =>
         Navigation.NavigateTo($"/workspace?folder={folder.Id}");
@@ -393,12 +372,6 @@ else
         var crumb = _breadcrumbs[index];
         Navigation.NavigateTo(crumb.Id is null ? "/workspace" : $"/workspace?folder={crumb.Id}");
     }
-
-    private void OpenNotebook(NotebookSummary notebook) =>
-        Navigation.NavigateTo($"/notebook/{notebook.Id}");
-
-    private void OpenQuery(QuerySummary query) =>
-        Navigation.NavigateTo($"/query/{query.Id}");
 
     // ── New Folder ────────────────────────────────────────────────────
 
@@ -477,131 +450,96 @@ else
         catch (Exception ex) { _error = $"Failed to move folder: {ex.Message}"; }
     }
 
-    // ── Rename Notebook ───────────────────────────────────────────────
+    // ── Rename Item (notebook or query) ───────────────────────────────
 
-    private void StartRenameNotebook(NotebookSummary notebook)
+    private void StartRenameItem(WorkspaceItemSummary item)
     {
-        _renameNotebookTarget = notebook;
-        _renameNotebookName = notebook.Title;
+        _renameItemTarget = item;
+        _renameItemName = item.Title;
     }
 
-    private async Task ConfirmRenameNotebookAsync()
+    private async Task ConfirmRenameItemAsync()
     {
-        if (_renameNotebookTarget is null) return;
-        var title = _renameNotebookName.Trim();
-        if (string.IsNullOrEmpty(title)) { CancelRenameNotebook(); return; }
+        if (_renameItemTarget is null) return;
+        var title = _renameItemName.Trim();
+        if (string.IsNullOrEmpty(title)) { CancelRenameItem(); return; }
         try
         {
-            // Content is preserved — fetch current content first so we don't overwrite it with empty
-            var detail = await WorkspaceService.GetNotebookAsync(_renameNotebookTarget.Id);
-            if (detail is not null)
+            if (_renameItemTarget.ItemType == WorkspaceItemType.Notebook)
             {
-                await WorkspaceService.UpdateNotebookAsync(_renameNotebookTarget.Id,
-                    new UpdateNotebookRequest(title, detail.Content, _renameNotebookTarget.FolderId));
+                var detail = await WorkspaceService.GetNotebookAsync(_renameItemTarget.Id);
+                if (detail is not null)
+                    await WorkspaceService.UpdateNotebookAsync(_renameItemTarget.Id,
+                        new UpdateNotebookRequest(title, detail.Content, _renameItemTarget.FolderId));
             }
-            _renameNotebookTarget = null;
-            await LoadAsync();
-        }
-        catch (Exception ex) { _error = $"Failed to rename notebook: {ex.Message}"; }
-    }
-
-    private void CancelRenameNotebook() => _renameNotebookTarget = null;
-
-    // ── Move Notebook ─────────────────────────────────────────────────
-
-    private void StartMoveNotebook(NotebookSummary notebook) => _moveNotebookTarget = notebook;
-
-    private async Task ConfirmMoveNotebookAsync(Guid? folderId)
-    {
-        if (_moveNotebookTarget is null) return;
-        var target = _moveNotebookTarget;
-        _moveNotebookTarget = null;
-        try
-        {
-            var detail = await WorkspaceService.GetNotebookAsync(target.Id);
-            if (detail is not null)
-                await WorkspaceService.UpdateNotebookAsync(target.Id,
-                    new UpdateNotebookRequest(target.Title, detail.Content, folderId));
-            await LoadAsync();
-        }
-        catch (Exception ex) { _error = $"Failed to move notebook: {ex.Message}"; }
-    }
-
-    // ── Clone Notebook ────────────────────────────────────────────────
-
-    private async Task CloneNotebookAsync(NotebookSummary notebook)
-    {
-        try
-        {
-            var detail = await WorkspaceService.GetNotebookAsync(notebook.Id);
-            if (detail is not null)
-                await WorkspaceService.CreateNotebookAsync(
-                    new CreateNotebookRequest($"{notebook.Title} - Copy", detail.Content, notebook.FolderId));
-            await LoadAsync();
-        }
-        catch (Exception ex) { _error = $"Failed to clone notebook: {ex.Message}"; }
-    }
-
-    private async Task CloneQueryAsync(QuerySummary query)
-    {
-        try
-        {
-            var detail = await WorkspaceService.GetQueryAsync(query.Id);
-            if (detail is not null)
-                await WorkspaceService.CreateQueryAsync(
-                    new CreateQueryRequest($"{query.Title} - Copy", detail.Content, query.FolderId));
-            await LoadAsync();
-        }
-        catch (Exception ex) { _error = $"Failed to clone query: {ex.Message}"; }
-    }
-
-    // ── Rename Query ──────────────────────────────────────────────────
-
-    private void StartRenameQuery(QuerySummary query)
-    {
-        _renameQueryTarget = query;
-        _renameQueryName = query.Title;
-    }
-
-    private async Task ConfirmRenameQueryAsync()
-    {
-        if (_renameQueryTarget is null) return;
-        var title = _renameQueryName.Trim();
-        if (string.IsNullOrEmpty(title)) { CancelRenameQuery(); return; }
-        try
-        {
-            var detail = await WorkspaceService.GetQueryAsync(_renameQueryTarget.Id);
-            if (detail is not null)
+            else
             {
-                await WorkspaceService.UpdateQueryAsync(_renameQueryTarget.Id,
-                    new UpdateQueryRequest(title, detail.Content, _renameQueryTarget.FolderId));
+                var detail = await WorkspaceService.GetQueryAsync(_renameItemTarget.Id);
+                if (detail is not null)
+                    await WorkspaceService.UpdateQueryAsync(_renameItemTarget.Id,
+                        new UpdateQueryRequest(title, detail.Content, _renameItemTarget.FolderId));
             }
-            _renameQueryTarget = null;
+            _renameItemTarget = null;
             await LoadAsync();
         }
-        catch (Exception ex) { _error = $"Failed to rename query: {ex.Message}"; }
+        catch (Exception ex) { _error = $"Failed to rename: {ex.Message}"; }
     }
 
-    private void CancelRenameQuery() => _renameQueryTarget = null;
+    private void CancelRenameItem() => _renameItemTarget = null;
 
-    // ── Move Query ────────────────────────────────────────────────────
+    // ── Move Item (notebook or query) ─────────────────────────────────
 
-    private void StartMoveQuery(QuerySummary query) => _moveQueryTarget = query;
+    private void StartMoveItem(WorkspaceItemSummary item) => _moveItemTarget = item;
 
-    private async Task ConfirmMoveQueryAsync(Guid? folderId)
+    private async Task ConfirmMoveItemAsync(Guid? folderId)
     {
-        if (_moveQueryTarget is null) return;
-        var target = _moveQueryTarget;
-        _moveQueryTarget = null;
+        if (_moveItemTarget is null) return;
+        var target = _moveItemTarget;
+        _moveItemTarget = null;
         try
         {
-            var detail = await WorkspaceService.GetQueryAsync(target.Id);
-            if (detail is not null)
-                await WorkspaceService.UpdateQueryAsync(target.Id,
-                    new UpdateQueryRequest(target.Title, detail.Content, folderId));
+            if (target.ItemType == WorkspaceItemType.Notebook)
+            {
+                var detail = await WorkspaceService.GetNotebookAsync(target.Id);
+                if (detail is not null)
+                    await WorkspaceService.UpdateNotebookAsync(target.Id,
+                        new UpdateNotebookRequest(target.Title, detail.Content, folderId));
+            }
+            else
+            {
+                var detail = await WorkspaceService.GetQueryAsync(target.Id);
+                if (detail is not null)
+                    await WorkspaceService.UpdateQueryAsync(target.Id,
+                        new UpdateQueryRequest(target.Title, detail.Content, folderId));
+            }
             await LoadAsync();
         }
-        catch (Exception ex) { _error = $"Failed to move query: {ex.Message}"; }
+        catch (Exception ex) { _error = $"Failed to move: {ex.Message}"; }
+    }
+
+    // ── Clone Item ────────────────────────────────────────────────────
+
+    private async Task CloneItemAsync(WorkspaceItemSummary item)
+    {
+        try
+        {
+            if (item.ItemType == WorkspaceItemType.Notebook)
+            {
+                var detail = await WorkspaceService.GetNotebookAsync(item.Id);
+                if (detail is not null)
+                    await WorkspaceService.CreateNotebookAsync(
+                        new CreateNotebookRequest($"{item.Title} - Copy", detail.Content, item.FolderId));
+            }
+            else
+            {
+                var detail = await WorkspaceService.GetQueryAsync(item.Id);
+                if (detail is not null)
+                    await WorkspaceService.CreateQueryAsync(
+                        new CreateQueryRequest($"{item.Title} - Copy", detail.Content, item.FolderId));
+            }
+            await LoadAsync();
+        }
+        catch (Exception ex) { _error = $"Failed to clone: {ex.Message}"; }
     }
 
     // ── Delete ────────────────────────────────────────────────────────
@@ -616,24 +554,17 @@ else
         catch (Exception ex) { _error = $"Failed to delete folder: {ex.Message}"; }
     }
 
-    private async Task DeleteNotebookAsync(NotebookSummary notebook)
+    private async Task DeleteItemAsync(WorkspaceItemSummary item)
     {
         try
         {
-            await WorkspaceService.DeleteNotebookAsync(notebook.Id);
+            if (item.ItemType == WorkspaceItemType.Notebook)
+                await WorkspaceService.DeleteNotebookAsync(item.Id);
+            else
+                await WorkspaceService.DeleteQueryAsync(item.Id);
             await LoadAsync();
         }
-        catch (Exception ex) { _error = $"Failed to delete notebook: {ex.Message}"; }
-    }
-
-    private async Task DeleteQueryAsync(QuerySummary query)
-    {
-        try
-        {
-            await WorkspaceService.DeleteQueryAsync(query.Id);
-            await LoadAsync();
-        }
-        catch (Exception ex) { _error = $"Failed to delete query: {ex.Message}"; }
+        catch (Exception ex) { _error = $"Failed to delete: {ex.Message}"; }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────

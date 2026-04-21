@@ -93,16 +93,25 @@ internal class WorkspaceRepository(DuckHouseDbContext db) : IWorkspaceRepository
         return query.AnyAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<WorkspaceItem>> GetItemsInAsync(Guid? folderId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<WorkspaceItemHeader>> GetItemsInAsync(Guid? folderId, CancellationToken cancellationToken = default)
     {
         var query = folderId.HasValue
             ? db.WorkspaceItems.Where(i => i.FolderId == folderId)
             : db.WorkspaceItems.Where(i => i.FolderId == null);
 
-        return await query.OrderBy(i => i.Title).ToListAsync(cancellationToken);
+        return await query
+            .OrderBy(i => i.Title)
+            .Select(i => new WorkspaceItemHeader(
+                i.Id,
+                i.Title,
+                i.FolderId,
+                i.ItemType,
+                i.CreatedAt,
+                i.UpdatedAt))
+            .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<WorkspaceItem>> SearchItemsAsync(string query, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<WorkspaceItemHeader>> SearchItemsAsync(string query, CancellationToken cancellationToken = default)
     {
         IQueryable<WorkspaceItem> q = db.WorkspaceItems;
         if (!string.IsNullOrWhiteSpace(query))
@@ -110,7 +119,16 @@ internal class WorkspaceRepository(DuckHouseDbContext db) : IWorkspaceRepository
             var lower = query.ToLowerInvariant();
             q = q.Where(i => i.Title.ToLower().Contains(lower));
         }
-        return await q.OrderBy(i => i.Title).ToListAsync(cancellationToken);
+        return await q
+            .OrderBy(i => i.Title)
+            .Select(i => new WorkspaceItemHeader(
+                i.Id,
+                i.Title,
+                i.FolderId,
+                i.ItemType,
+                i.CreatedAt,
+                i.UpdatedAt))
+            .ToListAsync(cancellationToken);
     }
 
     // ── Notebooks ─────────────────────────────────────────────────────────

@@ -760,9 +760,9 @@
             var items = new List<RunMagicCompletionItem>();
             foreach (var f in resolved.Listing.Folders)
                 items.Add(new(f.Name + "/", "folder", f.Name + "/"));
-            foreach (var n in resolved.Listing.Notebooks)
+            foreach (var n in resolved.Listing.Items.Where(i => i.ItemType == DuckHouse.Core.Workspace.WorkspaceItemType.Notebook))
                 items.Add(new(n.Title, "notebook", n.Title));
-            foreach (var q in resolved.Listing.Queries)
+            foreach (var q in resolved.Listing.Items.Where(i => i.ItemType == DuckHouse.Core.Workspace.WorkspaceItemType.Query))
                 items.Add(new(q.Title, "query", q.Title));
             return items;
         }

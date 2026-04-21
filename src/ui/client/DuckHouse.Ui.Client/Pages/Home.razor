@@ -2,6 +2,7 @@
 
 @using DuckHouse.Ui.Shared.Workspace
 @using DuckHouse.Ui.Shared.Orchestration
+@using DuckHouse.Core.Workspace
 @inject IWorkspaceService WorkspaceService
 @inject IJobService JobService
 @inject IRecentItemsService RecentItemsService
@@ -81,8 +82,7 @@
     private bool _dataLoaded;
     private bool _loadingData;
     private string? _errorMessage;
-    private List<NotebookSummary> _allNotebooks = [];
-    private List<QuerySummary> _allQueries = [];
+    private List<WorkspaceItemSummary> _allItems = [];
     private List<JobSummary> _allJobs = [];
 
     // Flat option list fed to AutoComplete (drives dropdown visibility)
@@ -105,13 +105,10 @@
             var jobsTask = JobService.GetJobsAsync();
             await Task.WhenAll(wsTask, jobsTask);
 
-            var wsResult = await wsTask;
-            _allNotebooks = wsResult.Notebooks.ToList();
-            _allQueries = wsResult.Queries.ToList();
+            _allItems = (await wsTask).Items.ToList();
             _allJobs = (await jobsTask).ToList();
             _dataLoaded = true;
         }
-        //catch { /* non-fatal */ }
         catch (Exception ex)
         {
             _errorMessage = $"Failed to load search data: {ex.Message}";
@@ -145,11 +142,11 @@
 
         var opts = new List<AutoCompleteDataItem<string>>();
 
-        foreach (var nb in _allNotebooks.Where(n => n.Title.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(8))
-            opts.Add(new AutoCompleteDataItem<string>($"/notebook/{nb.Id}", nb.Title));
-
-        foreach (var qr in _allQueries.Where(qr => qr.Title.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(8))
-            opts.Add(new AutoCompleteDataItem<string>($"/query/{qr.Id}", qr.Title));
+        foreach (var item in _allItems.Where(i => i.Title.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(16))
+        {
+            var url = item.ItemType == WorkspaceItemType.Notebook ? $"/notebook/{item.Id}" : $"/query/{item.Id}";
+            opts.Add(new AutoCompleteDataItem<string>(url, item.Title));
+        }
 
         foreach (var j in _allJobs.Where(j => j.Name.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(8))
             opts.Add(new AutoCompleteDataItem<string>($"/jobs/{j.Id}", j.Name));

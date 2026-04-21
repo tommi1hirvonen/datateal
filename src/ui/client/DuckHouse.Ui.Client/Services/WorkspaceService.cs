@@ -16,15 +16,15 @@ internal class WorkspaceService(HttpClient httpClient) : IWorkspaceService
     public async Task<WorkspaceSearchResult> SearchAsync(string query, CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync<WorkspaceSearchResult>(
             $"api/workspace/search?q={Uri.EscapeDataString(query)}", JsonOptions, cancellationToken)
-        ?? new WorkspaceSearchResult([], []);
+        ?? new WorkspaceSearchResult([]);
 
     public async Task<WorkspaceListing> GetRootAsync(CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync<WorkspaceListing>("api/workspace", JsonOptions, cancellationToken)
-        ?? new WorkspaceListing([], [], []);
+        ?? new WorkspaceListing([], []);
 
     public async Task<WorkspaceListing> GetFolderAsync(Guid folderId, CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync<WorkspaceListing>($"api/workspace/folders/{folderId}", JsonOptions, cancellationToken)
-        ?? new WorkspaceListing([], [], []);
+        ?? new WorkspaceListing([], []);
 
     public async Task<IReadOnlyList<FolderSummary>> GetFolderAncestorsAsync(Guid folderId, CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync<IReadOnlyList<FolderSummary>>($"api/workspace/folders/{folderId}/ancestors", JsonOptions, cancellationToken)
@@ -71,21 +71,21 @@ internal class WorkspaceService(HttpClient httpClient) : IWorkspaceService
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<NotebookSummary> CreateNotebookAsync(CreateNotebookRequest request, CancellationToken cancellationToken = default)
+    public async Task<WorkspaceItemSummary> CreateNotebookAsync(CreateNotebookRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync("api/workspace/notebooks", request, JsonOptions, cancellationToken);
         await EnsureNotConflictAsync(response, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<NotebookSummary>(JsonOptions, cancellationToken))!;
+        return (await response.Content.ReadFromJsonAsync<WorkspaceItemSummary>(JsonOptions, cancellationToken))!;
     }
 
-    public async Task<NotebookSummary?> UpdateNotebookAsync(Guid id, UpdateNotebookRequest request, CancellationToken cancellationToken = default)
+    public async Task<WorkspaceItemSummary?> UpdateNotebookAsync(Guid id, UpdateNotebookRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PutAsJsonAsync($"api/workspace/notebooks/{id}", request, JsonOptions, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         await EnsureNotConflictAsync(response, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<NotebookSummary>(JsonOptions, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<WorkspaceItemSummary>(JsonOptions, cancellationToken);
     }
 
     public async Task DeleteNotebookAsync(Guid id, CancellationToken cancellationToken = default)
@@ -102,21 +102,21 @@ internal class WorkspaceService(HttpClient httpClient) : IWorkspaceService
         return await response.Content.ReadFromJsonAsync<QueryDetail>(JsonOptions, cancellationToken);
     }
 
-    public async Task<QuerySummary> CreateQueryAsync(CreateQueryRequest request, CancellationToken cancellationToken = default)
+    public async Task<WorkspaceItemSummary> CreateQueryAsync(CreateQueryRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync("api/workspace/queries", request, JsonOptions, cancellationToken);
         await EnsureNotConflictAsync(response, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<QuerySummary>(JsonOptions, cancellationToken))!;
+        return (await response.Content.ReadFromJsonAsync<WorkspaceItemSummary>(JsonOptions, cancellationToken))!;
     }
 
-    public async Task<QuerySummary?> UpdateQueryAsync(Guid id, UpdateQueryRequest request, CancellationToken cancellationToken = default)
+    public async Task<WorkspaceItemSummary?> UpdateQueryAsync(Guid id, UpdateQueryRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PutAsJsonAsync($"api/workspace/queries/{id}", request, JsonOptions, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         await EnsureNotConflictAsync(response, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<QuerySummary>(JsonOptions, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<WorkspaceItemSummary>(JsonOptions, cancellationToken);
     }
 
     public async Task DeleteQueryAsync(Guid id, CancellationToken cancellationToken = default)

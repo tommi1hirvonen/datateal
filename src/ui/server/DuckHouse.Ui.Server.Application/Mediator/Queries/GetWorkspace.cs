@@ -1,6 +1,5 @@
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Server.Core.Repositories;
-using DuckHouse.Core.Workspace;
 using DuckHouse.Ui.Shared.Workspace;
 
 namespace DuckHouse.Ui.Server.Application.Mediator.Queries;
@@ -18,16 +17,10 @@ internal class GetWorkspaceHandler(IWorkspaceRepository repository) : IRequestHa
             .Select(f => new FolderSummary(f.Id, f.Name, f.ParentId, f.CreatedAt))
             .ToList();
 
-        var notebookSummaries = items
-            .OfType<Notebook>()
-            .Select(n => new NotebookSummary(n.Id, n.Title, n.FolderId, n.CreatedAt, n.UpdatedAt))
+        var itemSummaries = items
+            .Select(h => new WorkspaceItemSummary(h.Id, h.Title, h.FolderId, h.ItemType, h.CreatedAt, h.UpdatedAt))
             .ToList();
 
-        var querySummaries = items
-            .OfType<Query>()
-            .Select(q => new QuerySummary(q.Id, q.Title, q.FolderId, q.CreatedAt, q.UpdatedAt))
-            .ToList();
-
-        return new WorkspaceListing(folderSummaries, notebookSummaries, querySummaries);
+        return new WorkspaceListing(folderSummaries, itemSummaries);
     }
 }

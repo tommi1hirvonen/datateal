@@ -17,13 +17,13 @@ public interface IWorkspaceService
     Task<FolderSummary?> UpdateFolderAsync(Guid id, UpdateFolderRequest request, CancellationToken cancellationToken = default);
     Task DeleteFolderAsync(Guid id, CancellationToken cancellationToken = default);
 
-    Task<NotebookSummary> CreateNotebookAsync(CreateNotebookRequest request, CancellationToken cancellationToken = default);
-    Task<NotebookSummary?> UpdateNotebookAsync(Guid id, UpdateNotebookRequest request, CancellationToken cancellationToken = default);
+    Task<WorkspaceItemSummary> CreateNotebookAsync(CreateNotebookRequest request, CancellationToken cancellationToken = default);
+    Task<WorkspaceItemSummary?> UpdateNotebookAsync(Guid id, UpdateNotebookRequest request, CancellationToken cancellationToken = default);
     Task DeleteNotebookAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<QueryDetail?> GetQueryAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<QuerySummary> CreateQueryAsync(CreateQueryRequest request, CancellationToken cancellationToken = default);
-    Task<QuerySummary?> UpdateQueryAsync(Guid id, UpdateQueryRequest request, CancellationToken cancellationToken = default);
+    Task<WorkspaceItemSummary> CreateQueryAsync(CreateQueryRequest request, CancellationToken cancellationToken = default);
+    Task<WorkspaceItemSummary?> UpdateQueryAsync(Guid id, UpdateQueryRequest request, CancellationToken cancellationToken = default);
     Task DeleteQueryAsync(Guid id, CancellationToken cancellationToken = default);
     Task SaveQueryResultAsync(Guid id, SaveQueryResultRequest request, CancellationToken cancellationToken = default);
 }

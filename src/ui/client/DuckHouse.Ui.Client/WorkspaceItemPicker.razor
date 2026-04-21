@@ -1,4 +1,5 @@
 @using DuckHouse.Ui.Shared.Workspace
+@using DuckHouse.Core.Workspace
 @inject IWorkspaceService WorkspaceService
 
 <Select TItem="WorkspaceItem"
@@ -44,17 +45,13 @@
 
         if (ItemType == "Notebook")
         {
-            foreach (var nb in listing.Notebooks)
-            {
-                _items.Add(new WorkspaceItem(nb.Id, $"{parentPath}/{nb.Title}"));
-            }
+            foreach (var item in listing.Items.Where(i => i.ItemType == WorkspaceItemType.Notebook))
+                _items.Add(new WorkspaceItem(item.Id, $"{parentPath}/{item.Title}"));
         }
         else if (ItemType == "Query")
         {
-            foreach (var q in listing.Queries)
-            {
-                _items.Add(new WorkspaceItem(q.Id, $"{parentPath}/{q.Title}"));
-            }
+            foreach (var item in listing.Items.Where(i => i.ItemType == WorkspaceItemType.Query))
+                _items.Add(new WorkspaceItem(item.Id, $"{parentPath}/{item.Title}"));
         }
 
         foreach (var folder in listing.Folders)

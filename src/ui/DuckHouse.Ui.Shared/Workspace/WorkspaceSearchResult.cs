@@ -1,5 +1,3 @@
 namespace DuckHouse.Ui.Shared.Workspace;
 
-public record WorkspaceSearchResult(
-    IReadOnlyList<NotebookSummary> Notebooks,
-    IReadOnlyList<QuerySummary> Queries);
+public record WorkspaceSearchResult(IReadOnlyList<WorkspaceItemSummary> Items);

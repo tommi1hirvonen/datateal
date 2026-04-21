@@ -16,12 +16,12 @@ public interface IWorkspaceRepository
     /// <summary>Finds a child folder by name within a parent folder.</summary>
     Task<Folder?> GetFolderByNameAsync(string name, Guid? parentId, CancellationToken cancellationToken = default);
 
-    // Workspace listing (returns polymorphic items — callers use pattern matching)
+    // Workspace listing — return lean headers; Content is never loaded
     Task<WorkspaceItem?> GetItemAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<WorkspaceItem>> GetItemsInAsync(Guid? folderId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<WorkspaceItemHeader>> GetItemsInAsync(Guid? folderId, CancellationToken cancellationToken = default);
 
-    /// <summary>Case-insensitive substring search across all folders.</summary>
-    Task<IReadOnlyList<WorkspaceItem>> SearchItemsAsync(string query, CancellationToken cancellationToken = default);
+    /// <summary>Case-insensitive substring search across all folders. Does not load Content.</summary>
+    Task<IReadOnlyList<WorkspaceItemHeader>> SearchItemsAsync(string query, CancellationToken cancellationToken = default);
 
     /// <summary>Finds a workspace item (notebook or query) by title within a folder.</summary>
     Task<WorkspaceItem?> GetItemByTitleAsync(string title, Guid? folderId, CancellationToken cancellationToken = default);

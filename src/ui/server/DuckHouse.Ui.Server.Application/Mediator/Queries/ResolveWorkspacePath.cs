@@ -89,8 +89,7 @@ internal class ResolveWorkspacePathHandler(IWorkspaceRepository repository)
 
         var listing = new WorkspaceListing(
             folders.Select(f => new FolderSummary(f.Id, f.Name, f.ParentId, f.CreatedAt)).ToList(),
-            items.OfType<Notebook>().Select(n => new NotebookSummary(n.Id, n.Title, n.FolderId, n.CreatedAt, n.UpdatedAt)).ToList(),
-            items.OfType<Query>().Select(q => new QuerySummary(q.Id, q.Title, q.FolderId, q.CreatedAt, q.UpdatedAt)).ToList());
+            items.Select(h => new WorkspaceItemSummary(h.Id, h.Title, h.FolderId, h.ItemType, h.CreatedAt, h.UpdatedAt)).ToList());
 
         if (folderId is null)
             return new ResolvedWorkspaceItem("folder", Guid.Empty, "", null, null, listing);
