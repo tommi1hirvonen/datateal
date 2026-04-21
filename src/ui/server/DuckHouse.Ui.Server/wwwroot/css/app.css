@@ -64,6 +64,14 @@ html.ant-dark .df-table td {
     overflow: hidden;
 }
 
+/* Catalog browser layout (inside Tabs — accounts for tab bar + page header) */
+.cb-layout {
+    display: flex;
+    flex-direction: row;
+    height: calc(100vh - 160px);
+    overflow: hidden;
+}
+
 .cp-main {
     flex: 1 1 0%;
     min-width: 0;

@@ -1,0 +1,267 @@
+@using DuckHouse.Ui.Shared.Catalogs
+@inject ICatalogService CatalogService
+
+<div class="catalog-explorer">
+    @if (_loading)
+    {
+        <Flex Justify="@("center")" Style="padding: 16px;">
+            <Spin Size="SpinSize.Small" />
+        </Flex>
+    }
+    else if (_error is not null)
+    {
+        <Alert Type="@AlertType.Error" Message="@_error" Closable
+               OnClose="() => _error = null" Style="margin: 8px;" />
+    }
+    else if (_treeData.Count == 0)
+    {
+        <div style="padding: 16px; text-align: center;">
+            <Text Type="TextElementType.Secondary" Style="font-size: 0.8rem;">No catalogs available.</Text>
+        </div>
+    }
+    else
+    {
+        <Tree TItem="BrowserNode"
+              DataSource="_treeData"
+              ShowIcon
+              ShowLine
+              ShowLeafIcon="false"
+              TitleExpression="x => x.DataItem.Title"
+              ChildrenExpression="x => x.DataItem.Children"
+              IsLeafExpression="x => x.DataItem.IsLeaf"
+              IconExpression="x => x.DataItem.Icon"
+              OnNodeLoadDelayAsync="OnNodeLoadDelayAsync"
+              OnClick="OnNodeClick">
+        </Tree>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback<CatalogObjectSelection?> OnObjectSelected { get; set; }
+
+    private List<BrowserNode> _treeData = [];
+    private bool _loading;
+    private string? _error;
+
+    private Dictionary<string, CatalogDto> _catalogLookup = new();
+    private Dictionary<Guid, CatalogMetadataDto> _metadataCache = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRootNodesAsync();
+    }
+
+    public async Task RefreshAsync()
+    {
+        _treeData = [];
+        _metadataCache = [];
+        await LoadRootNodesAsync();
+    }
+
+    private async Task LoadRootNodesAsync()
+    {
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var allCatalogs = await CatalogService.GetCatalogsAsync();
+            _catalogLookup = allCatalogs.ToDictionary(c => c.Name, c => c);
+
+            _treeData = allCatalogs
+                .OrderBy(c => c.Name)
+                .Select(c => new BrowserNode
+                {
+                    Title = c.Name,
+                    Key = $"catalog:{c.Name}",
+                    Icon = IconType.Outline.Database,
+                    NodeType = BrowserNodeType.Catalog,
+                    CatalogName = c.Name,
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load catalogs: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnNodeLoadDelayAsync(TreeEventArgs<BrowserNode> args)
+    {
+        var node = args.Node.DataItem;
+        node.Children.Clear();
+
+        try
+        {
+            switch (node.NodeType)
+            {
+                case BrowserNodeType.Catalog:
+                    await LoadSchemasAsync(node);
+                    break;
+                case BrowserNodeType.Schema:
+                    LoadObjectFolders(node);
+                    break;
+                case BrowserNodeType.TableFolder:
+                    LoadTables(node, "BASE TABLE");
+                    break;
+                case BrowserNodeType.ViewFolder:
+                    LoadTables(node, "VIEW");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            node.Children.Add(new BrowserNode
+            {
+                Title = $"Error: {ex.Message}",
+                Key = $"{node.Key}:error",
+                Icon = IconType.Outline.Warning,
+                IsLeaf = true,
+                NodeType = BrowserNodeType.Leaf,
+            });
+        }
+    }
+
+    private async Task LoadSchemasAsync(BrowserNode catalogNode)
+    {
+        if (!_catalogLookup.TryGetValue(catalogNode.CatalogName!, out var catalog))
+            return;
+
+        if (!_metadataCache.TryGetValue(catalog.Id, out var metadata))
+        {
+            metadata = await CatalogService.GetMetadataAsync(catalog.Id);
+            _metadataCache[catalog.Id] = metadata;
+        }
+
+        foreach (var schema in metadata.Schemas)
+        {
+            catalogNode.Children.Add(new BrowserNode
+            {
+                Title = schema.Name,
+                Key = $"{catalogNode.Key}:{schema.Name}",
+                Icon = IconType.Outline.Folder,
+                NodeType = BrowserNodeType.Schema,
+                CatalogName = catalogNode.CatalogName,
+                SchemaName = schema.Name,
+                CachedMetadata = schema,
+            });
+        }
+
+        if (catalogNode.Children.Count == 0)
+        {
+            catalogNode.Children.Add(new BrowserNode
+            {
+                Title = "(no schemas)",
+                Key = $"{catalogNode.Key}:empty",
+                Icon = "",
+                IsLeaf = true,
+                NodeType = BrowserNodeType.Leaf,
+            });
+        }
+    }
+
+    private void LoadObjectFolders(BrowserNode schemaNode)
+    {
+        var schema = schemaNode.CachedMetadata as SchemaDto;
+        var tableCount = schema?.Tables.Count(t => t.Type == "BASE TABLE") ?? 0;
+        var viewCount = schema?.Tables.Count(t => t.Type == "VIEW") ?? 0;
+
+        schemaNode.Children.Add(new BrowserNode
+        {
+            Title = $"Tables ({tableCount})",
+            Key = $"{schemaNode.Key}:tables",
+            Icon = IconType.Outline.Table,
+            NodeType = BrowserNodeType.TableFolder,
+            CatalogName = schemaNode.CatalogName,
+            SchemaName = schemaNode.SchemaName,
+            CachedMetadata = schemaNode.CachedMetadata,
+            IsLeaf = tableCount == 0,
+        });
+
+        schemaNode.Children.Add(new BrowserNode
+        {
+            Title = $"Views ({viewCount})",
+            Key = $"{schemaNode.Key}:views",
+            Icon = IconType.Outline.Eye,
+            NodeType = BrowserNodeType.ViewFolder,
+            CatalogName = schemaNode.CatalogName,
+            SchemaName = schemaNode.SchemaName,
+            CachedMetadata = schemaNode.CachedMetadata,
+            IsLeaf = viewCount == 0,
+        });
+    }
+
+    private void LoadTables(BrowserNode folderNode, string tableType)
+    {
+        var schema = folderNode.CachedMetadata as SchemaDto;
+        if (schema is null) return;
+
+        var tables = schema.Tables.Where(t => t.Type == tableType).OrderBy(t => t.Name);
+        foreach (var table in tables)
+        {
+            folderNode.Children.Add(new BrowserNode
+            {
+                Title = table.Name,
+                Key = $"{folderNode.Key}:{table.Name}",
+                Icon = tableType == "VIEW" ? IconType.Outline.Eye : IconType.Outline.Table,
+                NodeType = tableType == "VIEW" ? BrowserNodeType.View : BrowserNodeType.Table,
+                CatalogName = folderNode.CatalogName,
+                SchemaName = folderNode.SchemaName,
+                CachedMetadata = table,
+                IsLeaf = true,
+            });
+        }
+    }
+
+    private async Task OnNodeClick(TreeEventArgs<BrowserNode> args)
+    {
+        var node = args.Node.DataItem;
+        if ((node.NodeType == BrowserNodeType.Table || node.NodeType == BrowserNodeType.View)
+            && node.CachedMetadata is TableDto table)
+        {
+            await OnObjectSelected.InvokeAsync(new CatalogObjectSelection
+            {
+                CatalogName = node.CatalogName!,
+                SchemaName = node.SchemaName!,
+                ObjectName = node.Title,
+                ObjectType = node.NodeType == BrowserNodeType.View ? "VIEW" : "BASE TABLE",
+                Table = table,
+            });
+        }
+        else
+        {
+            await OnObjectSelected.InvokeAsync(null);
+        }
+    }
+
+    // ── Tree node model ───────────────────────────────────────────────
+
+    public class BrowserNode
+    {
+        public string Title { get; set; } = "";
+        public string Key { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public bool IsLeaf { get; set; }
+        public BrowserNodeType NodeType { get; set; }
+        public string? CatalogName { get; set; }
+        public string? SchemaName { get; set; }
+        public object? CachedMetadata { get; set; }
+        public List<BrowserNode> Children { get; set; } = [];
+    }
+
+    public enum BrowserNodeType
+    {
+        Catalog,
+        Schema,
+        TableFolder,
+        ViewFolder,
+        Table,
+        View,
+        Leaf,
+    }
+}

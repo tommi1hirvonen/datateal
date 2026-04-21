@@ -25,10 +25,12 @@ public record CatalogSchemaResult(
 public record CatalogTableResult(
     string Name,
     string Type,
-    IReadOnlyList<CatalogColumnResult> Columns);
+    IReadOnlyList<CatalogColumnResult> Columns,
+    string? Comment = null);
 
 public record CatalogColumnResult(
     string Name,
     string DataType,
     bool IsNullable,
-    int OrdinalPosition);
+    int OrdinalPosition,
+    string? Comment = null);

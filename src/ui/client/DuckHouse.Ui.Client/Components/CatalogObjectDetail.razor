@@ -1,0 +1,84 @@
+@using DuckHouse.Ui.Shared.Catalogs
+@using DuckHouse.Ui.Client.Components
+
+@if (Selection is null)
+{
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;
+                height: 100%; color: rgba(0,0,0,0.35); text-align: center; padding: 32px;">
+        <Icon Type="@IconType.Outline.Table" Style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;" />
+        <div style="font-size: 0.9rem;">Select a table or view to see its details.</div>
+    </div>
+}
+else
+{
+    <div style="padding: 20px; overflow-y: auto; height: 100%;">
+        @* Header *@
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+            <span style="font-family: monospace; font-size: 1.1rem; font-weight: 600;">
+                @Selection.CatalogName<span style="opacity: 0.45;">.</span>@Selection.SchemaName<span style="opacity: 0.45;">.</span>@Selection.ObjectName
+            </span>
+            @if (Selection.ObjectType == "VIEW")
+            {
+                <Tag Color="@("purple")">View</Tag>
+            }
+            else
+            {
+                <Tag Color="@("blue")">Table</Tag>
+            }
+        </div>
+
+        @* Comment *@
+        @if (!string.IsNullOrWhiteSpace(Selection.Table.Comment))
+        {
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+                            letter-spacing: 0.05em; opacity: 0.5; margin-bottom: 6px;">Comment</div>
+                <div style="font-size: 0.9rem;">@Selection.Table.Comment</div>
+            </div>
+        }
+
+        @* Columns *@
+        <div>
+            <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+                        letter-spacing: 0.05em; opacity: 0.5; margin-bottom: 6px;">
+                Columns (@Selection.Table.Columns.Count)
+            </div>
+
+            @if (Selection.Table.Columns.Count == 0)
+            {
+                <div style="color: rgba(0,0,0,0.35); font-size: 0.875rem;">
+                    No column information available.
+                </div>
+            }
+            else
+            {
+                <Table TItem="ColumnDto"
+                       DataSource="@Selection.Table.Columns"
+                       Size="@TableSize.Small"
+                       PageSize="int.MaxValue"
+                       PaginationPosition="none"
+                       Bordered>
+                    <PropertyColumn Property="c => c.Name" Title="Name">
+                        <span style="font-family: monospace;">@context.Name</span>
+                    </PropertyColumn>
+                    <PropertyColumn Property="c => c.DataType" Title="Type">
+                        <span style="font-family: monospace; font-size: 0.8rem;">@context.DataType</span>
+                    </PropertyColumn>
+                    <PropertyColumn Property="c => c.IsNullable" Title="Nullable" Width="80px">
+                        @if (context.IsNullable)
+                        {
+                            <Icon Type="@IconType.Outline.Check" Style="color: #52c41a;" />
+                        }
+                    </PropertyColumn>
+                    <PropertyColumn Property="c => c.Comment" Title="Comment">
+                        @(context.Comment ?? "")
+                    </PropertyColumn>
+                </Table>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public CatalogObjectSelection? Selection { get; set; }
+}

@@ -2,7 +2,10 @@
 
 @using DuckHouse.Ui.Shared.Catalogs
 @using DuckHouse.Ui.Client.Validation
+@using DuckHouse.Ui.Client.Components
 @inject ICatalogService CatalogService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <PageTitle>Catalogs — DuckHouse</PageTitle>
 
@@ -15,156 +18,223 @@
     </SpaceItem>
 </Space>
 
-@if (!string.IsNullOrEmpty(_error))
-{
-    <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
-            Style="margin-bottom: 16px;" />
-}
-
-<Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
-    <Button Type="@ButtonType.Primary" OnClick="StartCreate">
-        <Icon Type="@IconType.Outline.Plus" /> New catalog
-    </Button>
-</Flex>
-
-<Spin Spinning="_loading">
-    <Table TItem="CatalogDto" DataSource="_catalogs" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
-        <PropertyColumn Property="c => c.Name" Title="Name" Sortable>
-            <span style="font-family: monospace;">@context.Name</span>
-        </PropertyColumn>
-        <PropertyColumn Property="c => c.GetType().Name" Title="Type" Sortable>
-            @if (context is ManagedCatalogDto)
-            {
-                <Tag Color="@("blue")">Managed</Tag>
-            }
-            else
-            {
-                <Tag Color="@("orange")">Unmanaged</Tag>
-            }
-        </PropertyColumn>
-        <PropertyColumn Property="c => c.CatalogHost" Title="Host">
-            @(context.CatalogHost ?? "—")
-        </PropertyColumn>
-        <PropertyColumn Property="c => c.CatalogDatabase" Title="Database">
-            @(context.CatalogDatabase ?? "—")
-        </PropertyColumn>
-        <PropertyColumn Property="c => c.UpdatedAt" Title="Updated" Sortable>
-            @context.UpdatedAt.ToString("yyyy-MM-dd")
-        </PropertyColumn>
-        <ActionColumn Title="Actions">
-            <Space>
-                <SpaceItem>
-                    <Tooltip Title="Edit">
-                        <Button Size="@ButtonSize.Small" OnClick="() => StartEdit(context)">
-                            <Icon Type="@IconType.Outline.Edit" />
-                        </Button>
-                    </Tooltip>
-                </SpaceItem>
-                <SpaceItem>
-                    <Tooltip Title="Delete">
-                        <Popconfirm Title="@(context is ManagedCatalogDto ? $"Delete catalog '{context.Name}'? The PostgreSQL database will also be dropped." : $"Delete catalog '{context.Name}'?")"
-                                    OnConfirm="() => DeleteAsync(context)">
-                            <Button Danger Size="@ButtonSize.Small">
-                                <Icon Type="@IconType.Outline.Delete" />
-                            </Button>
-                        </Popconfirm>
-                    </Tooltip>
-                </SpaceItem>
-            </Space>
-        </ActionColumn>
-    </Table>
-</Spin>
-
-<Modal Title="@(_editTarget is null ? "New catalog" : "Edit catalog")"
-        Visible="_showModal"
-        OnOk="ConfirmSave"
-        OnCancel="() => _showModal = false"
-        OkButtonProps="@(new ButtonProps { Disabled = !IsFormValid() })">
-    <div style="display: flex; flex-direction: column; gap: 16px;">
-        <div>
-            <label style="display: block; margin-bottom: 4px; font-weight: 500;">Name</label>
-            <Input @bind-Value="_formName" Placeholder="my_catalog"
-                    Status="@(ValidationHelper.ValidateCatalogName(_formName) is not null ? "error" : "")" />
-            @if (ValidationHelper.ValidateCatalogName(_formName) is { } nameErr)
-            {
-                <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@nameErr</div>
-            }
-        </div>
-
-        @if (_editTarget is null)
+<Tabs @bind-ActiveKey="_activeTab" OnChange="OnTabChange">
+    <TabPane Key="browse" Tab="Browse">
+        @if (_browsePanelCollapsed)
         {
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Type</label>
-                <RadioGroup @bind-Value="_formIsManaged">
-                    <Radio Value="true">Managed</Radio>
-                    <Radio Value="false">Unmanaged</Radio>
-                </RadioGroup>
+            <div class="cb-layout">
+                <div class="cp-collapsed-strip">
+                    <button class="cp-collapse-btn" title="Show catalog explorer"
+                            @onclick="@(() => SetBrowsePanelCollapsed(false))">
+                        <Icon Type="@IconType.Outline.DoubleRight" />
+                    </button>
+                </div>
+                <div class="cp-main" style="padding: 16px; overflow-y: auto;">
+                    <CatalogObjectDetail Selection="@_selectedObject" />
+                </div>
             </div>
-
-            @if (_formIsManaged)
-            {
-                <div>
-                    <Checkbox @bind-Value="_formAllowExistingDatabase">
-                        Allow existing PostgreSQL database
-                    </Checkbox>
-                    <div style="color: #8c8c8c; font-size: 12px; margin-top: 2px;">
-                        When checked, the catalog will be registered even if a PostgreSQL database with this name already exists. Useful when migrating an environment.
+        }
+        else
+        {
+            <div class="cb-layout">
+                <div id="cb-panel" class="cp-side-panel" style="width: @(_browsePanelWidth)px;">
+                    <div class="cp-panel-header">
+                        <span class="cp-panel-title">
+                            <Icon Type="@IconType.Outline.Database" />
+                            <span style="margin-left: 6px;">Catalogs</span>
+                        </span>
+                        <div style="display: flex; align-items: center; gap: 2px;">
+                            <button class="cp-collapse-btn" title="Refresh catalog explorer"
+                                    disabled="@_browseRefreshing"
+                                    @onclick="RefreshBrowserAsync">
+                                <Icon Type="@(_browseRefreshing ? IconType.Outline.Loading : IconType.Outline.Reload)" />
+                            </button>
+                            <button class="cp-collapse-btn" title="Collapse catalog explorer"
+                                    @onclick="@(() => SetBrowsePanelCollapsed(true))">
+                                <Icon Type="@IconType.Outline.DoubleLeft" />
+                            </button>
+                        </div>
+                    </div>
+                    <div class="cp-panel-body">
+                        <CatalogBrowserTree @ref="_browserTreeRef"
+                                            OnObjectSelected="OnObjectSelected" />
                     </div>
                 </div>
-            }
+                <div id="cb-handle" class="cp-drag-handle">
+                    <div class="cp-drag-handle-inner"></div>
+                </div>
+                <div class="cp-main" style="overflow-y: auto;">
+                    <CatalogObjectDetail Selection="@_selectedObject" />
+                </div>
+            </div>
+        }
+    </TabPane>
+
+    <TabPane Key="manage" Tab="Manage">
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
+                    Style="margin-bottom: 16px;" />
         }
 
-        @if (!_formIsManaged)
-        {
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Data path</label>
-                <Input @bind-Value="_formDataPath" Placeholder="/data/ducklake/my_catalog or abfss://..." />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">
-                    Storage connection string
-                    <span style="font-weight: normal; color: #8c8c8c; margin-left: 4px;">(Azure only)</span>
-                </label>
-                <InputPassword @bind-Value="_formStorageConnectionString"
-                    Placeholder="@(_editTarget is UnmanagedCatalogDto u1 && u1.HasStorageConnectionString ? "••••••••" : "DefaultEndpointsProtocol=https;...")" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog host</label>
-                <Input @bind-Value="_formCatalogHost" Placeholder="localhost" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog port</label>
-                <AntDesign.InputNumber @bind-Value="_formCatalogPort" Min="1" Max="65535" Style="width: 100%;" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog database</label>
-                <Input @bind-Value="_formCatalogDatabase" Placeholder="my_catalog" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog user</label>
-                <Input @bind-Value="_formCatalogUser" Placeholder="postgres" />
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">
-                    Catalog password
-                    @if (_editTarget is not null)
+        <Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
+            <Button Type="@ButtonType.Primary" OnClick="StartCreate">
+                <Icon Type="@IconType.Outline.Plus" /> New catalog
+            </Button>
+        </Flex>
+
+        <Spin Spinning="_loading">
+            <Table TItem="CatalogDto" DataSource="_catalogs" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
+                <PropertyColumn Property="c => c.Name" Title="Name" Sortable>
+                    <span style="font-family: monospace;">@context.Name</span>
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.GetType().Name" Title="Type" Sortable>
+                    @if (context is ManagedCatalogDto)
                     {
-                        <span style="font-weight: normal; color: #8c8c8c; margin-left: 4px;">(leave blank to keep current)</span>
+                        <Tag Color="@("blue")">Managed</Tag>
                     }
-                </label>
-                <InputPassword @bind-Value="_formCatalogPassword"
-                    Placeholder="@(_editTarget is UnmanagedCatalogDto u2 && u2.HasCatalogPassword ? "••••••••" : "Enter password")" />
+                    else
+                    {
+                        <Tag Color="@("orange")">Unmanaged</Tag>
+                    }
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.CatalogHost" Title="Host">
+                    @(context.CatalogHost ?? "—")
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.CatalogDatabase" Title="Database">
+                    @(context.CatalogDatabase ?? "—")
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.UpdatedAt" Title="Updated" Sortable>
+                    @context.UpdatedAt.ToString("yyyy-MM-dd")
+                </PropertyColumn>
+                <ActionColumn Title="Actions">
+                    <Space>
+                        <SpaceItem>
+                            <Tooltip Title="Edit">
+                                <Button Size="@ButtonSize.Small" OnClick="() => StartEdit(context)">
+                                    <Icon Type="@IconType.Outline.Edit" />
+                                </Button>
+                            </Tooltip>
+                        </SpaceItem>
+                        <SpaceItem>
+                            <Tooltip Title="Delete">
+                                <Popconfirm Title="@(context is ManagedCatalogDto ? $"Delete catalog '{context.Name}'? The PostgreSQL database will also be dropped." : $"Delete catalog '{context.Name}'?")"
+                                            OnConfirm="() => DeleteAsync(context)">
+                                    <Button Danger Size="@ButtonSize.Small">
+                                        <Icon Type="@IconType.Outline.Delete" />
+                                    </Button>
+                                </Popconfirm>
+                            </Tooltip>
+                        </SpaceItem>
+                    </Space>
+                </ActionColumn>
+            </Table>
+        </Spin>
+
+        <Modal Title="@(_editTarget is null ? "New catalog" : "Edit catalog")"
+                Visible="_showModal"
+                OnOk="ConfirmSave"
+                OnCancel="() => _showModal = false"
+                OkButtonProps="@(new ButtonProps { Disabled = !IsFormValid() })">
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div>
+                    <label style="display: block; margin-bottom: 4px; font-weight: 500;">Name</label>
+                    <Input @bind-Value="_formName" Placeholder="my_catalog"
+                            Status="@(ValidationHelper.ValidateCatalogName(_formName) is not null ? "error" : "")" />
+                    @if (ValidationHelper.ValidateCatalogName(_formName) is { } nameErr)
+                    {
+                        <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@nameErr</div>
+                    }
+                </div>
+
+                @if (_editTarget is null)
+                {
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Type</label>
+                        <RadioGroup @bind-Value="_formIsManaged">
+                            <Radio Value="true">Managed</Radio>
+                            <Radio Value="false">Unmanaged</Radio>
+                        </RadioGroup>
+                    </div>
+
+                    @if (_formIsManaged)
+                    {
+                        <div>
+                            <Checkbox @bind-Value="_formAllowExistingDatabase">
+                                Allow existing PostgreSQL database
+                            </Checkbox>
+                            <div style="color: #8c8c8c; font-size: 12px; margin-top: 2px;">
+                                When checked, the catalog will be registered even if a PostgreSQL database with this name already exists. Useful when migrating an environment.
+                            </div>
+                        </div>
+                    }
+                }
+
+                @if (!_formIsManaged)
+                {
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Data path</label>
+                        <Input @bind-Value="_formDataPath" Placeholder="/data/ducklake/my_catalog or abfss://..." />
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">
+                            Storage connection string
+                            <span style="font-weight: normal; color: #8c8c8c; margin-left: 4px;">(Azure only)</span>
+                        </label>
+                        <InputPassword @bind-Value="_formStorageConnectionString"
+                            Placeholder="@(_editTarget is UnmanagedCatalogDto u1 && u1.HasStorageConnectionString ? "••••••••" : "DefaultEndpointsProtocol=https;...")" />
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog host</label>
+                        <Input @bind-Value="_formCatalogHost" Placeholder="localhost" />
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog port</label>
+                        <AntDesign.InputNumber @bind-Value="_formCatalogPort" Min="1" Max="65535" Style="width: 100%;" />
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog database</label>
+                        <Input @bind-Value="_formCatalogDatabase" Placeholder="my_catalog" />
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">Catalog user</label>
+                        <Input @bind-Value="_formCatalogUser" Placeholder="postgres" />
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-weight: 500;">
+                            Catalog password
+                            @if (_editTarget is not null)
+                            {
+                                <span style="font-weight: normal; color: #8c8c8c; margin-left: 4px;">(leave blank to keep current)</span>
+                            }
+                        </label>
+                        <InputPassword @bind-Value="_formCatalogPassword"
+                            Placeholder="@(_editTarget is UnmanagedCatalogDto u2 && u2.HasCatalogPassword ? "••••••••" : "Enter password")" />
+                    </div>
+                }
             </div>
-        }
-    </div>
-</Modal>
+        </Modal>
+    </TabPane>
+</Tabs>
 
 @code {
+    // ── Tab state ─────────────────────────────────────────────────────
+    private string _activeTab = "browse";
+
+    // ── Browse tab state ──────────────────────────────────────────────
+    private CatalogObjectSelection? _selectedObject;
+    private bool _browsePanelCollapsed;
+    private int _browsePanelWidth = 260;
+    private bool _browseSplitterInitialized;
+    private bool _browseRefreshing;
+    private CatalogBrowserTree _browserTreeRef = default!;
+    private DotNetObjectReference<CatalogsPage>? _dotNetRef;
+
+    // ── Manage tab state ──────────────────────────────────────────────
     private IReadOnlyList<CatalogDto> _catalogs = [];
     private bool _loading = true;
     private string? _error;
 
-    // Modal state
     private bool _showModal;
     private CatalogDto? _editTarget;
     private string _formName = "";
@@ -182,6 +252,54 @@
     {
         await LoadCatalogsAsync();
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_activeTab == "browse" && !_browsePanelCollapsed && !_browseSplitterInitialized)
+        {
+            _browseSplitterInitialized = true;
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("initCatalogPanelSplitter", "cb-panel", "cb-handle", _dotNetRef);
+        }
+    }
+
+    private void OnTabChange(string key)
+    {
+        if (key == "browse")
+            _browseSplitterInitialized = false;
+    }
+
+    // ── Browse tab handlers ───────────────────────────────────────────
+
+    private Task OnObjectSelected(CatalogObjectSelection? selection)
+    {
+        _selectedObject = selection;
+        return Task.CompletedTask;
+    }
+
+    private async Task RefreshBrowserAsync()
+    {
+        _browseRefreshing = true;
+        _selectedObject = null;
+        try { await _browserTreeRef.RefreshAsync(); }
+        finally { _browseRefreshing = false; }
+    }
+
+    private void SetBrowsePanelCollapsed(bool value)
+    {
+        _browsePanelCollapsed = value;
+        if (!value)
+            _browseSplitterInitialized = false;
+    }
+
+    [JSInvokable]
+    public void OnCatalogPanelDragEnd(double width)
+    {
+        _browsePanelWidth = Math.Max(160, (int)width);
+        StateHasChanged();
+    }
+
+    // ── Manage tab handlers ───────────────────────────────────────────
 
     private async Task LoadCatalogsAsync()
     {
@@ -309,4 +427,11 @@
         }
         catch (Exception ex) { _error = $"Failed to delete catalog: {ex.Message}"; }
     }
+
+    public ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
+        return ValueTask.CompletedTask;
+    }
 }
+

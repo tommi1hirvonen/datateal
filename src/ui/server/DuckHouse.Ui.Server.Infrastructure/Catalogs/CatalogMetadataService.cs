@@ -37,13 +37,27 @@ internal class CatalogMetadataService : ICatalogMetadataService
         var views = await QueryViewsAsync(conn, snapshotId.Value, cancellationToken);
         var columns = await QueryColumnsAsync(conn, snapshotId.Value, cancellationToken);
 
+        // Query comments — graceful fallback if tag tables are unavailable
+        Dictionary<long, string> tableComments = [];
+        Dictionary<long, string> viewComments = [];
+        Dictionary<(long tableId, long columnId), string> columnComments = [];
+        try
+        {
+            tableComments = await QueryObjectCommentsAsync(conn, snapshotId.Value, tables.Select(t => t.TableId), cancellationToken);
+            viewComments = await QueryObjectCommentsAsync(conn, snapshotId.Value, views.Select(v => v.ViewId), cancellationToken);
+            columnComments = await QueryColumnCommentsAsync(conn, snapshotId.Value, cancellationToken);
+        }
+        catch { /* tag tables may not exist in older DuckLake installations */ }
+
         var columnsByTableId = columns
             .GroupBy(c => c.TableId)
             .ToDictionary(
                 g => g.Key,
                 g => (IReadOnlyList<CatalogColumnResult>)g
                     .OrderBy(c => c.ColumnOrder)
-                    .Select(c => new CatalogColumnResult(c.ColumnName, c.ColumnType, c.NullsAllowed, (int)c.ColumnOrder))
+                    .Select(c => new CatalogColumnResult(
+                        c.ColumnName, c.ColumnType, c.NullsAllowed, (int)c.ColumnOrder,
+                        columnComments.GetValueOrDefault((c.TableId, c.ColumnId))))
                     .ToList());
 
         var schemaResults = schemas
@@ -53,11 +67,14 @@ internal class CatalogMetadataService : ICatalogMetadataService
                     .Where(t => t.SchemaId == schema.SchemaId)
                     .Select(t => new CatalogTableResult(
                         t.TableName, "BASE TABLE",
-                        columnsByTableId.GetValueOrDefault(t.TableId) ?? []));
+                        columnsByTableId.GetValueOrDefault(t.TableId) ?? [],
+                        tableComments.GetValueOrDefault(t.TableId)));
 
                 var schemaViews = views
                     .Where(v => v.SchemaId == schema.SchemaId)
-                    .Select(v => new CatalogTableResult(v.ViewName, "VIEW", []));
+                    .Select(v => new CatalogTableResult(
+                        v.ViewName, "VIEW", [],
+                        viewComments.GetValueOrDefault(v.ViewId)));
 
                 var allObjects = schemaTables.Concat(schemaViews)
                     .OrderBy(o => o.Name)
@@ -72,19 +89,20 @@ internal class CatalogMetadataService : ICatalogMetadataService
 
     private static async Task<bool> DuckLakeTablesExistAsync(NpgsqlConnection conn, CancellationToken ct)
     {
-        // Check all four DuckLake catalog tables are present in one query.
+        // Check all required DuckLake catalog tables are present.
         const string sql = """
             SELECT COUNT(*)
             FROM information_schema.tables
             WHERE table_schema = 'public'
               AND table_name IN (
                 'ducklake_snapshot', 'ducklake_schema',
-                'ducklake_table', 'ducklake_view', 'ducklake_column'
+                'ducklake_table', 'ducklake_view', 'ducklake_column',
+                'ducklake_tag', 'ducklake_column_tag'
               )
             """;
         await using var cmd = new NpgsqlCommand(sql, conn);
         var count = (long)(await cmd.ExecuteScalarAsync(ct))!;
-        return count == 5;
+        return count == 7;
     }
 
     private static async Task<long?> GetCurrentSnapshotAsync(NpgsqlConnection conn, CancellationToken ct)
@@ -156,12 +174,12 @@ internal class CatalogMetadataService : ICatalogMetadataService
         return views;
     }
 
-    private static async Task<IReadOnlyList<(long TableId, string ColumnName, string ColumnType, bool NullsAllowed, long ColumnOrder)>> QueryColumnsAsync(
+    private static async Task<IReadOnlyList<(long TableId, long ColumnId, string ColumnName, string ColumnType, bool NullsAllowed, long ColumnOrder)>> QueryColumnsAsync(
         NpgsqlConnection conn, long snapshotId, CancellationToken ct)
     {
-        var columns = new List<(long, string, string, bool, long)>();
+        var columns = new List<(long, long, string, string, bool, long)>();
         const string sql = """
-            SELECT table_id, column_name, column_type, nulls_allowed, column_order
+            SELECT table_id, column_id, column_name, column_type, nulls_allowed, column_order
             FROM ducklake_column
             WHERE parent_column IS NULL
               AND @snapshotId >= begin_snapshot
@@ -174,11 +192,55 @@ internal class CatalogMetadataService : ICatalogMetadataService
         while (await reader.ReadAsync(ct))
             columns.Add((
                 reader.GetInt64(0),   // table_id
-                reader.GetString(1),  // column_name
-                reader.GetString(2),  // column_type
-                reader.GetBoolean(3), // nulls_allowed
-                reader.GetInt64(4)    // column_order
+                reader.GetInt64(1),   // column_id
+                reader.GetString(2),  // column_name
+                reader.GetString(3),  // column_type
+                reader.GetBoolean(4), // nulls_allowed
+                reader.GetInt64(5)    // column_order
             ));
         return columns;
+    }
+
+    private static async Task<Dictionary<long, string>> QueryObjectCommentsAsync(
+        NpgsqlConnection conn, long snapshotId, IEnumerable<long> objectIds, CancellationToken ct)
+    {
+        var ids = objectIds.ToList();
+        if (ids.Count == 0) return [];
+
+        var comments = new Dictionary<long, string>();
+        const string sql = """
+            SELECT object_id, value
+            FROM ducklake_tag
+            WHERE key = 'comment'
+              AND object_id = ANY(@ids)
+              AND @snapshotId >= begin_snapshot
+              AND (@snapshotId < end_snapshot OR end_snapshot IS NULL)
+            """;
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("snapshotId", snapshotId);
+        cmd.Parameters.AddWithValue("ids", ids.ToArray());
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            comments[reader.GetInt64(0)] = reader.GetString(1);
+        return comments;
+    }
+
+    private static async Task<Dictionary<(long tableId, long columnId), string>> QueryColumnCommentsAsync(
+        NpgsqlConnection conn, long snapshotId, CancellationToken ct)
+    {
+        var comments = new Dictionary<(long, long), string>();
+        const string sql = """
+            SELECT table_id, column_id, value
+            FROM ducklake_column_tag
+            WHERE key = 'comment'
+              AND @snapshotId >= begin_snapshot
+              AND (@snapshotId < end_snapshot OR end_snapshot IS NULL)
+            """;
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("snapshotId", snapshotId);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            comments[(reader.GetInt64(0), reader.GetInt64(1))] = reader.GetString(2);
+        return comments;
     }
 }

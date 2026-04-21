@@ -62,7 +62,8 @@ internal class GetCatalogMetadataHandler(
                 s.Name,
                 s.Tables.Select(t => new TableDto(
                     t.Name, t.Type,
-                    t.Columns.Select(c => new ColumnDto(c.Name, c.DataType, c.IsNullable, c.OrdinalPosition)).ToList()
+                    t.Columns.Select(c => new ColumnDto(c.Name, c.DataType, c.IsNullable, c.OrdinalPosition, c.Comment)).ToList(),
+                    t.Comment
                 )).ToList()
             )).ToList());
     }

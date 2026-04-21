@@ -10,10 +10,12 @@ public record SchemaDto(
 public record TableDto(
     string Name,
     string Type,
-    IReadOnlyList<ColumnDto> Columns);
+    IReadOnlyList<ColumnDto> Columns,
+    string? Comment = null);
 
 public record ColumnDto(
     string Name,
     string DataType,
     bool IsNullable,
-    int OrdinalPosition);
+    int OrdinalPosition,
+    string? Comment = null);
