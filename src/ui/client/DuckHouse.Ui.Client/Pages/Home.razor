@@ -16,6 +16,10 @@
         <p style="text-align: center; margin-bottom: 8px; color: #8c8c8c; font-size: 14px;">
             Open a notebook, query or job
         </p>
+        @if (_errorMessage is not null)
+        {
+            <Alert Type="@AlertType.Error" Message="@_errorMessage" ShowIcon="true" Style="margin-bottom: 8px;" />
+        }
         <AutoComplete TOption="string"
                       OptionDataItems="@_searchOptions"
                       OnSelectionChange="OnItemSelected"
@@ -27,6 +31,15 @@
                                     OnInput="OnSearchInput"
                                     Style="width: 100%;" />
             </ChildContent>
+            <OptionTemplate>
+                <AutoCompleteOption Value="@context.Value" Label="@context.Label" Disabled="@context.IsDisabled">
+                    @{ var (optIcon, optColor) = GetIconForUrl(context.Value); }
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <Icon Type="@optIcon" Style="@($"color: {optColor}; width: 16px; text-align: center; flex-shrink: 0;")" />
+                        <span>@context.Label</span>
+                    </div>
+                </AutoCompleteOption>
+            </OptionTemplate>
         </AutoComplete>
     </div>
 
@@ -66,6 +79,7 @@
     // Search data (loaded lazily)
     private bool _dataLoaded;
     private bool _loadingData;
+    private string? _errorMessage;
     private List<NotebookSummary> _allNotebooks = [];
     private List<QuerySummary> _allQueries = [];
     private List<JobSummary> _allJobs = [];
@@ -97,6 +111,10 @@
             _dataLoaded = true;
         }
         //catch { /* non-fatal */ }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load search data: {ex.Message}";
+        }
         finally
         {
             _loadingData = false;
@@ -127,13 +145,13 @@
         var opts = new List<AutoCompleteDataItem<string>>();
 
         foreach (var nb in _allNotebooks.Where(n => n.Title.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(8))
-            opts.Add(new AutoCompleteDataItem<string>($"/notebook/{nb.Id}", $"Notebook · {nb.Title}"));
+            opts.Add(new AutoCompleteDataItem<string>($"/notebook/{nb.Id}", nb.Title));
 
         foreach (var qr in _allQueries.Where(qr => qr.Title.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(8))
-            opts.Add(new AutoCompleteDataItem<string>($"/query/{qr.Id}", $"SQL Query · {qr.Title}"));
+            opts.Add(new AutoCompleteDataItem<string>($"/query/{qr.Id}", qr.Title));
 
         foreach (var j in _allJobs.Where(j => j.Name.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(8))
-            opts.Add(new AutoCompleteDataItem<string>($"/jobs/{j.Id}", $"Job · {j.Name}"));
+            opts.Add(new AutoCompleteDataItem<string>($"/jobs/{j.Id}", j.Name));
 
         _searchOptions = opts;
     }
@@ -157,11 +175,19 @@
         Navigation.NavigateTo(url);
     }
 
+    private static (string Icon, string Color) GetIconForUrl(string url)
+    {
+        if (url.StartsWith("/notebook/")) return (IconType.Outline.FileText,    "#1677ff");
+        if (url.StartsWith("/query/"))    return (IconType.Outline.Code,         "#52c41a");
+        if (url.StartsWith("/jobs/"))     return (IconType.Outline.Partition,  "#faad14");
+        return (IconType.Outline.File, "#8c8c8c");
+    }
+
     private static string GetItemIcon(string type) => type switch
     {
         "Notebook" => IconType.Outline.FileText,
         "Query"    => IconType.Outline.Code,
-        "Job"      => IconType.Outline.ClockCircle,
+        "Job"      => IconType.Outline.Partition,
         _          => IconType.Outline.File,
     };
 
