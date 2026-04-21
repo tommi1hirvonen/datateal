@@ -226,7 +226,12 @@
 
             <TabPane Key="runs" Tab="Runs">
                 <div style="margin-top: 16px;">
-                    <div style="margin-bottom: 8px; color: #999; font-size: 12px;">Showing last 50 runs, newest first.</div>
+                    <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 8px;">
+                        <span style="color: #999; font-size: 12px;">Showing last 50 runs, newest first.</span>
+                        <Button OnClick="RefreshRunsAsync" Loading="_runsLoading">
+                            <Icon Type="@IconType.Outline.Reload" /> Refresh
+                        </Button>
+                    </Flex>
                     <Table TItem="JobRunSummary" DataSource="_runs" Size="@TableSize.Small" Loading="_runsLoading" PageSize="int.MaxValue" PaginationPosition="none">
                         <PropertyColumn Property="c => c.Status" Title="Status">
                             <a @onclick="@(() => Navigation.NavigateTo($"/runs/{context.Id}"))"
@@ -435,10 +440,7 @@
 
                 _isDirty = false;
 
-                _runsLoading = true;
-                StateHasChanged();
-                _runs = await JobService.GetRunsAsync(Id, 50);
-                _runsLoading = false;
+                await RefreshRunsAsync();
             }
         }
         catch (Exception ex)
@@ -448,6 +450,24 @@
         finally
         {
             _loading = false;
+        }
+    }
+
+    private async Task RefreshRunsAsync()
+    {
+        _runsLoading = true;
+        StateHasChanged();
+        try
+        {
+            _runs = await JobService.GetRunsAsync(Id, 50);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load runs: {ex.Message}";
+        }
+        finally
+        {
+            _runsLoading = false;
         }
     }
 
