@@ -429,7 +429,7 @@
             // Poll until running if the node is still being provisioned
             if (nodeInfo.State != NodeState.Running)
             {
-                var deadline = DateTime.UtcNow.AddMinutes(10);
+                var deadline = DateTime.UtcNow.AddMinutes(15);
                 while (DateTime.UtcNow < deadline)
                 {
                     await Task.Delay(3000, ct);

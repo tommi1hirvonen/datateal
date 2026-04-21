@@ -25,7 +25,7 @@ public sealed class WarmPoolManager(
     IEnvironmentResolver environmentResolver,
     ILogger<WarmPoolManager> logger)
 {
-    private static readonly TimeSpan NodeReadyTimeout = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan NodeReadyTimeout = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan NodePollInterval = TimeSpan.FromSeconds(5);
     private const string WarmNodePrefix = "w";
 

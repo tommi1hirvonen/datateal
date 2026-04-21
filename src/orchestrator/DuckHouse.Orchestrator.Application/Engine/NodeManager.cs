@@ -24,7 +24,7 @@ public class NodeManager(
     ILogger logger)
 {
     private readonly ConcurrentDictionary<string, NodeAllocation> _allocations = new();
-    private static readonly TimeSpan NodeReadyTimeout = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan NodeReadyTimeout = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan NodePollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan KernelCreateRetryInterval = TimeSpan.FromSeconds(5);
     private const int KernelCreateMaxRetries = 6;
