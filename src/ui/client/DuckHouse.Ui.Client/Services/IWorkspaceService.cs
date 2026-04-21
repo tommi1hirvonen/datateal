@@ -4,6 +4,8 @@ namespace DuckHouse.Ui.Client.Services;
 
 public interface IWorkspaceService
 {
+    Task<WorkspaceSearchResult> SearchAsync(string query, CancellationToken cancellationToken = default);
+
     Task<WorkspaceListing> GetRootAsync(CancellationToken cancellationToken = default);
     Task<WorkspaceListing> GetFolderAsync(Guid folderId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<FolderSummary>> GetFolderAncestorsAsync(Guid folderId, CancellationToken cancellationToken = default);

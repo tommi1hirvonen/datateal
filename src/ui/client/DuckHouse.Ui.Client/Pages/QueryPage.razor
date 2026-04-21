@@ -13,6 +13,7 @@
 @inject IInteractivePoolService InteractivePoolService
 @inject IWorkspaceService WorkspaceService
 @inject ICatalogService CatalogService
+@inject IRecentItemsService RecentItemsService
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
 
@@ -363,6 +364,7 @@
                     _isDirty = false;
                     _workspaceQueryId = detail.Id;
                     _workspaceQueryFolderId = detail.FolderId;
+                    _ = RecentItemsService.RecordVisitAsync(detail.Id, detail.Title, "Query");
 
                     // Restore last execution result if present
                     if (detail.LastResult is { } lr)

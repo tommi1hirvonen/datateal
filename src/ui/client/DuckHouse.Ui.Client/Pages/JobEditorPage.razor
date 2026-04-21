@@ -3,6 +3,7 @@
 @using DuckHouse.Ui.Shared.Orchestration
 @using DuckHouse.Ui.Client.Validation
 @inject IJobService JobService
+@inject IRecentItemsService RecentItemsService
 @inject NavigationManager Navigation
 
 <PageTitle>@(_job?.Name ?? "Job Editor") — DuckHouse</PageTitle>
@@ -410,6 +411,7 @@
             _job = await JobService.GetJobAsync(Id);
             if (_job is not null)
             {
+                _ = RecentItemsService.RecordVisitAsync(Id, _job.Name, "Job");
                 _editName = _job.Name;
                 _editDescription = _job.Description;
                 _editMaxConcurrent = _job.MaxConcurrentRuns;

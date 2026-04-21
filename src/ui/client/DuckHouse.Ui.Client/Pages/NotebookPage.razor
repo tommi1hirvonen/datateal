@@ -14,6 +14,7 @@
 @inject IInteractivePoolService InteractivePoolService
 @inject IWorkspaceService WorkspaceService
 @inject ICatalogService CatalogService
+@inject IRecentItemsService RecentItemsService
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
@@ -341,6 +342,7 @@
                     _notebook.IsDirty = false;
                     _workspaceNotebookId = detail.Id;
                     _workspaceNotebookFolderId = detail.FolderId;
+                    _ = RecentItemsService.RecordVisitAsync(detail.Id, _notebook.Title, "Notebook");
 
                     if (detail.FolderId is not null)
                     {

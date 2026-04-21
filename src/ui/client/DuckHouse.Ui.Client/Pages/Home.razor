@@ -1,12 +1,186 @@
 ﻿@page "/"
 
-@inject IJSRuntime JSRuntime
+@using DuckHouse.Ui.Shared.Workspace
+@using DuckHouse.Ui.Shared.Orchestration
+@inject IWorkspaceService WorkspaceService
+@inject IJobService JobService
+@inject IRecentItemsService RecentItemsService
+@inject NavigationManager Navigation
 
 <PageTitle>Home — DuckHouse</PageTitle>
 
-<h2 class="d-flex align-items-center gap-2 mb-4">
-    <Icon Type="@IconType.Outline.Home" />
-    Home
-</h2>
+<div style="max-width: 600px; margin: 40px auto 0; display: flex; flex-direction: column; gap: 32px;">
 
-<p>Welcome to DuckHouse.</p>
+    @* ── Search ── *@
+    <div>
+        <p style="text-align: center; margin-bottom: 8px; color: #8c8c8c; font-size: 14px;">
+            Open a notebook, query or job
+        </p>
+        <AutoComplete TOption="string"
+                      OptionDataItems="@_searchOptions"
+                      OnSelectionChange="OnItemSelected"
+                      Style="width: 100%;">
+            <ChildContent>
+                <AutoCompleteSearch @bind-Value="_searchText"
+                                    Placeholder="Search…"
+                                    OnFocus="EnsureDataLoadedAsync"
+                                    OnInput="OnSearchInput"
+                                    Style="width: 100%;" />
+            </ChildContent>
+        </AutoComplete>
+    </div>
+
+    @* ── Recently viewed ── *@
+    <div>
+        <p style="font-weight: 500; margin-bottom: 8px;">Recently viewed</p>
+        @if (_recentItems.Count == 0)
+        {
+            <span style="color: #8c8c8c; font-size: 13px;">No recently viewed items.</span>
+        }
+        else
+        {
+            <AntList DataSource="@_recentItems" TItem="RecentItem" Size="@ListSize.Small">
+                <ListItem Style="cursor: pointer;" OnClick="@(() => NavigateToItem(context))">
+                    <ListItemMeta>
+                        <AvatarTemplate>
+                            <Avatar Icon="@GetItemIcon(context.Type)" Style="@GetItemAvatarStyle(context.Type)" />
+                        </AvatarTemplate>
+                        <TitleTemplate>
+                            <span>@context.Name</span>
+                            <Tag Color="@("default")" Style="margin-left: 8px; font-size: 11px;">@context.Type</Tag>
+                        </TitleTemplate>
+                        <DescriptionTemplate>
+                            <span style="color: #8c8c8c; font-size: 12px;">@TimeAgo(context.AccessedAt)</span>
+                        </DescriptionTemplate>
+                    </ListItemMeta>
+                </ListItem>
+            </AntList>
+        }
+    </div>
+
+</div>
+
+@code {
+    private string _searchText = "";
+
+    // Search data (loaded lazily)
+    private bool _dataLoaded;
+    private bool _loadingData;
+    private List<NotebookSummary> _allNotebooks = [];
+    private List<QuerySummary> _allQueries = [];
+    private List<JobSummary> _allJobs = [];
+
+    // Flat option list fed to AutoComplete (drives dropdown visibility)
+    private List<AutoCompleteDataItem<string>> _searchOptions = [];
+
+    private List<RecentItem> _recentItems = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _recentItems = (await RecentItemsService.GetRecentItemsAsync()).ToList();
+    }
+
+    private async Task EnsureDataLoadedAsync()
+    {
+        if (_dataLoaded || _loadingData) return;
+        _loadingData = true;
+        try
+        {
+            var wsTask = WorkspaceService.SearchAsync("");
+            var jobsTask = JobService.GetJobsAsync();
+            await Task.WhenAll(wsTask, jobsTask);
+
+            var wsResult = await wsTask;
+            _allNotebooks = wsResult.Notebooks.ToList();
+            _allQueries = wsResult.Queries.ToList();
+            _allJobs = (await jobsTask).ToList();
+            _dataLoaded = true;
+        }
+        //catch { /* non-fatal */ }
+        finally
+        {
+            _loadingData = false;
+        }
+        FilterResults();
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        _searchText = e.Value?.ToString() ?? "";
+        if (!_dataLoaded)
+        {
+            await EnsureDataLoadedAsync();
+            return;
+        }
+        FilterResults();
+    }
+
+    private void FilterResults()
+    {
+        var q = _searchText.Trim();
+        if (string.IsNullOrEmpty(q))
+        {
+            _searchOptions = [];
+            return;
+        }
+
+        var opts = new List<AutoCompleteDataItem<string>>();
+
+        foreach (var nb in _allNotebooks.Where(n => n.Title.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(8))
+            opts.Add(new AutoCompleteDataItem<string>($"/notebook/{nb.Id}", $"Notebook · {nb.Title}"));
+
+        foreach (var qr in _allQueries.Where(qr => qr.Title.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(8))
+            opts.Add(new AutoCompleteDataItem<string>($"/query/{qr.Id}", $"SQL Query · {qr.Title}"));
+
+        foreach (var j in _allJobs.Where(j => j.Name.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(8))
+            opts.Add(new AutoCompleteDataItem<string>($"/jobs/{j.Id}", $"Job · {j.Name}"));
+
+        _searchOptions = opts;
+    }
+
+    private void OnItemSelected(AutoCompleteOption option)
+    {
+        var url = option.Value?.ToString();
+        if (!string.IsNullOrEmpty(url))
+            Navigation.NavigateTo(url);
+    }
+
+    private void NavigateToItem(RecentItem item)
+    {
+        var url = item.Type switch
+        {
+            "Notebook" => $"/notebook/{item.Id}",
+            "Query"    => $"/query/{item.Id}",
+            "Job"      => $"/jobs/{item.Id}",
+            _          => "/"
+        };
+        Navigation.NavigateTo(url);
+    }
+
+    private static string GetItemIcon(string type) => type switch
+    {
+        "Notebook" => IconType.Outline.FileText,
+        "Query"    => IconType.Outline.Code,
+        "Job"      => IconType.Outline.ClockCircle,
+        _          => IconType.Outline.File,
+    };
+
+    private static string GetItemAvatarStyle(string type) => type switch
+    {
+        "Notebook" => "background-color: #1677ff;",
+        "Query"    => "background-color: #52c41a;",
+        "Job"      => "background-color: #faad14;",
+        _          => "",
+    };
+
+    private static string TimeAgo(DateTime utc)
+    {
+        var elapsed = DateTime.UtcNow - utc;
+        if (elapsed.TotalSeconds < 60)  return "just now";
+        if (elapsed.TotalMinutes < 60)  return $"{(int)elapsed.TotalMinutes} min ago";
+        if (elapsed.TotalHours < 24)    return $"{(int)elapsed.TotalHours} hour{((int)elapsed.TotalHours == 1 ? "" : "s")} ago";
+        if (elapsed.TotalDays < 7)      return $"{(int)elapsed.TotalDays} day{((int)elapsed.TotalDays == 1 ? "" : "s")} ago";
+        return utc.ToLocalTime().ToString("d MMM yyyy");
+    }
+}
+

@@ -102,6 +102,17 @@ internal class WorkspaceRepository(DuckHouseDbContext db) : IWorkspaceRepository
         return await query.OrderBy(i => i.Title).ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<WorkspaceItem>> SearchItemsAsync(string query, CancellationToken cancellationToken = default)
+    {
+        IQueryable<WorkspaceItem> q = db.WorkspaceItems;
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var lower = query.ToLowerInvariant();
+            q = q.Where(i => i.Title.ToLower().Contains(lower));
+        }
+        return await q.OrderBy(i => i.Title).ToListAsync(cancellationToken);
+    }
+
     // ── Notebooks ─────────────────────────────────────────────────────────
 
     public Task<Notebook?> GetNotebookAsync(Guid id, CancellationToken cancellationToken = default) =>

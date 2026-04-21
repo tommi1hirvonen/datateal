@@ -20,6 +20,9 @@ public interface IWorkspaceRepository
     Task<WorkspaceItem?> GetItemAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WorkspaceItem>> GetItemsInAsync(Guid? folderId, CancellationToken cancellationToken = default);
 
+    /// <summary>Case-insensitive substring search across all folders.</summary>
+    Task<IReadOnlyList<WorkspaceItem>> SearchItemsAsync(string query, CancellationToken cancellationToken = default);
+
     /// <summary>Finds a workspace item (notebook or query) by title within a folder.</summary>
     Task<WorkspaceItem?> GetItemByTitleAsync(string title, Guid? folderId, CancellationToken cancellationToken = default);
 

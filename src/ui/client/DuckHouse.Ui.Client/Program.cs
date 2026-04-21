@@ -25,5 +25,6 @@ builder.Services.AddHttpClient<ICatalogService, CatalogService>(
     client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 
 builder.Services.AddScoped<IThemeService, ThemeService>();
+builder.Services.AddScoped<IRecentItemsService, RecentItemsService>();
 
 await builder.Build().RunAsync();

@@ -13,6 +13,11 @@ internal class WorkspaceService(HttpClient httpClient) : IWorkspaceService
         Converters = { new JsonStringEnumConverter() }
     };
 
+    public async Task<WorkspaceSearchResult> SearchAsync(string query, CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync<WorkspaceSearchResult>(
+            $"api/workspace/search?q={Uri.EscapeDataString(query)}", JsonOptions, cancellationToken)
+        ?? new WorkspaceSearchResult([], []);
+
     public async Task<WorkspaceListing> GetRootAsync(CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync<WorkspaceListing>("api/workspace", JsonOptions, cancellationToken)
         ?? new WorkspaceListing([], [], []);

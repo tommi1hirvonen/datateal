@@ -14,6 +14,10 @@ namespace DuckHouse.Ui.Server.Controllers;
 [Route("api/workspace")]
 public class WorkspaceController(IMediator mediator) : ControllerBase
 {
+    [HttpGet("search")]
+    public async Task<WorkspaceSearchResult> SearchItems([FromQuery] string? q, CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.SearchWorkspaceRequest(q ?? ""), ct);
+
     [HttpGet]
     public async Task<WorkspaceListing> GetRoot(CancellationToken ct) =>
         await mediator.SendAsync(new Qry.GetWorkspaceRequest(), ct);
