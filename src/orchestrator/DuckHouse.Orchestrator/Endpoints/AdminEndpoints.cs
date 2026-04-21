@@ -17,6 +17,14 @@ public static class AdminEndpoints
         })
         .WithName("PurgeHistory");
 
+        group.MapGet("/timezones", () =>
+        {
+            var zones = TimeZoneInfo.GetSystemTimeZones()
+                .Select(tz => new { id = tz.Id, displayName = tz.DisplayName });
+            return Results.Ok(zones);
+        })
+        .WithName("GetTimeZones");
+
         return endpoints;
     }
 }

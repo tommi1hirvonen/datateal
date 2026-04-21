@@ -1,4 +1,5 @@
 using DuckHouse.Core.Mediator;
+using DuckHouse.Orchestrator.Application.Engine;
 using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Repositories;
 
@@ -11,7 +12,9 @@ public record CreateScheduleRequest(
     string? TimeZone,
     Dictionary<string, string>? Parameters) : IRequest<JobSchedule>;
 
-internal class CreateScheduleHandler(IScheduleRepository scheduleRepository)
+internal class CreateScheduleHandler(
+    IScheduleRepository scheduleRepository,
+    SchedulesManager schedulesManager)
     : IRequestHandler<CreateScheduleRequest, JobSchedule>
 {
     public async Task<JobSchedule> Handle(CreateScheduleRequest request, CancellationToken cancellationToken)
@@ -26,6 +29,8 @@ internal class CreateScheduleHandler(IScheduleRepository scheduleRepository)
             Parameters = request.Parameters,
         };
 
-        return await scheduleRepository.CreateScheduleAsync(schedule, cancellationToken);
+        var created = await scheduleRepository.CreateScheduleAsync(schedule, cancellationToken);
+        await schedulesManager.AddScheduleAsync(created, cancellationToken);
+        return created;
     }
 }

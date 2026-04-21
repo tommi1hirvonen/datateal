@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using CronExpressionDescriptor;
 
 namespace DuckHouse.Ui.Client.Validation;
 
@@ -14,9 +15,12 @@ public static partial class ValidationHelper
     [GeneratedRegex(@"^[a-zA-Z_][a-zA-Z0-9_]*$")]
     private static partial Regex EnvVarKeyRegex();
 
-    // Basic cron field: *, number, */N, N-M, N,M,... or combinations.
-    [GeneratedRegex(@"^(\*|(\d+(-\d+)?(,\d+(-\d+)?)*)|(\*/\d+))$")]
-    private static partial Regex CronFieldRegex();
+    private static readonly Options CronDescriptorOptions = new()
+    {
+        ThrowExceptionOnParseError = false,
+        Use24HourTimeFormat = true,
+        Locale = "en",
+    };
 
     private static readonly HashSet<string> PythonKeywords = new(StringComparer.Ordinal)
     {
@@ -78,7 +82,7 @@ public static partial class ValidationHelper
     }
 
     /// <summary>
-    /// Validates a 5-field cron expression.
+    /// Validates a Quartz cron expression (6-field: seconds minutes hours day-of-month month day-of-week).
     /// Returns an error message, or null if valid.
     /// </summary>
     public static string? ValidateCronExpression(string? cron)
@@ -86,17 +90,32 @@ public static partial class ValidationHelper
         if (string.IsNullOrWhiteSpace(cron))
             return null; // required check handled by button Disabled
 
-        var fields = cron.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (fields.Length != 5)
-            return "Cron expression must have exactly 5 fields (minute hour day month weekday).";
-
-        foreach (var field in fields)
+        try
         {
-            if (!CronFieldRegex().IsMatch(field))
-                return $"Invalid cron field: '{field}'. Use *, a number, N-M, N,M,... or */N.";
+            ExpressionDescriptor.GetDescription(cron.Trim(), new Options
+            {
+                ThrowExceptionOnParseError = true,
+                Use24HourTimeFormat = true,
+                Locale = "en",
+            });
+            return null;
         }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
 
-        return null;
+    /// <summary>
+    /// Returns a human-readable description of a Quartz cron expression, or an empty string if blank.
+    /// Does not throw on invalid input.
+    /// </summary>
+    public static string GetCronDescription(string? cron)
+    {
+        if (string.IsNullOrWhiteSpace(cron))
+            return string.Empty;
+
+        return ExpressionDescriptor.GetDescription(cron.Trim(), CronDescriptorOptions);
     }
 
     /// <summary>

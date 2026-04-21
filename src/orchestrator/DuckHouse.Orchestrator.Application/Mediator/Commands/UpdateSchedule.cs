@@ -1,4 +1,5 @@
 using DuckHouse.Core.Mediator;
+using DuckHouse.Orchestrator.Application.Engine;
 using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Repositories;
 
@@ -11,7 +12,9 @@ public record UpdateScheduleRequest(
     string? TimeZone,
     Dictionary<string, string>? Parameters) : IRequest<JobSchedule?>;
 
-internal class UpdateScheduleHandler(IScheduleRepository scheduleRepository)
+internal class UpdateScheduleHandler(
+    IScheduleRepository scheduleRepository,
+    SchedulesManager schedulesManager)
     : IRequestHandler<UpdateScheduleRequest, JobSchedule?>
 {
     public async Task<JobSchedule?> Handle(UpdateScheduleRequest request, CancellationToken cancellationToken)
@@ -25,6 +28,11 @@ internal class UpdateScheduleHandler(IScheduleRepository scheduleRepository)
             Parameters = request.Parameters,
         };
 
-        return await scheduleRepository.UpdateScheduleAsync(schedule, cancellationToken);
+        var updated = await scheduleRepository.UpdateScheduleAsync(schedule, cancellationToken);
+        if (updated is not null)
+        {
+            await schedulesManager.UpdateScheduleAsync(updated, cancellationToken);
+        }
+        return updated;
     }
 }

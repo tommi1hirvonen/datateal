@@ -11,6 +11,7 @@
 
     <ItemGroup>
         <PackageReference Include="BlazorMonaco" />
+        <PackageReference Include="CronExpressionDescriptor" />
         <PackageReference Include="Markdig" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
         <PackageReference Include="AntDesign" />

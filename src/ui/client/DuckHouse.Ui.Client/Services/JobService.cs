@@ -123,6 +123,12 @@ internal class JobService(HttpClient httpClient) : IJobService
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<IReadOnlyList<TimeZoneDto>> GetTimeZonesAsync(CancellationToken ct)
+    {
+        return await httpClient.GetFromJsonAsync<IReadOnlyList<TimeZoneDto>>(
+            "api/orchestrator/admin/timezones", JsonOptions, ct) ?? [];
+    }
+
     public async Task<string> ExportJobAsync(Guid id, CancellationToken ct)
     {
         var response = await httpClient.GetAsync($"api/orchestrator/jobs/{id}/export", ct);

@@ -194,22 +194,17 @@
                             <code>@context.CronExpression</code>
                         </PropertyColumn>
                         <PropertyColumn Property="c => c.IsEnabled" Title="Enabled">
-                            @if (context.IsEnabled)
-                            {
-                                <Tag Color="@("green")">Enabled</Tag>
-                            }
-                            else
-                            {
-                                <Tag>Disabled</Tag>
-                            }
-                        </PropertyColumn>
-                        <PropertyColumn Property="c => c.TimeZone" Title="Time Zone">
-                            @(context.TimeZone ?? "UTC")
+                            <Switch Value="@context.IsEnabled" OnChange="@(async val => await ToggleScheduleEnabledAsync(context, val))" />
                         </PropertyColumn>
                         <PropertyColumn Property="c => c.NextFireTime" Title="Next Run">
                             @(context.NextFireTime?.ToString("yyyy-MM-dd HH:mm") ?? "—")
                         </PropertyColumn>
                         <ActionColumn Title="Actions">
+                            <Tooltip Title="Edit">
+                                <Button Size="@ButtonSize.Small" OnClick="() => StartEditSchedule(context)">
+                                    <Icon Type="@IconType.Outline.Edit" />
+                                </Button>
+                            </Tooltip>
                             <Tooltip Title="Delete">
                                 <Popconfirm Title="Delete this schedule?" OnConfirm="() => DeleteScheduleAsync(context)">
                                     <Button Danger Size="@ButtonSize.Small">
@@ -258,24 +253,37 @@
             </TabPane>
         </Tabs>
 
-        <Modal Title="Add schedule"
+        <Modal Title="@(_editingScheduleId.HasValue ? "Edit schedule" : "Add schedule")"
                Visible="_showScheduleModal"
-               OnOk="ConfirmAddSchedule"
+               OnOk="ConfirmSchedule"
                OnCancel="() => _showScheduleModal = false"
                OkButtonProps="@(new ButtonProps { Disabled = string.IsNullOrWhiteSpace(_newCron) || ValidationHelper.ValidateCronExpression(_newCron) is not null })">
             <div style="display: flex; flex-direction: column; gap: 16px;">
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: 500;">Cron Expression</label>
-                    <Input @bind-Value="_newCron" Placeholder="0 6 * * *"
+                    <Input @bind-Value="_newCron" Placeholder="0 0 6 * * ?"
                            Status="@(ValidationHelper.ValidateCronExpression(_newCron) is not null ? "error" : "")" />
                     @if (ValidationHelper.ValidateCronExpression(_newCron) is { } cronErr)
                     {
-                        <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">@cronErr</div>
+                        <div style="color: #ff4d4f; font-size: 12px; margin-top: 4px;">@cronErr</div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_newCron))
+                    {
+                        <div style="color: #888; font-size: 12px; margin-top: 4px;">@ValidationHelper.GetCronDescription(_newCron)</div>
                     }
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: 500;">Time Zone</label>
-                    <Input @bind-Value="_newTimeZone" Placeholder="UTC" />
+                    <Select TItem="TimeZoneDto"
+                            TItemValue="string"
+                            DataSource="_timeZones"
+                            @bind-Value="_newTimeZone"
+                            LabelName="@nameof(TimeZoneDto.DisplayName)"
+                            ValueName="@nameof(TimeZoneDto.Id)"
+                            Placeholder="UTC"
+                            AllowClear
+                            ShowSearch
+                            Style="width: 100%;" />
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 8px; font-weight: 500;">Parameter Overrides</label>
@@ -353,9 +361,11 @@
 
     // Schedule modal state
     private bool _showScheduleModal;
+    private Guid? _editingScheduleId;
     private string _newCron = "";
-    private string? _newTimeZone;
+    private string _newTimeZone = "";
     private List<EditableTaskParameter> _newScheduleParameters = [];
+    private List<TimeZoneDto> _timeZones = [];
 
     // Trigger modal state
     private bool _showTriggerModal;
@@ -623,15 +633,42 @@
         }
     }
 
-    private void StartAddSchedule()
+    private async Task StartAddSchedule()
     {
+        await LoadTimeZonesAsync();
+        _editingScheduleId = null;
         _newCron = "";
-        _newTimeZone = null;
+        _newTimeZone = "";
         _newScheduleParameters = [];
         _showScheduleModal = true;
     }
 
-    private async Task ConfirmAddSchedule()
+    private async Task StartEditSchedule(ScheduleDto schedule)
+    {
+        await LoadTimeZonesAsync();
+        _editingScheduleId = schedule.Id;
+        _newCron = schedule.CronExpression;
+        _newTimeZone = schedule.TimeZone ?? "";
+        _newScheduleParameters = schedule.Parameters is { Count: > 0 }
+            ? schedule.Parameters.Select(kv => new EditableTaskParameter { Key = kv.Key, Value = kv.Value }).ToList()
+            : [];
+        _showScheduleModal = true;
+    }
+
+    private async Task LoadTimeZonesAsync()
+    {
+        if (_timeZones.Count > 0) return;
+        try
+        {
+            _timeZones = (await JobService.GetTimeZonesAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load time zones: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmSchedule()
     {
         if (string.IsNullOrWhiteSpace(_newCron)) return;
         try
@@ -641,14 +678,38 @@
                     .Where(p => !string.IsNullOrWhiteSpace(p.Key))
                     .ToDictionary(p => p.Key, p => p.Value)
                 : null;
-            await JobService.CreateScheduleAsync(Id,
-                new CreateScheduleRequest(_newCron.Trim(), true, _newTimeZone?.Trim(), parameters?.Count > 0 ? parameters : null));
+            var tz = string.IsNullOrWhiteSpace(_newTimeZone) ? null : _newTimeZone.Trim();
+
+            if (_editingScheduleId.HasValue)
+            {
+                await JobService.UpdateScheduleAsync(Id, _editingScheduleId.Value,
+                    new UpdateScheduleRequest(_newCron.Trim(), true, tz, parameters?.Count > 0 ? parameters : null));
+            }
+            else
+            {
+                await JobService.CreateScheduleAsync(Id,
+                    new CreateScheduleRequest(_newCron.Trim(), true, tz, parameters?.Count > 0 ? parameters : null));
+            }
             _showScheduleModal = false;
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            _error = $"Failed to add schedule: {ex.Message}";
+            _error = $"Failed to save schedule: {ex.Message}";
+        }
+    }
+
+    private async Task ToggleScheduleEnabledAsync(ScheduleDto schedule, bool enabled)
+    {
+        try
+        {
+            await JobService.UpdateScheduleAsync(Id, schedule.Id,
+                new UpdateScheduleRequest(schedule.CronExpression, enabled, schedule.TimeZone, schedule.Parameters));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to update schedule: {ex.Message}";
         }
     }
 
