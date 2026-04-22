@@ -803,6 +803,7 @@
                 new UpdateNotebookRequest(_notebook.Title, json, _workspaceNotebookFolderId));
             try { await CatalogService.UpdateWorkspaceItemCatalogsAsync(_workspaceNotebookId.Value, _selectedCatalogNames.ToList()); }
             catch (Exception ex) { _error = $"Notebook saved but failed to save catalog selection: {ex.Message}"; }
+            _ = RecentItemsService.UpdateNameAsync(_workspaceNotebookId.Value, _notebook.Title);
             _notebook.IsDirty = false;
         }
         catch (Exception ex)
@@ -829,6 +830,8 @@
                 new CreateNotebookRequest(_notebook.Title, json, folderId));
             _workspaceNotebookId = summary.Id;
             _workspaceNotebookFolderId = folderId;
+
+            _ = RecentItemsService.RecordVisitAsync(summary.Id, _notebook.Title, "Notebook");
 
             if (_selectedCatalogNames.Any())
             {

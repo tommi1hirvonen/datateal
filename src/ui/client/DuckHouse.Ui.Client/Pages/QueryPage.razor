@@ -490,6 +490,8 @@
             _workspaceQueryId = summary.Id;
             _workspaceQueryFolderId = folderId;
 
+            _ = RecentItemsService.RecordVisitAsync(summary.Id, _title, "Query");
+
             if (_selectedCatalogNames.Any())
             {
                 try { await CatalogService.UpdateWorkspaceItemCatalogsAsync(summary.Id, _selectedCatalogNames.ToList()); }
@@ -522,6 +524,7 @@
                 new UpdateQueryRequest(_title, _sql, _workspaceQueryFolderId));
             try { await CatalogService.UpdateWorkspaceItemCatalogsAsync(_workspaceQueryId.Value, _selectedCatalogNames.ToList()); }
             catch (Exception ex) { _error = $"Query saved but failed to save catalog selection: {ex.Message}"; }
+            _ = RecentItemsService.UpdateNameAsync(_workspaceQueryId.Value, _title);
             _isDirty = false;
         }
         catch (Exception ex) { _error = $"Failed to save query: {ex.Message}"; }

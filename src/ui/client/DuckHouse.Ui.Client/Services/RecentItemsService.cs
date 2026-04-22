@@ -46,4 +46,30 @@ public sealed class RecentItemsService(IJSRuntime js) : IRecentItemsService
             // localStorage unavailable — silently ignore
         }
     }
+
+    public async Task RemoveAsync(Guid id)
+    {
+        try
+        {
+            var items = (await GetRecentItemsAsync()).ToList();
+            items.RemoveAll(i => i.Id == id);
+            var json = JsonSerializer.Serialize(items, JsonOptions);
+            await js.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
+        }
+        catch { }
+    }
+
+    public async Task UpdateNameAsync(Guid id, string newName)
+    {
+        try
+        {
+            var items = (await GetRecentItemsAsync()).ToList();
+            var idx = items.FindIndex(i => i.Id == id);
+            if (idx < 0) return;
+            items[idx] = items[idx] with { Name = newName };
+            var json = JsonSerializer.Serialize(items, JsonOptions);
+            await js.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
+        }
+        catch { }
+    }
 }

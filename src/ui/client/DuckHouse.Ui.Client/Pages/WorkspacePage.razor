@@ -3,6 +3,7 @@
 @using DuckHouse.Ui.Shared.Workspace
 @using DuckHouse.Core.Workspace
 @inject IWorkspaceService WorkspaceService
+@inject IRecentItemsService RecentItemsService
 @inject NavigationManager Navigation
 
 <PageTitle>Workspace — DuckHouse</PageTitle>
@@ -479,6 +480,7 @@ else
                     await WorkspaceService.UpdateQueryAsync(_renameItemTarget.Id,
                         new UpdateQueryRequest(title, detail.Content, _renameItemTarget.FolderId));
             }
+            _ = RecentItemsService.UpdateNameAsync(_renameItemTarget.Id, title);
             _renameItemTarget = null;
             await LoadAsync();
         }
@@ -562,6 +564,7 @@ else
                 await WorkspaceService.DeleteNotebookAsync(item.Id);
             else
                 await WorkspaceService.DeleteQueryAsync(item.Id);
+            _ = RecentItemsService.RemoveAsync(item.Id);
             await LoadAsync();
         }
         catch (Exception ex) { _error = $"Failed to delete: {ex.Message}"; }

@@ -2,6 +2,7 @@
 
 @using DuckHouse.Ui.Shared.Orchestration
 @inject IJobService JobService
+@inject IRecentItemsService RecentItemsService
 @inject NavigationManager Navigation
 
 <PageTitle>Jobs — DuckHouse</PageTitle>
@@ -403,6 +404,7 @@
         try
         {
             await JobService.DeleteJobAsync(job.Id);
+            _ = RecentItemsService.RemoveAsync(job.Id);
             await LoadAsync();
         }
         catch (Exception ex)

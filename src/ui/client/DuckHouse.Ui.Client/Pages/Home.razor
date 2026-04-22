@@ -56,18 +56,28 @@
         {
             <AntList DataSource="@_recentItems" TItem="RecentItem" Size="@ListSize.Small">
                 <ListItem Style="cursor: pointer;" OnClick="@(() => NavigateToItem(context))">
-                    <ListItemMeta>
-                        <AvatarTemplate>
-                            <Avatar Icon="@GetItemIcon(context.Type)" Style="@GetItemAvatarStyle(context.Type)" />
-                        </AvatarTemplate>
-                        <TitleTemplate>
-                            <span>@context.Name</span>
-                            <Tag Color="@("default")" Style="margin-left: 8px; font-size: 11px;">@context.Type</Tag>
-                        </TitleTemplate>
-                        <DescriptionTemplate>
-                            <span style="color: #8c8c8c; font-size: 12px;">@TimeAgo(context.AccessedAt)</span>
-                        </DescriptionTemplate>
-                    </ListItemMeta>
+                    <ChildContent>
+                        <ListItemMeta>
+                            <AvatarTemplate>
+                                <Avatar Icon="@GetItemIcon(context.Type)" Style="@GetItemAvatarStyle(context.Type)" />
+                            </AvatarTemplate>
+                            <TitleTemplate>
+                                <span>@context.Name</span>
+                                <Tag Color="@("default")" Style="margin-left: 8px; font-size: 11px;">@context.Type</Tag>
+                            </TitleTemplate>
+                            <DescriptionTemplate>
+                                <span style="color: #8c8c8c; font-size: 12px;">@TimeAgo(context.AccessedAt)</span>
+                            </DescriptionTemplate>
+                        </ListItemMeta>
+                    </ChildContent>
+                    <Extra>
+                        <div @onclick:stopPropagation>
+                            <Button Size="ButtonSize.Small"
+                                    Type="@ButtonType.Text"
+                                    Icon="@IconType.Outline.Close"
+                                    OnClick="@(() => _ = RemoveRecentItemAsync(context))" />
+                        </div>
+                    </Extra>
                 </ListItem>
             </AntList>
         }
@@ -93,6 +103,12 @@
     protected override async Task OnInitializedAsync()
     {
         _recentItems = (await RecentItemsService.GetRecentItemsAsync()).ToList();
+    }
+
+    private async Task RemoveRecentItemAsync(RecentItem item)
+    {
+        _recentItems.Remove(item);
+        await RecentItemsService.RemoveAsync(item.Id);
     }
 
     private async Task EnsureDataLoadedAsync()
