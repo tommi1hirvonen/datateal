@@ -139,5 +139,5 @@ public static partial class RunMagicHelper
     }
 
     private static string WrapSqlContent(string sql) =>
-        $"import duckdb; duckdb.sql(\"\"\"{sql}\"\"\")";
+        $"import duckdb; duckdb.execute(\"\"\"{sql}\"\"\").df()";
 }

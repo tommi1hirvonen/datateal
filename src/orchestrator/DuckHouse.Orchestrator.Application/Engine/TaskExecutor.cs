@@ -124,7 +124,7 @@ public class TaskExecutor(
 
                 // Wrap SQL cells; expand %run magic in Python cells
                 var code = cell.Language == "Sql"
-                    ? $"import duckdb; duckdb.sql(\"\"\"{cell.Source}\"\"\")"
+                    ? $"import duckdb; duckdb.execute(\"\"\"{cell.Source}\"\"\").df()"
                     : cell.Source;
 
                 if (cell.Language != "Sql" && HasRunLines(code))
@@ -231,7 +231,7 @@ public class TaskExecutor(
             taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
             await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
 
-            var code = $"import duckdb; duckdb.sql(\"\"\"{content.Content}\"\"\")";
+            var code = $"import duckdb; duckdb.execute(\"\"\"{content.Content}\"\"\").df()";
             var result = await ExecuteCodeAsync(nodeName, kernelId, code, ct);
 
             runCell.CompletedAt = DateTime.UtcNow;
@@ -460,7 +460,7 @@ public class TaskExecutor(
                 var cellCode = string.Join("\n", refCells
                     .Where(c => c.Type == "Code")
                     .Select(c => c.Language == "Sql"
-                        ? $"import duckdb; duckdb.sql(\"\"\"{c.Source}\"\"\")"
+                        ? $"import duckdb; duckdb.execute(\"\"\"{c.Source}\"\"\").df()"
                         : c.Source)
                     .Where(s => !string.IsNullOrWhiteSpace(s)));
 
@@ -487,7 +487,7 @@ public class TaskExecutor(
                     ?? throw new InvalidOperationException(
                         $"%run: query not found: {relativePath}");
 
-                lines[i] = $"import duckdb; duckdb.sql(\"\"\"{refContent.Content}\"\"\")";
+                lines[i] = $"import duckdb; duckdb.execute(\"\"\"{refContent.Content}\"\"\").df()";
                 visited.Remove(queryId.Value);
                 modified = true;
                 continue;

@@ -585,7 +585,7 @@
         string codeToRun;
         if (cell.Language == NotebookCellLanguage.Sql)
         {
-            codeToRun = $"import duckdb; duckdb.sql(\"\"\"{cell.Source}\"\"\")";
+            codeToRun = $"import duckdb; duckdb.execute(\"\"\"{cell.Source}\"\"\").df()";
         }
         else if (RunMagicHelper.HasRunLines(cell.Source))
         {
@@ -741,7 +741,7 @@
             .Select(c =>
             {
                 if (c.Language == NotebookCellLanguage.Sql)
-                    return $"import duckdb; duckdb.sql(\"\"\"{c.Source}\"\"\")";
+                    return $"import duckdb; duckdb.execute(\"\"\"{c.Source}\"\"\").df()";
                 if (c.CachedExpandedSource is not null)
                     return c.CachedExpandedSource;
                 return RunMagicHelper.ReplaceRunLinesWithPass(c.Source);

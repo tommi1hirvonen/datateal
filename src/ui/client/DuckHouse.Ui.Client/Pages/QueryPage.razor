@@ -702,7 +702,7 @@
         if (_kernel is not null)
             _kernel = _kernel with { Status = KernelStatus.Busy };
 
-        var codeToRun = $"import duckdb; duckdb.sql(\"\"\"{sqlToRun}\"\"\")";
+        var codeToRun = $"import duckdb; duckdb.execute(\"\"\"{sqlToRun}\"\"\").df()";
 
         try
         {
