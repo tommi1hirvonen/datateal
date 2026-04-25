@@ -49,24 +49,12 @@ internal sealed class CatalogSession
 
     /// <summary>
     /// Called when the user changes the catalog selection in the sidebar.
-    /// Persists the new selection to the workspace, then — when a kernel is connected —
-    /// syncs actual attach state from DuckDB and applies the minimal ATTACH/DETACH operations.
+    /// When a kernel is connected, syncs actual attach state from DuckDB and applies
+    /// the minimal ATTACH/DETACH operations. Persistence is deferred to the save action.
     /// </summary>
-    public async Task OnSelectionChangedAsync(
-        IEnumerable<CatalogDto> selectedItems,
-        Guid? workspaceItemId)
+    public async Task OnSelectionChangedAsync(IEnumerable<CatalogDto> selectedItems)
     {
         var names = selectedItems.Select(c => c.Name).ToList();
-
-        if (workspaceItemId.HasValue)
-        {
-            try
-            {
-                await _catalogService.UpdateWorkspaceItemCatalogsAsync(
-                    workspaceItemId.Value, names);
-            }
-            catch (Exception ex) { _setError($"Failed to save catalog selection: {ex.Message}"); }
-        }
 
         if (!HasKernel) return;
 

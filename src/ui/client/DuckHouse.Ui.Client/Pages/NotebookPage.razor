@@ -878,7 +878,7 @@
     private Task OnCatalogSelectionChanged(IEnumerable<CatalogDto> selectedItems)
     {
         _notebook.IsDirty = true;
-        return _catalog.OnSelectionChangedAsync(selectedItems, _workspaceNotebookId);
+        return _catalog.OnSelectionChangedAsync(selectedItems);
     }
 
     public async ValueTask DisposeAsync()

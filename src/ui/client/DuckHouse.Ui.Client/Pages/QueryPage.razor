@@ -803,7 +803,7 @@
     private Task OnCatalogSelectionChanged(IEnumerable<CatalogDto> selectedItems)
     {
         _isDirty = true;
-        return _catalog.OnSelectionChangedAsync(selectedItems, _workspaceQueryId);
+        return _catalog.OnSelectionChangedAsync(selectedItems);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
