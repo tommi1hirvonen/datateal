@@ -585,19 +585,7 @@
         string codeToRun;
         if (cell.Language == NotebookCellLanguage.Sql)
         {
-            // DuckDB's EXPLAIN output can be very wide and doesn't fit well in the DataFrame view,
-            // so we print it as text instead if the expected columns are present.
-            codeToRun =
-                $""""
-                import duckdb
-                __df = duckdb.execute("""{cell.Source}""").df()
-                __result = None
-                if all(value in __df.columns for value in ['explain_key', 'explain_value']):
-                    print('\\n'.join(str(v) for v in __df['explain_value']))
-                else:
-                    __result = __df
-                __result
-                """";
+            codeToRun = SqlCodeGenerator.WrapSql(cell.Source);
         }
         else if (RunMagicHelper.HasRunLines(cell.Source))
         {

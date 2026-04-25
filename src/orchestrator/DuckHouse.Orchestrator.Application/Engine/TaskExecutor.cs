@@ -140,7 +140,7 @@ public class TaskExecutor(
 
                 // Wrap SQL cells; expand %run magic in Python cells
                 var code = cell.Language == "Sql"
-                    ? WrapSqlContent(cell.Source)
+                    ? SqlCodeGenerator.WrapSql(cell.Source)
                     : cell.Source;
 
                 if (cell.Language != "Sql" && HasRunLines(code))
@@ -247,7 +247,7 @@ public class TaskExecutor(
             taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
             await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
 
-            var code = WrapSqlContent(content.Content);
+            var code = SqlCodeGenerator.WrapSql(content.Content);
             var result = await ExecuteCodeAsync(nodeName, kernelId, code, ct);
 
             runCell.CompletedAt = DateTime.UtcNow;
@@ -477,7 +477,7 @@ public class TaskExecutor(
                 var cellCode = string.Join("\n", refCells
                     .Where(c => c.Type == "Code")
                     .Select(c => c.Language == "Sql"
-                        ? WrapSqlContent(c.Source)
+                        ? SqlCodeGenerator.WrapSql(c.Source)
                         : c.Source)
                     .Where(s => !string.IsNullOrWhiteSpace(s)));
 
@@ -504,7 +504,7 @@ public class TaskExecutor(
                     ?? throw new InvalidOperationException(
                         $"%run: query not found: {relativePath}");
 
-                lines[i] = WrapSqlContent(refContent.Content);
+                lines[i] = SqlCodeGenerator.WrapSql(refContent.Content);
                 visited.Remove(queryId.Value);
                 modified = true;
                 continue;
@@ -582,20 +582,6 @@ public class TaskExecutor(
         });
         return string.Join("\n", lines);
     }
-
-    private static string WrapSqlContent(string sql) =>
-        // DuckDB's EXPLAIN output can be very wide and doesn't fit well in the DataFrame view,
-        // so we print it as text instead if the expected columns are present.
-        $""""
-        import duckdb
-        __df = duckdb.execute("""{sql}""").df()
-        __result = None
-        if all(value in __df.columns for value in ['explain_key', 'explain_value']):
-            print('\\n'.join(str(v) for v in __df['explain_value']))
-        else:
-            __result = __df
-        __result
-        """";
 
     // ── Catalog setup ───────────────────────────────────────────────
 

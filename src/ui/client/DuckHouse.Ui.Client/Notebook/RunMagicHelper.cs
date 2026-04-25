@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using DuckHouse.Core.Kernels;
 using DuckHouse.Ui.Client.Services;
 
 namespace DuckHouse.Ui.Client.Notebook;
@@ -100,7 +101,7 @@ public static partial class RunMagicHelper
 
             string expandedCode = resolved.Kind == "notebook"
                 ? ExpandNotebookContent(resolved.Content!)
-                : WrapSqlContent(resolved.Content!);
+                : SqlCodeGenerator.WrapSql(resolved.Content!);
 
             // Recursively expand any nested %run lines in the resolved code
             if (HasRunLines(expandedCode))
@@ -129,7 +130,7 @@ public static partial class RunMagicHelper
             if (cell.CellType != NotebookCellType.Code) continue;
 
             string cellCode = cell.Language == NotebookCellLanguage.Sql
-                ? WrapSqlContent(cell.Source)
+                ? SqlCodeGenerator.WrapSql(cell.Source)
                 : cell.Source;
 
             if (!string.IsNullOrWhiteSpace(cellCode))
@@ -137,19 +138,5 @@ public static partial class RunMagicHelper
         }
         return string.Join("\n", codeParts);
     }
-
-    private static string WrapSqlContent(string sql) =>
-        // DuckDB's EXPLAIN output can be very wide and doesn't fit well in the DataFrame view,
-        // so we print it as text instead if the expected columns are present.
-        $""""
-        import duckdb
-        __df = duckdb.execute("""{sql}""").df()
-        __result = None
-        if all(value in __df.columns for value in ['explain_key', 'explain_value']):
-            print('\\n'.join(str(v) for v in __df['explain_value']))
-        else:
-            __result = __df
-        __result
-        """";
         
 }
