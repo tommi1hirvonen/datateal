@@ -27,8 +27,9 @@
                     SelectedCatalogNamesChanged="@(v => _selectedCatalogNames = v)"
                     OnCatalogSelectionChanged="OnCatalogSelectionChanged"
                     CatalogSetupRunning="@_catalog.SetupRunning" />
-    <div class="cp-main" style="margin-left: 24px; overflow-y: auto;">
+    <div class="cp-main" style="margin-left: 24px;">
 
+        <div class="nb-header">
         <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
             <Space Align="SpaceAlign.End" Size="SpaceSize.Middle">
                 <SpaceItem>
@@ -220,6 +221,9 @@
                 OnClose="@(() => _error = null)" Style="margin-bottom: 16px;" />
         }
 
+        </div>@* end .nb-header *@
+
+        <div class="nb-cells">
         @* Cell list *@
         <AddCellBar OnAddPython="() => AddCell(0, NotebookCellType.Code, NotebookCellLanguage.Python)"
                     OnAddSql="() => AddCell(0, NotebookCellType.Code, NotebookCellLanguage.Sql)"
@@ -257,6 +261,8 @@
                 <Text Type="TextElementType.Secondary">No cells yet — use the <strong>+</strong> buttons above to add your first cell.</Text>
             </div>
         }
+
+        </div>@* end .nb-cells *@
 
         @* Folder picker modal — shown when saving to workspace for the first time *@
         <FolderPickerModal Visible="_showFolderPicker"
