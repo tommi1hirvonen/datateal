@@ -8,6 +8,7 @@ using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Enums;
 using DuckHouse.Orchestrator.Core.Interfaces;
 using DuckHouse.Orchestrator.Core.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using DuckHouse.Core.Orchestration;
 
@@ -18,27 +19,42 @@ namespace DuckHouse.Orchestrator.Application.Engine;
 /// </summary>
 public class TaskExecutor(
     IControlPlaneClient controlPlane,
-    IWorkspaceReader workspaceReader,
-    IJobRunRepository jobRunRepository,
-    ICatalogResolver catalogResolver,
+    IServiceScopeFactory scopeFactory,
     IMediator mediator,
     ILogger<TaskExecutor> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    /// <summary>
+    /// Groups the scoped DB-backed services resolved per task execution so they
+    /// can be threaded through the private call chain without a long parameter list.
+    /// </summary>
+    private record TaskScopeContext(
+        IJobRunRepository Repo,
+        IWorkspaceReader Workspace,
+        ICatalogResolver Catalogs);
+
     public async Task ExecuteAsync(TaskRun taskRun, JobTask task, NodeManager nodeManager,
         Dictionary<string, string>? jobRunParameters, CancellationToken ct)
     {
+        // Each concurrent task execution gets its own scope (and DbContext) to avoid
+        // EF Core threading issues when tasks run in parallel within the same job run.
+        using var scope = scopeFactory.CreateScope();
+        var ctx = new TaskScopeContext(
+            scope.ServiceProvider.GetRequiredService<IJobRunRepository>(),
+            scope.ServiceProvider.GetRequiredService<IWorkspaceReader>(),
+            scope.ServiceProvider.GetRequiredService<ICatalogResolver>());
+
         switch ((taskRun, task))
         {
             case (NotebookTaskRun nbRun, NotebookTask nbTask):
-                await ExecuteNotebookAsync(nbRun, nbTask, nodeManager, jobRunParameters, ct);
+                await ExecuteNotebookAsync(nbRun, nbTask, nodeManager, jobRunParameters, ctx, ct);
                 break;
             case (SqlQueryTaskRun sqlRun, SqlQueryTask sqlTask):
-                await ExecuteSqlQueryAsync(sqlRun, sqlTask, nodeManager, jobRunParameters, ct);
+                await ExecuteSqlQueryAsync(sqlRun, sqlTask, nodeManager, jobRunParameters, ctx, ct);
                 break;
             case (SubJobTaskRun subRun, SubJobTask subJobTask):
-                await ExecuteSubJobAsync(subRun, subJobTask, jobRunParameters, ct);
+                await ExecuteSubJobAsync(subRun, subJobTask, jobRunParameters, ctx, ct);
                 break;
             default:
                 throw new InvalidOperationException(
@@ -50,16 +66,16 @@ public class TaskExecutor(
 
     private async Task ExecuteNotebookAsync(
         NotebookTaskRun taskRun, NotebookTask task, NodeManager nodeManager,
-        Dictionary<string, string>? jobRunParameters, CancellationToken ct)
+        Dictionary<string, string>? jobRunParameters, TaskScopeContext ctx, CancellationToken ct)
     {
-        var content = await workspaceReader.GetNotebookContentAsync(task.NotebookId, ct)
+        var content = await ctx.Workspace.GetNotebookContentAsync(task.NotebookId, ct)
             ?? throw new InvalidOperationException(
                 $"Notebook {task.NotebookId} not found in workspace.");
 
         var cells = ParseNotebookCells(content.Content);
 
         // Determine this notebook's folder path for %run relative path resolution
-        var notebookAbsPath = await workspaceReader.ResolveNotebookPathByIdAsync(task.NotebookId, ct);
+        var notebookAbsPath = await ctx.Workspace.ResolveNotebookPathByIdAsync(task.NotebookId, ct);
         var notebookFolderPath = notebookAbsPath is not null ? GetFolderPath(notebookAbsPath) : "";
 
         var resolvedParameters = ResolveParameters(task.Parameters, jobRunParameters);
@@ -91,7 +107,7 @@ public class TaskExecutor(
 
         var notebook = new RunNotebook { Title = content.Title, Cells = runCells };
         taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
-        await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+        await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
 
         // Provision node and kernel
         if (task.NodePoolRef is null)
@@ -101,12 +117,12 @@ public class TaskExecutor(
         var (nodeName, kernelId) = await nodeManager.CreateKernelAsync(task.NodePoolRef, ct);
         taskRun.NodeName = nodeName;
         taskRun.KernelId = kernelId;
-        await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+        await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
 
         try
         {
             // Attach DuckLake catalogs if configured
-            await SetupCatalogsForWorkspaceItemAsync(task.NotebookId, nodeName, kernelId, ct);
+            await SetupCatalogsForWorkspaceItemAsync(task.NotebookId, nodeName, kernelId, ctx, ct);
 
             for (var i = 0; i < cells.Count; i++)
             {
@@ -120,7 +136,7 @@ public class TaskExecutor(
                 runCell.Status = "Running";
                 runCell.StartedAt = DateTime.UtcNow;
                 taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
-                await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+                await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
 
                 // Wrap SQL cells; expand %run magic in Python cells
                 var code = cell.Language == "Sql"
@@ -128,7 +144,7 @@ public class TaskExecutor(
                     : cell.Source;
 
                 if (cell.Language != "Sql" && HasRunLines(code))
-                    code = await ExpandRunMagicAsync(code, notebookFolderPath, null, 0, ct);
+                    code = await ExpandRunMagicAsync(code, notebookFolderPath, null, 0, ctx.Workspace, ct);
 
                 try
                 {
@@ -143,11 +159,11 @@ public class TaskExecutor(
                         runCell.ErrorJson = JsonSerializer.Serialize(result.Error, JsonOptions);
 
                     taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
-                    await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+                    await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
 
                     if (result.Error is not null)
                     {
-                        await SkipRemainingCells(taskRun, notebook, runCells, i + 1, cells, ct);
+                        await SkipRemainingCells(taskRun, notebook, runCells, i + 1, cells, ctx, ct);
                         throw new InvalidOperationException(
                             $"Cell {i} failed: {result.Error.Ename}: {result.Error.Evalue}");
                     }
@@ -163,8 +179,8 @@ public class TaskExecutor(
                     runCell.ErrorJson = JsonSerializer.Serialize(
                         new ErrorInfo("ExecutionError", ex.Message, []), JsonOptions);
                     taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
-                    await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
-                    await SkipRemainingCells(taskRun, notebook, runCells, i + 1, cells, ct);
+                    await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
+                    await SkipRemainingCells(taskRun, notebook, runCells, i + 1, cells, ctx, ct);
                     throw;
                 }
             }
@@ -176,7 +192,7 @@ public class TaskExecutor(
     }
 
     private async Task SkipRemainingCells(ComputeTaskRun taskRun, RunNotebook notebook, List<RunCell> runCells,
-        int startIndex, List<CellInfo> cells, CancellationToken ct)
+        int startIndex, List<CellInfo> cells, TaskScopeContext ctx, CancellationToken ct)
     {
         for (var j = startIndex; j < cells.Count; j++)
         {
@@ -185,16 +201,16 @@ public class TaskExecutor(
             runCells[j].CompletedAt = DateTime.UtcNow;
         }
         taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
-        await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+        await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
     }
 
     // ── SQL execution ───────────────────────────────────────────────
 
     private async Task ExecuteSqlQueryAsync(
         SqlQueryTaskRun taskRun, SqlQueryTask task, NodeManager nodeManager,
-        Dictionary<string, string>? jobRunParameters, CancellationToken ct)
+        Dictionary<string, string>? jobRunParameters, TaskScopeContext ctx, CancellationToken ct)
     {
-        var content = await workspaceReader.GetQueryContentAsync(task.QueryId, ct)
+        var content = await ctx.Workspace.GetQueryContentAsync(task.QueryId, ct)
             ?? throw new InvalidOperationException(
                 $"Query {task.QueryId} not found in workspace.");
 
@@ -214,22 +230,22 @@ public class TaskExecutor(
         };
         var notebook = new RunNotebook { Title = content.Title, Cells = [runCell] };
         taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
-        await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+        await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
 
         var (nodeName, kernelId) = await nodeManager.CreateKernelAsync(task.NodePoolRef, ct);
         taskRun.NodeName = nodeName;
         taskRun.KernelId = kernelId;
-        await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+        await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
 
         try
         {
             // Attach DuckLake catalogs if configured
-            await SetupCatalogsForWorkspaceItemAsync(task.QueryId, nodeName, kernelId, ct);
+            await SetupCatalogsForWorkspaceItemAsync(task.QueryId, nodeName, kernelId, ctx, ct);
 
             runCell.Status = "Running";
             runCell.StartedAt = DateTime.UtcNow;
             taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
-            await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+            await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
 
             var code = WrapSqlContent(content.Content);
             var result = await ExecuteCodeAsync(nodeName, kernelId, code, ct);
@@ -244,14 +260,14 @@ public class TaskExecutor(
                 runCell.Status = "Failed";
                 runCell.ErrorJson = JsonSerializer.Serialize(result.Error, JsonOptions);
                 taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
-                await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+                await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
                 throw new InvalidOperationException(
                     $"SQL query failed: {result.Error.Ename}: {result.Error.Evalue}");
             }
 
             runCell.Status = "Succeeded";
             taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
-            await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+            await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
         }
         catch (InvalidOperationException)
         {
@@ -264,7 +280,7 @@ public class TaskExecutor(
             runCell.ErrorJson = JsonSerializer.Serialize(
                 new ErrorInfo("ExecutionError", ex.Message, []), JsonOptions);
             taskRun.OutputJson = JsonSerializer.Serialize(notebook, JsonOptions);
-            await jobRunRepository.UpdateTaskRunAsync(taskRun, ct);
+            await ctx.Repo.UpdateTaskRunAsync(taskRun, ct);
             throw;
         }
         finally
@@ -276,7 +292,7 @@ public class TaskExecutor(
     // ── SubJob execution ────────────────────────────────────────────
 
     private async Task ExecuteSubJobAsync(SubJobTaskRun taskRun, SubJobTask task,
-        Dictionary<string, string>? jobRunParameters, CancellationToken ct)
+        Dictionary<string, string>? jobRunParameters, TaskScopeContext ctx, CancellationToken ct)
     {
         logger.LogInformation("Triggering sub-job {SubJobId} for task '{TaskName}'",
             task.SubJobId, task.Name);
@@ -297,7 +313,7 @@ public class TaskExecutor(
             ct.ThrowIfCancellationRequested();
             await Task.Delay(TimeSpan.FromSeconds(5), ct);
 
-            var run = await jobRunRepository.GetJobRunAsync(subRun.Id, ct);
+            var run = await ctx.Repo.GetJobRunAsync(subRun.Id, ct);
             if (run is null)
                 throw new InvalidOperationException($"Sub-job run {subRun.Id} not found.");
 
@@ -426,6 +442,7 @@ public class TaskExecutor(
         string baseFolderPath,
         HashSet<Guid>? visited,
         int depth,
+        IWorkspaceReader workspaceReader,
         CancellationToken ct)
     {
         if (depth > 10)
@@ -467,7 +484,7 @@ public class TaskExecutor(
                 // Recurse using the referenced notebook's folder as the new base
                 var refAbsPath = await workspaceReader.ResolveNotebookPathByIdAsync(notebookId.Value, ct);
                 var refFolderPath = refAbsPath is not null ? GetFolderPath(refAbsPath) : baseFolderPath;
-                cellCode = await ExpandRunMagicAsync(cellCode, refFolderPath, visited, depth + 1, ct);
+                cellCode = await ExpandRunMagicAsync(cellCode, refFolderPath, visited, depth + 1, workspaceReader, ct);
 
                 visited.Remove(notebookId.Value);
                 lines[i] = cellCode;
@@ -583,12 +600,12 @@ public class TaskExecutor(
     // ── Catalog setup ───────────────────────────────────────────────
 
     private async Task SetupCatalogsForWorkspaceItemAsync(
-        Guid workspaceItemId, string nodeName, string kernelId, CancellationToken ct)
+        Guid workspaceItemId, string nodeName, string kernelId, TaskScopeContext ctx, CancellationToken ct)
     {
-        var catalogNames = await workspaceReader.GetWorkspaceItemCatalogNamesAsync(workspaceItemId, ct);
+        var catalogNames = await ctx.Workspace.GetWorkspaceItemCatalogNamesAsync(workspaceItemId, ct);
         if (catalogNames.Count == 0) return;
 
-        var resolved = await catalogResolver.ResolveAsync(catalogNames, ct);
+        var resolved = await ctx.Catalogs.ResolveAsync(catalogNames, ct);
         if (resolved.Count == 0) return;
 
         var script = CatalogSetupGenerator.GenerateSetupScript(resolved);

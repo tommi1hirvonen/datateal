@@ -6,6 +6,7 @@ using DuckHouse.Orchestrator.Core.Entities;
 using DuckHouse.Orchestrator.Core.Enums;
 using DuckHouse.Orchestrator.Core.Interfaces;
 using DuckHouse.Orchestrator.Core.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DuckHouse.Orchestrator.Application.Engine;
@@ -19,12 +20,11 @@ public class RunCoordinator(
     IJobRunRepository jobRunRepository,
     INodePoolConfigRepository nodePoolConfigRepo,
     IControlPlaneClient controlPlane,
-    IWorkspaceReader workspaceReader,
     IWheelPackageReader wheelPackageReader,
     IEnvironmentResolver environmentResolver,
-    ICatalogResolver catalogResolver,
     IMediator mediator,
     WarmPoolManager warmPoolManager,
+    IServiceScopeFactory scopeFactory,
     ILoggerFactory loggerFactory)
 {
     private static readonly JsonSerializerOptions SnapshotOptions = new(JsonSerializerDefaults.Web)
@@ -55,7 +55,7 @@ public class RunCoordinator(
             loggerFactory.CreateLogger<NodeManager>());
 
         var taskExecutor = new TaskExecutor(
-            controlPlane, workspaceReader, jobRunRepository, catalogResolver, mediator,
+            controlPlane, scopeFactory, mediator,
             loggerFactory.CreateLogger<TaskExecutor>());
 
         // Build lookup maps
