@@ -17,7 +17,12 @@
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: 500;">Name</label>
-                    <Input @bind-Value="_name" Placeholder="task-name" />
+                    <Input @bind-Value="_name" Placeholder="task-name"
+                           Status="@(IsDuplicateName() ? "error" : "")" />
+                    @if (IsDuplicateName())
+                    {
+                        <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">A task with this name already exists.</div>
+                    }
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: 500;">Task type</label>
@@ -318,9 +323,13 @@
         _nodePoolRef = null;
     }
 
+    private bool IsDuplicateName() =>
+        OtherTaskNames.Any(n => string.Equals(n, _name.Trim(), StringComparison.OrdinalIgnoreCase));
+
     private bool HasValidationErrors()
     {
         if (string.IsNullOrWhiteSpace(_name)) return true;
+        if (IsDuplicateName()) return true;
         if (_taskType == TaskType.Notebook && _notebookId is null) return true;
         if (_taskType == TaskType.SqlQuery && _queryId is null) return true;
         if (_taskType == TaskType.SubJob && _subJobId is null) return true;
