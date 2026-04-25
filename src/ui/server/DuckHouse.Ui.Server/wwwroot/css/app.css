@@ -127,12 +127,14 @@ html.ant-dark .cp-panel-header {
 /* Notebook page layout — header stays pinned, cells scroll independently */
 .nb-header {
     flex-shrink: 0;
+    padding-right: 24px;
 }
 
 .nb-cells {
     flex: 1 1 0%;
     min-height: 0;
     overflow-y: auto;
+    padding-right: 24px;
 }
 
 .cp-collapse-btn {

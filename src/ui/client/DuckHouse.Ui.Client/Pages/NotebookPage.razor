@@ -21,7 +21,8 @@
 
 <PageTitle>Notebook — DuckHouse</PageTitle>
 
-<div class="cp-layout">
+@* Negate the right side padding set in MainLayout.razor to have the scrollbar be flush with the edge. *@
+<div class="cp-layout" style="margin-right: -24px;">
     <CatalogSidePanel AllCatalogs="@_allCatalogs"
                     SelectedCatalogNames="@_selectedCatalogNames"
                     SelectedCatalogNamesChanged="@(v => _selectedCatalogNames = v)"
