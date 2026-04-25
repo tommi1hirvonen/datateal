@@ -139,5 +139,17 @@ public static partial class RunMagicHelper
     }
 
     private static string WrapSqlContent(string sql) =>
-        $"import duckdb; duckdb.execute(\"\"\"{sql}\"\"\").df()";
+        // DuckDB's EXPLAIN output can be very wide and doesn't fit well in the DataFrame view,
+        // so we print it as text instead if the expected columns are present.
+        $""""
+        import duckdb
+        __df = duckdb.execute("""{sql}""").df()
+        __result = None
+        if all(value in __df.columns for value in ['explain_key', 'explain_value']):
+            print('\\n'.join(str(v) for v in __df['explain_value']))
+        else:
+            __result = __df
+        __result
+        """";
+        
 }
