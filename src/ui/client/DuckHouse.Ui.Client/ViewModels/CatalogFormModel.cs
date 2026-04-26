@@ -4,7 +4,6 @@ namespace DuckHouse.Ui.Client.ViewModels;
 
 public class CatalogFormModel
 {
-    [Required]
     public string Name { get; set; } = "";
     public bool IsManaged { get; set; } = true;
     public bool AllowExistingDatabase { get; set; }

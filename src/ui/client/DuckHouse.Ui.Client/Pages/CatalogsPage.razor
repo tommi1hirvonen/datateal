@@ -3,7 +3,6 @@
 @using DuckHouse.Ui.Shared.Catalogs
 @using DuckHouse.Ui.Client.Validation
 @using DuckHouse.Ui.Client.Components
-@using System.ComponentModel.DataAnnotations
 @inject ICatalogService CatalogService
 @inject IJSRuntime JS
 @implements IAsyncDisposable
@@ -139,11 +138,16 @@
         OnClose="() => _showModal = false"
         BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
     <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-        <Form Model="@_form" Layout="FormLayout.Vertical" ValidateOnChange="true">
-            <FormItem Label="Name" Rules="@_catalogNameRules">
+        <Form Model="@_form" Layout="FormLayout.Vertical">
+            <FormItem Label="Name">
                 <Input @bind-Value="context.Name" Placeholder="my_catalog"
-                       OnInput="@(e => _form.Name = e.Value?.ToString() ?? "")"
+                       OnInput="@OnNameInput"
+                       Class="@(_nameError is not null ? "ant-input-status-error" : "")"
                        OnPressEnter="@(async _ => await ConfirmSave())" />
+                @if (_nameError is not null)
+                {
+                    <div class="ant-form-item-explain-error">@_nameError</div>
+                }
             </FormItem>
 
             @if (_editTarget is null)
@@ -235,19 +239,34 @@
     private bool _showModal;
     private CatalogDto? _editTarget;
     private CatalogFormModel _form = new();
+    private string? _nameError;
 
     private static readonly FormValidationRule[] _requiredRule =
     [
         new() { Required = true, Message = "This field is required." }
     ];
 
-    private static readonly FormValidationRule[] _catalogNameRules =
-    [
-        new() { Required = true, Message = "Name is required." },
-        new() { Validator = ctx =>
-            ValidationHelper.ValidateCatalogName(ctx.Value?.ToString()) is { } err
-                ? new ValidationResult(err, [ctx.FieldName]) : null }
-    ];
+    private void OnNameInput(ChangeEventArgs e)
+    {
+        _form.Name = e.Value?.ToString() ?? "";
+        var error = GetNameError();
+        // Always re-evaluate if already in error state.
+        // Also show new errors proactively (format, duplicate), but suppress
+        // "Name is required." on a fresh empty field before first submit attempt.
+        if (_nameError is not null || (error is not null && !string.IsNullOrEmpty(_form.Name)))
+            _nameError = error;
+    }
+
+    private string? GetNameError()
+    {
+        if (string.IsNullOrEmpty(_form.Name)) return "Name is required.";
+        if (ValidationHelper.ValidateCatalogName(_form.Name) is { } formatError) return formatError;
+        var trimmed = _form.Name.Trim();
+        if (_catalogs.Any(c => c.Name.Equals(trimmed, StringComparison.OrdinalIgnoreCase)
+                               && c != _editTarget))
+            return "A catalog with this name already exists.";
+        return null;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -312,8 +331,7 @@
 
     private bool IsFormValid()
     {
-        if (string.IsNullOrWhiteSpace(_form.Name) || ValidationHelper.ValidateCatalogName(_form.Name) is not null)
-            return false;
+        if (GetNameError() is not null) return false;
 
         if (!_form.IsManaged)
         {
@@ -331,12 +349,14 @@
     {
         _editTarget = null;
         _form = new CatalogFormModel();
+        _nameError = null;
         _showModal = true;
     }
 
     private void StartEdit(CatalogDto catalog)
     {
         _editTarget = catalog;
+        _nameError = null;
         _form = new CatalogFormModel
         {
             Name = catalog.Name,
@@ -357,6 +377,8 @@
 
     private async Task ConfirmSave()
     {
+        _nameError = GetNameError();
+        if (_nameError is not null) return;
         if (!IsFormValid()) return;
 
         try
