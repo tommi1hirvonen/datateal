@@ -2,7 +2,6 @@
 
 @using DuckHouse.Ui.Shared.Workspace
 @using DuckHouse.Core.Workspace
-@using System.ComponentModel.DataAnnotations
 @inject IWorkspaceService WorkspaceService
 @inject IRecentItemsService RecentItemsService
 @inject NavigationManager Navigation
@@ -62,28 +61,8 @@
 }
 else
 {
-    @* Inline new-folder row *@
-    @if (_addingFolder)
-    {
-        <Flex Align="FlexAlign.Center" Gap="FlexGap.Small" Style="margin-bottom: 12px;">
-            <Icon Type="@IconType.Outline.Folder" Style="color: #faad14;" />
-            <Input @ref="_newFolderInput"
-                   @bind-Value="_newFolderName"
-                   Placeholder="Folder name"
-                   Style="width: 220px;"
-                   OnPressEnter="@(_ => ConfirmNewFolderAsync())" />
-            <Button Size="ButtonSize.Small" Type="ButtonType.Primary" OnClick="ConfirmNewFolderAsync"
-                    Disabled="@(string.IsNullOrWhiteSpace(_newFolderName) || _newFolderName.Contains('/'))">Create</Button>
-            <Button Size="ButtonSize.Small" OnClick="CancelNewFolder">Cancel</Button>
-        </Flex>
-        @if (_newFolderName.Contains('/'))
-        {
-            <span style="font-size: 0.75rem; color: #ff4d4f; margin-bottom: 8px; display: block;">Folder name cannot contain '/'.</span>
-        }
-    }
-
     @* Combined folders + notebooks + queries table *@
-    @if (_items.Count > 0 || _addingFolder)
+    @if (_items.Count > 0)
     {
         <Table TItem="WorkspacePageItem" DataSource="_items" Bordered="false"
                PageSize="int.MaxValue" PaginationPosition="none" Size="TableSize.Small">
@@ -228,7 +207,7 @@ else
         </Table>
     }
 
-    @if (_items.Count == 0 && !_addingFolder)
+    @if (_items.Count == 0)
     {
         <div style="text-align: center; padding: 40px 0;">
             <Icon Type="@IconType.Outline.Inbox" Style="font-size: 48px; color: #d9d9d9;" />
@@ -237,24 +216,55 @@ else
     }
 }
 
+@* New folder drawer *@
+<Drawer Closable="true" @bind-Visible="_showNewFolderDrawer" Placement="DrawerPlacement.Right"
+        Width="480" Title="@("New folder")"
+        OnClose="CancelNewFolder"
+        BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+    <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        <Form Model="@_newFolderForm" Layout="FormLayout.Vertical">
+            <FormItem Label="Name">
+                <Input @bind-Value="context.Name" Placeholder="Folder name"
+                       BindOnInput
+                       Class="@(NewFolderNameDisplayError is not null ? "ant-input-status-error" : "")"
+                       OnPressEnter="@(async _ => await ConfirmNewFolderAsync())" />
+                @if (NewFolderNameDisplayError is not null)
+                {
+                    <div class="ant-form-item-explain-error">@NewFolderNameDisplayError</div>
+                }
+            </FormItem>
+        </Form>
+    </div>
+    <div class="drawer-footer">
+        <Button OnClick="CancelNewFolder">Cancel</Button>
+        <Button Type="@ButtonType.Primary" OnClick="ConfirmNewFolderAsync"
+                Disabled="@(NewFolderNameDisplayError is not null)">Create</Button>
+    </div>
+</Drawer>
+
 @* Rename folder drawer *@
 <Drawer Closable="true" Visible="_renameFolderTarget is not null" Placement="DrawerPlacement.Right"
        Width="480" Title="@("Rename folder")"
        OnClose="CancelRenameFolder"
        BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
     <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-        <Form Model="@_renameFolderForm" Layout="FormLayout.Vertical" ValidateOnChange="true">
-            <FormItem Label="Name" Rules="@_renameRules">
+        <Form Model="@_renameFolderForm" Layout="FormLayout.Vertical">
+            <FormItem Label="Name">
                 <Input @bind-Value="context.Name" Placeholder="Folder name"
                        BindOnInput
+                       Class="@(RenameFolderNameDisplayError is not null ? "ant-input-status-error" : "")"
                        OnPressEnter="@(async _ => await ConfirmRenameFolderAsync())" />
+                @if (RenameFolderNameDisplayError is not null)
+                {
+                    <div class="ant-form-item-explain-error">@RenameFolderNameDisplayError</div>
+                }
             </FormItem>
         </Form>
     </div>
     <div class="drawer-footer">
         <Button OnClick="CancelRenameFolder">Cancel</Button>
         <Button Type="@ButtonType.Primary" OnClick="ConfirmRenameFolderAsync"
-                Disabled="@(string.IsNullOrWhiteSpace(_renameFolderForm.Name) || _renameFolderForm.Name.Contains('/'))">Rename</Button>
+                Disabled="@(RenameFolderNameDisplayError is not null)">Rename</Button>
     </div>
 </Drawer>
 
@@ -264,18 +274,23 @@ else
        OnClose="CancelRenameItem"
        BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
     <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-        <Form Model="@_renameItemForm" Layout="FormLayout.Vertical" ValidateOnChange="true">
-            <FormItem Label="Title" Rules="@_renameRules">
+        <Form Model="@_renameItemForm" Layout="FormLayout.Vertical">
+            <FormItem Label="Title">
                 <Input @bind-Value="context.Title" Placeholder="Title"
                        BindOnInput
+                       Class="@(RenameItemTitleDisplayError is not null ? "ant-input-status-error" : "")"
                        OnPressEnter="@(async _ => await ConfirmRenameItemAsync())" />
+                @if (RenameItemTitleDisplayError is not null)
+                {
+                    <div class="ant-form-item-explain-error">@RenameItemTitleDisplayError</div>
+                }
             </FormItem>
         </Form>
     </div>
     <div class="drawer-footer">
         <Button OnClick="CancelRenameItem">Cancel</Button>
         <Button Type="@ButtonType.Primary" OnClick="ConfirmRenameItemAsync"
-                Disabled="@(string.IsNullOrWhiteSpace(_renameItemForm.Title) || _renameItemForm.Title.Contains('/'))">Rename</Button>
+                Disabled="@(RenameItemTitleDisplayError is not null)">Rename</Button>
     </div>
 </Drawer>
 
@@ -316,25 +331,57 @@ else
     private string? _error;
 
     // New folder
-    private bool _addingFolder;
-    private string _newFolderName = "";
-    private AntDesign.Input<string>? _newFolderInput;
+    private bool _showNewFolderDrawer;
+    private RenameFolderFormModel _newFolderForm = new();
+    private bool _newFolderNameSubmitAttempted;
 
     // Rename folder
     private FolderSummary? _renameFolderTarget;
     private RenameFolderFormModel _renameFolderForm = new();
+    private bool _renameFolderNameSubmitAttempted;
 
     // Rename item (notebook or query)
     private WorkspaceItemSummary? _renameItemTarget;
     private RenameItemFormModel _renameItemForm = new();
+    private bool _renameItemTitleSubmitAttempted;
 
-    private static readonly FormValidationRule[] _renameRules =
-    [
-        new() { Required = true, Message = "This field is required." },
-        new() { Validator = ctx =>
-            (ctx.Value?.ToString() ?? "").Contains('/')
-                ? new ValidationResult("Cannot contain '/'.", [ctx.FieldName]) : null }
-    ];
+    private string? NewFolderNameDisplayError =>
+        (_newFolderNameSubmitAttempted || !string.IsNullOrEmpty(_newFolderForm.Name)) ? GetNewFolderNameError() : null;
+
+    private string? GetNewFolderNameError()
+    {
+        if (string.IsNullOrEmpty(_newFolderForm.Name)) return "Name is required.";
+        if (_newFolderForm.Name.Contains('/')) return "Name cannot contain '/'.";
+        if (_listing.Folders.Any(f => string.Equals(f.Name, _newFolderForm.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
+            return "A folder with this name already exists.";
+        return null;
+    }
+
+    private string? RenameFolderNameDisplayError =>
+        (_renameFolderNameSubmitAttempted || !string.IsNullOrEmpty(_renameFolderForm.Name)) ? GetRenameFolderNameError() : null;
+
+    private string? GetRenameFolderNameError()
+    {
+        if (string.IsNullOrEmpty(_renameFolderForm.Name)) return "Name is required.";
+        if (_renameFolderForm.Name.Contains('/')) return "Name cannot contain '/'.";
+        if (_listing.Folders.Where(f => f.Id != _renameFolderTarget?.Id)
+                            .Any(f => string.Equals(f.Name, _renameFolderForm.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
+            return "A folder with this name already exists.";
+        return null;
+    }
+
+    private string? RenameItemTitleDisplayError =>
+        (_renameItemTitleSubmitAttempted || !string.IsNullOrEmpty(_renameItemForm.Title)) ? GetRenameItemTitleError() : null;
+
+    private string? GetRenameItemTitleError()
+    {
+        if (string.IsNullOrEmpty(_renameItemForm.Title)) return "Title is required.";
+        if (_renameItemForm.Title.Contains('/')) return "Title cannot contain '/'.";
+        if (_listing.Items.Where(i => i.Id != _renameItemTarget?.Id)
+                          .Any(i => string.Equals(i.Title, _renameItemForm.Title.Trim(), StringComparison.OrdinalIgnoreCase)))
+            return "An item with this title already exists.";
+        return null;
+    }
 
     // Move folder
     private FolderSummary? _moveFolderTarget;
@@ -401,18 +448,20 @@ else
 
     private void StartNewFolder()
     {
-        _newFolderName = "";
-        _addingFolder = true;
+        _newFolderForm = new RenameFolderFormModel();
+        _newFolderNameSubmitAttempted = false;
+        _showNewFolderDrawer = true;
     }
 
     private async Task ConfirmNewFolderAsync()
     {
-        var name = _newFolderName.Trim();
-        if (string.IsNullOrEmpty(name)) { CancelNewFolder(); return; }
+        _newFolderNameSubmitAttempted = true;
+        if (GetNewFolderNameError() is not null) return;
+        var name = _newFolderForm.Name.Trim();
         try
         {
             await WorkspaceService.CreateFolderAsync(new CreateFolderRequest(name, Folder));
-            _addingFolder = false;
+            _showNewFolderDrawer = false;
             await LoadAsync();
         }
         catch (Exception ex) { _error = $"Failed to create folder: {ex.Message}"; }
@@ -420,8 +469,8 @@ else
 
     private void CancelNewFolder()
     {
-        _addingFolder = false;
-        _newFolderName = "";
+        _showNewFolderDrawer = false;
+        _newFolderForm = new RenameFolderFormModel();
     }
 
     // ── New Notebook ──────────────────────────────────────────────────
@@ -437,14 +486,16 @@ else
     private void StartRenameFolder(FolderSummary folder)
     {
         _renameFolderTarget = folder;
+        _renameFolderNameSubmitAttempted = false;
         _renameFolderForm = new RenameFolderFormModel { Name = folder.Name };
     }
 
     private async Task ConfirmRenameFolderAsync()
     {
         if (_renameFolderTarget is null) return;
+        _renameFolderNameSubmitAttempted = true;
+        if (GetRenameFolderNameError() is not null) return;
         var name = _renameFolderForm.Name.Trim();
-        if (string.IsNullOrEmpty(name)) { CancelRenameFolder(); return; }
         try
         {
             await WorkspaceService.UpdateFolderAsync(_renameFolderTarget.Id,
@@ -479,14 +530,16 @@ else
     private void StartRenameItem(WorkspaceItemSummary item)
     {
         _renameItemTarget = item;
+        _renameItemTitleSubmitAttempted = false;
         _renameItemForm = new RenameItemFormModel { Title = item.Title };
     }
 
     private async Task ConfirmRenameItemAsync()
     {
         if (_renameItemTarget is null) return;
+        _renameItemTitleSubmitAttempted = true;
+        if (GetRenameItemTitleError() is not null) return;
         var title = _renameItemForm.Title.Trim();
-        if (string.IsNullOrEmpty(title)) { CancelRenameItem(); return; }
         try
         {
             if (_renameItemTarget.ItemType == WorkspaceItemType.Notebook)
