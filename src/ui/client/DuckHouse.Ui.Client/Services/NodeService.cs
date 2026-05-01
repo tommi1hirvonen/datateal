@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DuckHouse.Core.Nodes;
-using CreateNodeRequest = DuckHouse.Ui.Shared.Nodes.CreateNodeRequest;
 
 namespace DuckHouse.Ui.Client.Services;
 
@@ -23,13 +22,6 @@ internal class NodeService(HttpClient httpClient) : INodeService
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<NodeInfo>(JsonOptions, cancellationToken);
-    }
-
-    public async Task<NodeInfo> CreateNodeAsync(CreateNodeRequest request, CancellationToken cancellationToken = default)
-    {
-        var response = await httpClient.PostAsJsonAsync("api/nodes", request, JsonOptions, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<NodeInfo>(JsonOptions, cancellationToken))!;
     }
 
     public async Task RemoveNodeAsync(string name, CancellationToken cancellationToken = default)
