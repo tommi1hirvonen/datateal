@@ -9,12 +9,15 @@ public static class OrchestratorProxy
 {
     public static IServiceCollection AddOrchestratorProxy(this IServiceCollection services, IConfiguration configuration)
     {
+        var baseAddress = configuration["Orchestrator:BaseAddress"]
+            ?? throw new InvalidOperationException("Orchestrator:BaseAddress is not configured.");
+
         var apiKey = configuration["ServiceAuth:Orchestrator:ApiKey"]
             ?? throw new InvalidOperationException("ServiceAuth:Orchestrator:ApiKey is not configured.");
 
         services.AddHttpClient("Orchestrator", client =>
         {
-            client.BaseAddress = new Uri("https+http://orchestrator");
+            client.BaseAddress = new Uri(baseAddress);
         })
         .AddHttpMessageHandler(() => new ApiKeyDelegatingHandler(
             Options.Create(new ApiKeyDelegatingOptions { ApiKey = apiKey })));
