@@ -25,5 +25,7 @@ public static class DuckHouseAuthorizationPolicies
             p.RequireRole(AvailableRoles.Admin, AvailableRoles.WorkspaceContributor));
         options.AddPolicy("CatalogManage", p =>
             p.RequireRole(AvailableRoles.Admin, AvailableRoles.CatalogContributor));
+        options.AddPolicy("EnvironmentManage", p =>
+            p.RequireRole(AvailableRoles.Admin, AvailableRoles.EnvironmentManager));
     }
 }

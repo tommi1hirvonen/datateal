@@ -1,14 +1,17 @@
+using DuckHouse.Auth;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Server.Application.Mediator.Commands;
 using DuckHouse.Ui.Server.Application.Mediator.Queries;
 using DuckHouse.Ui.Server.Core.Repositories;
 using DuckHouse.Ui.Shared.Packages;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DuckHouse.Ui.Server.Controllers;
 
 [ApiController]
 [Route("api/packages")]
+[Authorize(Policy = AuthPolicy.EnvironmentManage)]
 public class WheelPackagesController(IMediator mediator, IWheelPackageRepository repository) : ControllerBase
 {
     private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5 MB

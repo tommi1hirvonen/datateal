@@ -13,4 +13,5 @@ public static class AuthPolicy
     public const string JobRead = nameof(JobRead);
     public const string WorkspaceManage = nameof(WorkspaceManage);
     public const string CatalogManage = nameof(CatalogManage);
+    public const string EnvironmentManage = nameof(EnvironmentManage);
 }

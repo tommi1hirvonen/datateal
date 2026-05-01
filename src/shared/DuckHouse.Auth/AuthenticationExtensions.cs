@@ -69,7 +69,9 @@ public static class AuthenticationExtensions
             .AddPolicy(AuthPolicy.WorkspaceManage, p =>
                 p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.WorkspaceContributor))
             .AddPolicy(AuthPolicy.CatalogManage, p =>
-                p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.CatalogContributor));
+                p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.CatalogContributor))
+            .AddPolicy(AuthPolicy.EnvironmentManage, p =>
+                p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.EnvironmentManager));
 
         return services;
     }

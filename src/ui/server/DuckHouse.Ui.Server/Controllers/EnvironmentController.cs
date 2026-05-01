@@ -1,5 +1,7 @@
+using DuckHouse.Auth;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Shared.Environment;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Cmd = DuckHouse.Ui.Server.Application.Mediator.Commands;
 using Qry = DuckHouse.Ui.Server.Application.Mediator.Queries;
@@ -9,6 +11,7 @@ namespace DuckHouse.Ui.Server.Controllers;
 
 [ApiController]
 [Route("api/environment")]
+[Authorize(Policy = AuthPolicy.EnvironmentManage)]
 public class EnvironmentController(IMediator mediator) : ControllerBase
 {
     // ── Variables ────────────────────────────────────────────────────────

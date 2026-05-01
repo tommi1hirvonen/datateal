@@ -14,11 +14,13 @@ public static class AvailableRoles
     public const string JobReader = nameof(JobReader);
     public const string WorkspaceContributor = nameof(WorkspaceContributor);
     public const string CatalogContributor = nameof(CatalogContributor);
+    public const string EnvironmentManager = nameof(EnvironmentManager);
 
     public static readonly string[] All =
     [
         Admin, NodePoolContributor, NodePoolOperator, JobContributor,
-        JobOperator, JobReader, WorkspaceContributor, CatalogContributor
+        JobOperator, JobReader, WorkspaceContributor, CatalogContributor,
+        EnvironmentManager
     ];
 }
 

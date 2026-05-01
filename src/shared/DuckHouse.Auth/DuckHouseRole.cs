@@ -13,6 +13,7 @@ public static class DuckHouseRole
     public const string JobReader = nameof(JobReader);
     public const string WorkspaceContributor = nameof(WorkspaceContributor);
     public const string CatalogContributor = nameof(CatalogContributor);
+    public const string EnvironmentManager = nameof(EnvironmentManager);
 
     public static readonly string[] All =
     [
@@ -23,6 +24,7 @@ public static class DuckHouseRole
         JobOperator,
         JobReader,
         WorkspaceContributor,
-        CatalogContributor
+        CatalogContributor,
+        EnvironmentManager
     ];
 }
