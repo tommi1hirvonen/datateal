@@ -1,5 +1,6 @@
 .site-header {
     background: #fff;
+    height: 56px;
 }
 
 html.ant-dark .site-header {
@@ -68,7 +69,7 @@ html.ant-dark .df-table td {
 .cp-layout {
     display: flex;
     flex-direction: row;
-    height: calc(100vh - 48px);
+    height: calc(100vh - 104px); /* 56px header + 24px top padding + 24px bottom padding */
     overflow: hidden;
 }
 
