@@ -68,6 +68,8 @@ public static class AuthenticationExtensions
                 p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.JobContributor, DuckHouseRole.JobOperator, DuckHouseRole.JobReader))
             .AddPolicy(AuthPolicy.WorkspaceManage, p =>
                 p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.WorkspaceContributor))
+            .AddPolicy(AuthPolicy.WorkspaceRead, p =>
+                p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.WorkspaceContributor, DuckHouseRole.WorkspaceReader))
             .AddPolicy(AuthPolicy.CatalogManage, p =>
                 p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.CatalogContributor))
             .AddPolicy(AuthPolicy.EnvironmentManage, p =>

@@ -16,13 +16,13 @@
         </span>
     </div>
     <SubMenu Key="new" TitleTemplate="@_newTitle">
-        <AuthorizeView Policy="@AuthPolicy.WorkspaceManage">
+        <AuthorizeView Policy="@AuthPolicy.WorkspaceRead">
             <MenuItem Key="new-notebook" RouterLink="/notebook" RouterMatch="NavLinkMatch.All">
                 <Icon Type="@IconType.Outline.FileText" />
                 <span>Notebook</span>
             </MenuItem>
         </AuthorizeView>
-        <AuthorizeView Policy="@AuthPolicy.WorkspaceManage">
+        <AuthorizeView Policy="@AuthPolicy.WorkspaceRead">
             <MenuItem Key="new-query" RouterLink="/query" RouterMatch="NavLinkMatch.All">
                 <Icon Type="@IconType.Outline.Code" />
                 <span>SQL query</span>
@@ -39,7 +39,7 @@
         <Icon Type="@IconType.Outline.Home" />
         <span>Home</span>
     </MenuItem>
-    <AuthorizeView Policy="@AuthPolicy.WorkspaceManage">
+    <AuthorizeView Policy="@AuthPolicy.WorkspaceRead">
         <MenuItem Key="notebook" RouterLink="/workspace" RouterMatch="NavLinkMatch.Prefix">
             <Icon Type="@IconType.Outline.FolderOpen" />
             <span>Workspace</span>

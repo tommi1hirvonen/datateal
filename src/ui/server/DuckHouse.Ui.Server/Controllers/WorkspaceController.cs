@@ -14,7 +14,7 @@ namespace DuckHouse.Ui.Server.Controllers;
 
 [ApiController]
 [Route("api/workspace")]
-[Authorize(Policy = AuthPolicy.WorkspaceManage)]
+[Authorize(Policy = AuthPolicy.WorkspaceRead)]
 public class WorkspaceController(IMediator mediator) : ControllerBase
 {
     [HttpGet("search")]
@@ -41,6 +41,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("folders")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> CreateFolder(SharedWorkspace.CreateFolderRequest body, CancellationToken ct)
     {
         try
@@ -55,6 +56,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpPut("folders/{id:guid}")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> UpdateFolder(Guid id, SharedWorkspace.UpdateFolderRequest body, CancellationToken ct)
     {
         try
@@ -69,6 +71,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpDelete("folders/{id:guid}")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> DeleteFolder(Guid id, CancellationToken ct)
     {
         var found = await mediator.SendAsync(new Cmd.DeleteFolderRequest(id), ct);
@@ -83,6 +86,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("notebooks")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> CreateNotebook(SharedWorkspace.CreateNotebookRequest body, CancellationToken ct)
     {
         try
@@ -101,6 +105,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpPut("notebooks/{id:guid}")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> UpdateNotebook(Guid id, SharedWorkspace.UpdateNotebookRequest body, CancellationToken ct)
     {
         try
@@ -119,6 +124,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpDelete("notebooks/{id:guid}")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> DeleteNotebook(Guid id, CancellationToken ct)
     {
         var found = await mediator.SendAsync(new Cmd.DeleteNotebookRequest(id), ct);
@@ -133,6 +139,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("queries")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> CreateQuery(SharedWorkspace.CreateQueryRequest body, CancellationToken ct)
     {
         try
@@ -151,6 +158,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpPut("queries/{id:guid}")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> UpdateQuery(Guid id, SharedWorkspace.UpdateQueryRequest body, CancellationToken ct)
     {
         try
@@ -169,6 +177,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpDelete("queries/{id:guid}")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> DeleteQuery(Guid id, CancellationToken ct)
     {
         var found = await mediator.SendAsync(new Cmd.DeleteQueryRequest(id), ct);
@@ -176,6 +185,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("queries/{id:guid}/result")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> SaveQueryResult(Guid id, SharedWorkspace.SaveQueryResultRequest body, CancellationToken ct)
     {
         var found = await mediator.SendAsync(
@@ -199,6 +209,7 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
     }
 
     [HttpPut("items/{id:guid}/catalogs")]
+    [Authorize(Policy = AuthPolicy.WorkspaceManage)]
     public async Task<IActionResult> UpdateItemCatalogs(Guid id, SharedCat.UpdateWorkspaceItemCatalogsRequest body, CancellationToken ct)
     {
         try

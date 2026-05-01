@@ -24,6 +24,8 @@ public static class DuckHouseAuthorizationPolicies
             p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.JobContributor, DuckHouseRole.JobOperator, DuckHouseRole.JobReader));
         options.AddPolicy(AuthPolicy.WorkspaceManage, p =>
             p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.WorkspaceContributor));
+        options.AddPolicy(AuthPolicy.WorkspaceRead, p =>
+            p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.WorkspaceContributor, DuckHouseRole.WorkspaceReader));
         options.AddPolicy(AuthPolicy.CatalogManage, p =>
             p.RequireRole(DuckHouseRole.Admin, DuckHouseRole.CatalogContributor));
         options.AddPolicy(AuthPolicy.EnvironmentManage, p =>

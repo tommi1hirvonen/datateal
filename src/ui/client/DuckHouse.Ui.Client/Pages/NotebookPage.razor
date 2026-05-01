@@ -1,5 +1,5 @@
 @page "/notebook"
-@attribute [Authorize(Policy = AuthPolicy.WorkspaceManage)]
+@attribute [Authorize(Policy = AuthPolicy.WorkspaceRead)]
 @page "/notebook/{Id:guid}"
 
 @using DuckHouse.Core.Catalogs

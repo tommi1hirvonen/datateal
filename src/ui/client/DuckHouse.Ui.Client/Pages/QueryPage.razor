@@ -1,5 +1,5 @@
 @page "/query"
-@attribute [Authorize(Policy = AuthPolicy.WorkspaceManage)]
+@attribute [Authorize(Policy = AuthPolicy.WorkspaceRead)]
 @page "/query/{Id:guid}"
 
 @using DuckHouse.Core.Catalogs

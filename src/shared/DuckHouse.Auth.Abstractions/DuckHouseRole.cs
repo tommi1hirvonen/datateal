@@ -12,6 +12,7 @@ public static class DuckHouseRole
     public const string JobOperator = nameof(JobOperator);
     public const string JobReader = nameof(JobReader);
     public const string WorkspaceContributor = nameof(WorkspaceContributor);
+    public const string WorkspaceReader = nameof(WorkspaceReader);
     public const string CatalogContributor = nameof(CatalogContributor);
     public const string EnvironmentManager = nameof(EnvironmentManager);
 
@@ -24,6 +25,7 @@ public static class DuckHouseRole
         JobOperator,
         JobReader,
         WorkspaceContributor,
+        WorkspaceReader,
         CatalogContributor,
         EnvironmentManager
     ];
