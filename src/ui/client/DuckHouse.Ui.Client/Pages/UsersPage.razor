@@ -282,22 +282,23 @@
         try
         {
             var roles = _selectedRoles.ToList();
+            var catalogIds = _form.HasAllCatalogAccess
+                || roles.Contains(DuckHouseRole.Admin)
+                || roles.Contains(DuckHouseRole.CatalogContributor)
+                    ? []
+                    : _selectedCatalogIds.ToList();
+
             if (_editTarget is null)
             {
                 await UserService.CreateUserAsync(new CreateUserRequest(
                     _form.Email.Trim(),
                     _form.DisplayName.Trim(),
                     roles,
-                    _form.HasAllCatalogAccess));
+                    _form.HasAllCatalogAccess,
+                    catalogIds));
             }
             else
             {
-                var catalogIds = _form.HasAllCatalogAccess
-                    || roles.Contains(DuckHouseRole.Admin)
-                    || roles.Contains(DuckHouseRole.CatalogContributor)
-                        ? []
-                        : _selectedCatalogIds.ToList();
-
                 await UserService.UpdateUserAsync(_editTarget.Id, new UpdateUserRequest(
                     _form.DisplayName.Trim(),
                     _form.IsEnabled,

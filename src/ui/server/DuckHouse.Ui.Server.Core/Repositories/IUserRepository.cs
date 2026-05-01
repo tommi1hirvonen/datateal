@@ -9,6 +9,8 @@ public interface IUserRepository
     Task<AppUser?> GetByEmailAsync(string email, CancellationToken ct = default);
     Task<bool> EmailExistsAsync(string email, Guid? excludeId = null, CancellationToken ct = default);
     Task<AppUser> CreateAsync(AppUser user, CancellationToken ct = default);
-    Task<AppUser?> UpdateAsync(AppUser user, CancellationToken ct = default);
+    Task<AppUser?> UpdateAsync(Guid id, string displayName, bool isEnabled,
+        List<string> roles, bool hasAllCatalogAccess, List<Guid> catalogIds,
+        CancellationToken ct = default);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct = default);
 }

@@ -41,31 +41,54 @@ internal class UserRepository(DuckHouseDbContext db) : IUserRepository
         return user;
     }
 
-    public async Task<AppUser?> UpdateAsync(AppUser user, CancellationToken ct = default)
+    public async Task<AppUser?> UpdateAsync(Guid id, string displayName, bool isEnabled,
+        List<string> roles, bool hasAllCatalogAccess, List<Guid> catalogIds,
+        CancellationToken ct = default)
     {
-        var existing = await db.AppUsers
-            .Include(u => u.CatalogAccessList)
-            .FirstOrDefaultAsync(u => u.Id == user.Id, ct);
+        // Load entity without Include to avoid EF identity-cache issues when
+        // AppClaimsTransformation has already tracked this entity in the same request.
+        var existing = await db.AppUsers.FirstOrDefaultAsync(u => u.Id == id, ct);
         if (existing is null) return null;
 
-        existing.DisplayName = user.DisplayName;
-        existing.IsEnabled = user.IsEnabled;
-        existing.Roles = user.Roles;
-        existing.HasAllCatalogAccess = user.HasAllCatalogAccess;
+        existing.DisplayName = displayName;
+        existing.IsEnabled = isEnabled;
+        existing.Roles = roles;
+        existing.HasAllCatalogAccess = hasAllCatalogAccess;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        // Sync catalog access list
-        existing.CatalogAccessList.Clear();
-        foreach (var access in user.CatalogAccessList)
+        // Replace catalog access atomically.  ExecuteDeleteAsync bypasses the change
+        // tracker so there is no EF identity conflict with previously-loaded entries.
+        // Wrap in CreateExecutionStrategy().ExecuteAsync() because
+        // NpgsqlRetryingExecutionStrategy does not allow user-initiated transactions
+        // outside of a retriable unit.
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            existing.CatalogAccessList.Add(access);
-        }
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        await db.SaveChangesAsync(ct);
+            await db.UserCatalogAccess
+                .Where(a => a.UserId == id)
+                .ExecuteDeleteAsync(ct);
 
-        // Re-load with Catalog navigation for DTO mapping
-        await db.Entry(existing).Collection(u => u.CatalogAccessList).Query()
-            .Include(a => a.Catalog).LoadAsync(ct);
+            foreach (var catalogId in catalogIds)
+            {
+                db.UserCatalogAccess.Add(new UserCatalogAccess
+                {
+                    Id = Guid.CreateVersion7(),
+                    UserId = id,
+                    CatalogId = catalogId,
+                });
+            }
+
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        });
+
+        // Populate CatalogAccessList on the entity for DTO mapping
+        existing.CatalogAccessList = await db.UserCatalogAccess
+            .Where(a => a.UserId == id)
+            .Include(a => a.Catalog)
+            .ToListAsync(ct);
 
         return existing;
     }

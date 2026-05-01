@@ -21,7 +21,8 @@ public record CreateUserRequest(
     string Email,
     string DisplayName,
     List<string> Roles,
-    bool HasAllCatalogAccess);
+    bool HasAllCatalogAccess,
+    List<Guid> CatalogIds);
 
 public record UpdateUserRequest(
     string DisplayName,

@@ -42,13 +42,15 @@ public class AppClaimsTransformation(
             AddRoleClaim(identity, DuckHouseRole.Admin);
         }
 
-        // Look up user in database by ExternalId first, then email
+        // Look up user in database by ExternalId first, then email.
+        // Use AsNoTracking so this read does not pollute the scoped DbContext's change
+        // tracker, which could interfere with later repository operations in the same request.
         var appUser = externalId is not null
-            ? await dbContext.AppUsers.FirstOrDefaultAsync(u => u.ExternalId == externalId)
+            ? await dbContext.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.ExternalId == externalId)
             : null;
 
         appUser ??= email is not null
-            ? await dbContext.AppUsers.FirstOrDefaultAsync(u => u.Email == email)
+            ? await dbContext.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email)
             : null;
 
         if (appUser is not null)
@@ -59,12 +61,15 @@ public class AppClaimsTransformation(
                 return principal;
             }
 
-            // Capture external ID on first login for stable future lookups
+            // Capture external ID on first login for stable future lookups.
+            // Use ExecuteUpdateAsync to avoid tracking a stale entity.
             if (appUser.ExternalId is null && externalId is not null)
             {
-                appUser.ExternalId = externalId;
-                appUser.UpdatedAt = DateTime.UtcNow;
-                await dbContext.SaveChangesAsync();
+                await dbContext.AppUsers
+                    .Where(u => u.Id == appUser.Id)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(u => u.ExternalId, externalId)
+                        .SetProperty(u => u.UpdatedAt, DateTime.UtcNow));
             }
 
             foreach (var role in appUser.Roles)

@@ -28,7 +28,7 @@ public class UsersController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> Create(CreateUserRequest body, CancellationToken ct)
     {
         var user = await mediator.SendAsync(
-            new Cmd.CreateUserCommand(body.Email, body.DisplayName, body.Roles, body.HasAllCatalogAccess), ct);
+            new Cmd.CreateUserCommand(body.Email, body.DisplayName, body.Roles, body.HasAllCatalogAccess, body.CatalogIds), ct);
         return Created($"api/users/{user.Id}", user);
     }
 

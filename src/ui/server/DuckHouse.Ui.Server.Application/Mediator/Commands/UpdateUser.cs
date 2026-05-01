@@ -14,26 +14,10 @@ internal class UpdateUserHandler(IUserRepository repository) : IRequestHandler<U
 {
     public async Task<AppUserDto?> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
     {
-        var existing = await repository.GetByIdAsync(request.Id, cancellationToken);
-        if (existing is null) return null;
-
-        existing.DisplayName = request.DisplayName;
-        existing.IsEnabled = request.IsEnabled;
-        existing.Roles = request.Roles;
-        existing.HasAllCatalogAccess = request.HasAllCatalogAccess;
-        existing.UpdatedAt = DateTime.UtcNow;
-
-        // Rebuild catalog access list
-        existing.CatalogAccessList = request.CatalogIds
-            .Select(catalogId => new UserCatalogAccess
-            {
-                Id = Guid.CreateVersion7(),
-                UserId = existing.Id,
-                CatalogId = catalogId,
-            })
-            .ToList();
-
-        var updated = await repository.UpdateAsync(existing, cancellationToken);
+        var updated = await repository.UpdateAsync(
+            request.Id, request.DisplayName, request.IsEnabled,
+            request.Roles, request.HasAllCatalogAccess, request.CatalogIds,
+            cancellationToken);
         return updated is not null ? UserDtoMapper.ToDto(updated) : null;
     }
 }
