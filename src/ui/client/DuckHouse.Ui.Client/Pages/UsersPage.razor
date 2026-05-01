@@ -144,7 +144,13 @@
                         @foreach (var role in DuckHouseRole.All)
                         {
                             <GridCol Span="12">
-                                <Checkbox Label="@role">@role</Checkbox>
+                                <Checkbox Label="@role">
+                                    @role
+                                    <Popover ContentTemplate="@RoleInfoContent(role)" Title="@role">
+                                        <Icon Type="info-circle"
+                                              Style="margin-left: 4px; color: #8c8c8c; cursor: default; font-size: 12px; vertical-align: middle;" />
+                                    </Popover>
+                                </Checkbox>
                             </GridCol>
                         }
                     </GridRow>
@@ -203,6 +209,23 @@
     // Checkbox group binding
     private string[] _selectedRoles = [];
     private IEnumerable<Guid> _selectedCatalogIds = [];
+
+    private static readonly Dictionary<string, string> RoleDescriptions = new()
+    {
+        [DuckHouseRole.Admin]                = "Full access to all features, user management, and all catalogs.",
+        [DuckHouseRole.NodePoolContributor]  = "Create, edit, and delete node pool configurations. Also allows starting/stopping pools, creating kernel sessions, and executing code in notebooks and queries.",
+        [DuckHouseRole.NodePoolOperator]     = "Start and stop interactive node pools. Also allows creating kernel sessions and executing code in notebooks and queries.",
+        [DuckHouseRole.JobContributor]       = "Create, edit, and delete job definitions.",
+        [DuckHouseRole.JobOperator]          = "Run, monitor, and cancel jobs.",
+        [DuckHouseRole.JobReader]            = "View and monitor jobs. Cannot cancel or modify jobs.",
+        [DuckHouseRole.WorkspaceContributor] = "Create, edit, and delete notebooks and queries. Does not grant kernel or code execution access — also requires NodePoolOperator for that.",
+        [DuckHouseRole.WorkspaceReader]      = "Browse and read workspace content. Cannot make changes or execute code. Also requires NodePoolOperator to connect to kernels.",
+        [DuckHouseRole.CatalogContributor]   = "Manage all catalogs and schemas. Has implicit access to all catalog data.",
+        [DuckHouseRole.EnvironmentManager]   = "Manage environment variables, secrets, and packages.",
+    };
+
+    private RenderFragment RoleInfoContent(string role) =>
+        @<span style="max-width: 260px; display: block;">@RoleDescriptions.GetValueOrDefault(role, role)</span>;
 
     private string? EmailDisplayError =>
         (_submitAttempted || !string.IsNullOrEmpty(_form.Email)) ? GetEmailError() : null;
