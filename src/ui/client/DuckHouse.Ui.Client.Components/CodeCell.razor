@@ -1,3 +1,4 @@
+@implements IAsyncDisposable
 <style>#@_id { height: @(ComputedHeight)px; }</style>
 <StandaloneCodeEditor @ref="_editor"
                       Id="@_id"
@@ -5,7 +6,6 @@
                       ConstructionOptions="GetConstructionOptions"
                       OnDidChangeModelContent="OnContentChangedAsync"
                       OnDidChangeCursorSelection="OnCursorSelectionChangedAsync"
-                      OnKeyDown="OnKeyDownAsync"
                       OnDidInit="OnEditorInitAsync" />
 
 @code {
@@ -31,6 +31,7 @@
     private bool _suppressChange;
     private bool _lastReadOnly;
     private string _lastLanguage = "";
+    private DotNetObjectReference<CodeCell>? _dotNetRef;
 
     private int ComputedHeight => Height > 0
         ? Height
@@ -67,9 +68,10 @@
         await ValueChanged.InvokeAsync(value);
     }
 
-    private async Task OnKeyDownAsync(KeyboardEvent e)
+    [JSInvokable]
+    public async Task TriggerExecuteAsync()
     {
-        if (!ReadOnly && e.CtrlKey && e.Code == "Enter")
+        if (!ReadOnly && OnExecute.HasDelegate)
             await OnExecute.InvokeAsync();
     }
 
@@ -109,6 +111,9 @@
         {
             _suppressChange = false;
         }
+        // Override Monaco's default Ctrl+Enter (insertLineAfter) with execute-only command
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("registerMonacoExecuteCommand", _id, _dotNetRef);
         await OnEditorReady.InvokeAsync();
     }
 
@@ -140,5 +145,11 @@
         {
             _suppressChange = false;
         }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
+        return ValueTask.CompletedTask;
     }
 }

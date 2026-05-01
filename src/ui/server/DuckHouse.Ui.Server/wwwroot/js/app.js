@@ -65,6 +65,17 @@ window.getMonacoEditorSelection = function (editorId) {
     return holder.editor.getModel().getValueInRange(sel);
 };
 
+window.registerMonacoExecuteCommand = function (editorId, dotNetRef) {
+    const holder = window.blazorMonaco?.editors?.find(h => h.id === editorId);
+    if (!holder) return;
+    holder.editor.addAction({
+        id: 'duckhouse-execute-' + editorId,
+        label: 'Execute',
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+        run: function () { dotNetRef.invokeMethodAsync('TriggerExecuteAsync'); }
+    });
+};
+
 window.getItemNodePref = function (itemId) {
     return localStorage.getItem('duckhouse-node:' + itemId) || '';
 };
