@@ -344,11 +344,12 @@ html.ant-dark .picker-row-hover { background: #2a2a2a; }
     max-width: 360px;
     padding: 4px 0;
     background: #fff;
-    border-radius: 6px;
+    border: 1px solid #d9d9d9;
 }
 
 html.ant-dark .nps-overlay {
     background: #1f1f1f;
+    border-color: #434343;
 }
 
 .nps-section {
@@ -364,8 +365,7 @@ html.ant-dark .nps-overlay {
 .nps-pool-item {
     padding: 6px 12px;
     cursor: pointer;
-    border-radius: 4px;
-    margin: 2px 6px;
+    margin: 0;
     transition: background 0.12s;
 }
 
@@ -379,12 +379,13 @@ html.ant-dark .nps-pool-item:hover {
 
 .nps-pool-item.nps-selected {
     background: #e6f7ff;
-    outline: 1px solid #91d5ff;
+    border-left: 3px solid #1890ff;
+    padding-left: 9px;
 }
 
 html.ant-dark .nps-pool-item.nps-selected {
     background: #111d2c;
-    outline-color: #153450;
+    border-left-color: #177ddc;
 }
 
 .nps-pool-item.nps-disabled {
