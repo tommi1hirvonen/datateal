@@ -1,7 +1,9 @@
+using DuckHouse.Auth;
 using DuckHouse.Core.Nodes;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Server.Core.Repositories;
 using DuckHouse.Ui.Shared.Environment;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Cmd = DuckHouse.Ui.Server.Application.Mediator.Commands;
 using Qry = DuckHouse.Ui.Server.Application.Mediator.Queries;
@@ -10,6 +12,7 @@ using SharedNodes = DuckHouse.Ui.Shared.Nodes;
 namespace DuckHouse.Ui.Server.Controllers;
 
 [ApiController]
+[Authorize(Policy = AuthPolicy.NodePoolOperate)]
 [Route("api/nodes")]
 public class NodesController(IMediator mediator, IWheelPackageRepository wheelPackageRepository) : ControllerBase
 {

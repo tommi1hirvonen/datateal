@@ -1,4 +1,5 @@
 @page "/workspace"
+@attribute [Authorize(Policy = AuthPolicy.WorkspaceManage)]
 
 @using DuckHouse.Ui.Shared.Workspace
 @using DuckHouse.Core.Workspace

@@ -1,4 +1,6 @@
+using DuckHouse.Auth;
 using DuckHouse.Auth.ApiKey;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 
 namespace DuckHouse.Ui.Server;
@@ -21,9 +23,24 @@ public static class OrchestratorProxy
 
     public static IEndpointRouteBuilder MapOrchestratorProxy(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.Map("/api/orchestrator/{**path}", async (HttpContext context, IHttpClientFactory clientFactory) =>
+        endpoints.Map("/api/orchestrator/{**path}", async (
+            HttpContext context,
+            IHttpClientFactory clientFactory,
+            IAuthorizationService authorizationService) =>
         {
             var path = context.Request.RouteValues["path"]?.ToString() ?? "";
+            var policy = GetRequiredPolicy(path, context.Request.Method);
+
+            if (policy is not null)
+            {
+                var authResult = await authorizationService.AuthorizeAsync(context.User, null, policy);
+                if (!authResult.Succeeded)
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return;
+                }
+            }
+
             var client = clientFactory.CreateClient("Orchestrator");
 
             var targetUri = new Uri(client.BaseAddress!, $"/api/{path}{context.Request.QueryString}");
@@ -59,5 +76,32 @@ public static class OrchestratorProxy
         }).RequireAuthorization();
 
         return endpoints;
+    }
+
+    private static string? GetRequiredPolicy(string path, string method)
+    {
+        if (path.StartsWith("node-pools", StringComparison.OrdinalIgnoreCase))
+            return HttpMethods.IsGet(method) ? AuthPolicy.NodePoolOperate : AuthPolicy.NodePoolManage;
+
+        if (path.StartsWith("runs", StringComparison.OrdinalIgnoreCase))
+        {
+            if (HttpMethods.IsGet(method)) return AuthPolicy.JobRead;
+            if (HttpMethods.IsPost(method) && path.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase))
+                return AuthPolicy.JobOperate;
+            return AuthPolicy.JobManage;
+        }
+
+        if (path.StartsWith("jobs", StringComparison.OrdinalIgnoreCase))
+        {
+            if (HttpMethods.IsGet(method)) return AuthPolicy.JobRead;
+            if (HttpMethods.IsPost(method) && path.EndsWith("/trigger", StringComparison.OrdinalIgnoreCase))
+                return AuthPolicy.JobOperate;
+            return AuthPolicy.JobManage;
+        }
+
+        if (path.StartsWith("admin", StringComparison.OrdinalIgnoreCase))
+            return path.EndsWith("/timezones", StringComparison.OrdinalIgnoreCase) ? null : AuthPolicy.Admin;
+
+        return null;
     }
 }

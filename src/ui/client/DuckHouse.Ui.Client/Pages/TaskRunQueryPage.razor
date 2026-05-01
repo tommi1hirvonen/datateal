@@ -1,4 +1,5 @@
 @page "/runs/{RunId:guid}/tasks/{TaskRunId:guid}/query"
+@attribute [Authorize(Policy = AuthPolicy.JobRead)]
 
 @using DuckHouse.Ui.Shared.Orchestration
 @using DuckHouse.Core.Kernels

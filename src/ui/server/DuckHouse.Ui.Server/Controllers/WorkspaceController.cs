@@ -1,7 +1,9 @@
+using DuckHouse.Auth;
 using DuckHouse.Core.Mediator;
 using DuckHouse.Ui.Server.Core.Catalogs;
 using DuckHouse.Ui.Server.Core.Workspace;
 using DuckHouse.Ui.Shared.Workspace;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Cmd = DuckHouse.Ui.Server.Application.Mediator.Commands;
 using Qry = DuckHouse.Ui.Server.Application.Mediator.Queries;
@@ -12,6 +14,7 @@ namespace DuckHouse.Ui.Server.Controllers;
 
 [ApiController]
 [Route("api/workspace")]
+[Authorize(Policy = AuthPolicy.WorkspaceManage)]
 public class WorkspaceController(IMediator mediator) : ControllerBase
 {
     [HttpGet("search")]

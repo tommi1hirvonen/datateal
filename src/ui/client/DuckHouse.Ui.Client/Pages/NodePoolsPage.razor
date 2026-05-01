@@ -1,4 +1,5 @@
 @page "/node-pools"
+@attribute [Authorize(Policy = AuthPolicy.NodePoolOperate)]
 
 @using DuckHouse.Ui.Shared.Orchestration
 @using DuckHouse.Ui.Shared.Environment
