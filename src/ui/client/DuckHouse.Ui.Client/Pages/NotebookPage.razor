@@ -195,7 +195,7 @@
                             KernelId="@_kernelId"
                             CanMoveUp="@(index > 0)"
                             CanMoveDown="@(index < _notebook.Cells.Count - 1)"
-                            PriorContext="@(() => PriorContextFor(index))"
+                            PriorContext="@(() => PriorContextForAsync(index))"
                             ProvideRunMagicCompletions="ProvideRunMagicCompletionsAsync"
                             OnExecute="@(() => _ = ExecuteCellAsync(cell))"
                             OnRunAbove="@(() => _ = RunAboveAsync(cell))"
@@ -716,19 +716,39 @@
         _notebook.IsDirty = true;
     }
 
-    private string PriorContextFor(int cellIndex)
+    private async Task<string> PriorContextForAsync(int cellIndex)
     {
-        return string.Join("\n", _notebook.Cells
-            .Take(cellIndex)
-            .Where(c => c.CellType == NotebookCellType.Code)
-            .Select(c =>
+        var parts = new List<string>();
+        foreach (var c in _notebook.Cells.Take(cellIndex).Where(c => c.CellType == NotebookCellType.Code))
+        {
+            if (c.Language == NotebookCellLanguage.Sql)
             {
-                if (c.Language == NotebookCellLanguage.Sql)
-                    return $"import duckdb; duckdb.execute(\"\"\"{c.Source}\"\"\").df()";
-                if (c.CachedExpandedSource is not null)
-                    return c.CachedExpandedSource;
-                return RunMagicHelper.ReplaceRunLinesWithPass(c.Source);
-            }));
+                parts.Add($"import duckdb; duckdb.execute(\"\"\"{c.Source}\"\"\").df()");
+            }
+            else if (c.CachedExpandedSource is not null)
+            {
+                parts.Add(c.CachedExpandedSource);
+            }
+            else if (RunMagicHelper.HasRunLines(c.Source))
+            {
+                // Eagerly expand %run references so Jedi can see their definitions
+                try
+                {
+                    var expanded = await RunMagicHelper.ExpandAsync(
+                        c.Source, _workspaceNotebookFolderId, WorkspaceService);
+                    parts.Add(expanded);
+                }
+                catch
+                {
+                    parts.Add(RunMagicHelper.ReplaceRunLinesWithPass(c.Source));
+                }
+            }
+            else
+            {
+                parts.Add(RunMagicHelper.ReplaceRunLinesWithPass(c.Source));
+            }
+        }
+        return string.Join("\n", parts);
     }
 
     private async Task<IReadOnlyList<RunMagicCompletionItem>> ProvideRunMagicCompletionsAsync(string directoryPath)

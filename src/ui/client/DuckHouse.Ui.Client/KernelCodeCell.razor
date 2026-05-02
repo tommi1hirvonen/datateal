@@ -32,7 +32,7 @@
     /// <summary>Returns the accumulated code from all prior cells (joined by newlines).
     /// Used as context for completions and diagnostics so Jedi/pyflakes can see
     /// variables and imports defined in earlier cells of the same session.</summary>
-    [Parameter] public Func<string>? PriorContext { get; set; }
+    [Parameter] public Func<Task<string>>? PriorContext { get; set; }
     /// <summary>
     /// Optional callback to provide workspace item completions for <c>%run</c> magic lines.
     /// Given a directory path (e.g., <c>./</c> or <c>../subfolder/</c>), returns folder names,
@@ -48,9 +48,7 @@
     private string _modelUri = "";
     private string _currentCode = "";
     private CancellationTokenSource? _diagCts;
-    private CancellationTokenSource? _semanticCts;
     private DotNetObjectReference<KernelCodeCell>? _semanticDotNetRef;
-    private IJSObjectReference? _semanticDisposable;
     private int[]? _lastSemanticTokensEncoded;
 
     // Semantic token type legend — indices must match window._duckhouseSemanticTokenLegend in app.js.
@@ -77,8 +75,10 @@
         await RegisterHoverProviderAsync();
         await RegisterSemanticTokensProviderAsync();
         await RunDiagnosticsAsync(_currentCode);
-        await ScheduleSemanticTokensAsync(_currentCode);
     }
+
+    private async Task<string> GetPriorContextAsync() =>
+        PriorContext is not null ? await PriorContext() : "";
 
     private Task RegisterCompletionProviderAsync() =>
         BlazorMonaco.Languages.Global.RegisterCompletionItemProvider(
@@ -105,7 +105,7 @@
                     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
                     var response = await KernelService.GetHoverInfoAsync(
                         NodeName, KernelId,
-                        new HoverInfoRequest(code, position.LineNumber, position.Column - 1, PriorContext?.Invoke() ?? ""),
+                        new HoverInfoRequest(code, position.LineNumber, position.Column - 1, await GetPriorContextAsync()),
                         cts.Token);
 
                     if (response.Contents.Count == 0)
@@ -172,7 +172,7 @@
 
             var response = await KernelService.CompleteAsync(
                 NodeName, KernelId,
-                new CompleteRequest(_currentCode, position.LineNumber, position.Column - 1, PriorContext?.Invoke() ?? ""),
+                new CompleteRequest(_currentCode, position.LineNumber, position.Column - 1, await GetPriorContextAsync()),
                 cts.Token);
 
             var range = JsonSerializer.SerializeToElement(new
@@ -276,7 +276,6 @@
         _currentCode = value;
         await ValueChanged.InvokeAsync(value);
         await ScheduleDiagnosticsAsync(value);
-        await ScheduleSemanticTokensAsync(value);
     }
 
     private async Task ScheduleDiagnosticsAsync(string value)
@@ -300,7 +299,7 @@
             var codeForDiag = RunMagicHelper.ReplaceRunLinesWithPass(value);
             var response = await KernelService.DiagnoseAsync(
                 NodeName, KernelId,
-                new DiagnoseRequest(codeForDiag, PriorContext?.Invoke() ?? ""),
+                new DiagnoseRequest(codeForDiag, await GetPriorContextAsync()),
                 ct);
 
             var markers = response.Diagnostics
@@ -328,45 +327,45 @@
         _semanticDotNetRef = DotNetObjectReference.Create(this);
         try
         {
-            _semanticDisposable = await JsRuntime.InvokeAsync<IJSObjectReference>(
-                "registerSemanticTokensProvider", _semanticDotNetRef);
+            await JsRuntime.InvokeVoidAsync("registerSemanticTokensCell", _semanticDotNetRef, _modelUri);
         }
         catch { /* best-effort — older BlazorMonaco builds may not support this */ }
     }
 
+    /// <summary>
+    /// Called by Monaco's semantic token provider via JS interop. Fetches fresh tokens
+    /// from the runtime API and returns them directly, avoiding stale-cache race conditions.
+    /// </summary>
     [JSInvokable]
-    public Task<int[]> GetSemanticTokensEncodedAsync()
-    {
-        return Task.FromResult(_lastSemanticTokensEncoded ?? []);
-    }
-
-    private async Task ScheduleSemanticTokensAsync(string value)
-    {
-        _semanticCts?.Cancel();
-        _semanticCts = new CancellationTokenSource();
-        var ct = _semanticCts.Token;
-        try
-        {
-            await Task.Delay(600, ct);
-            await FetchSemanticTokensAsync(value, ct);
-        }
-        catch (OperationCanceledException) { }
-    }
-
-    private async Task FetchSemanticTokensAsync(string value, CancellationToken ct = default)
+    public async Task<int[]> ProvideSemanticTokensAsync()
     {
         try
         {
-            var codeForTokens = RunMagicHelper.ReplaceRunLinesWithPass(value);
+            // When no kernel is connected, skip the API call entirely so
+            // the Monarch grammar's highlighting remains untouched.
+            if (string.IsNullOrEmpty(KernelId))
+                return [];
+
+            var code = _model is not null
+                ? await _model.GetValue(EndOfLinePreference.LF, false)
+                : _currentCode;
+            if (string.IsNullOrEmpty(code))
+                return [];
+
+            var codeForTokens = RunMagicHelper.ReplaceRunLinesWithPass(code);
             var response = await KernelService.GetSemanticTokensAsync(
                 NodeName, KernelId,
-                new SemanticTokenRequest(codeForTokens, PriorContext?.Invoke() ?? ""),
-                ct);
+                new SemanticTokenRequest(codeForTokens, await GetPriorContextAsync()),
+                CancellationToken.None);
 
             _lastSemanticTokensEncoded = EncodeSemanticTokens(response.Tokens);
+            return _lastSemanticTokensEncoded;
         }
-        catch (OperationCanceledException) { }
-        catch { /* semantic tokens are best-effort */ }
+        catch
+        {
+            // On error, return the last known good tokens (or empty)
+            return _lastSemanticTokensEncoded ?? [];
+        }
     }
 
     /// <summary>
@@ -432,13 +431,9 @@
     {
         _diagCts?.Cancel();
         _diagCts?.Dispose();
-        _semanticCts?.Cancel();
-        _semanticCts?.Dispose();
-        if (_semanticDisposable is not null)
+        if (!string.IsNullOrEmpty(_modelUri))
         {
-            try { await JsRuntime.InvokeVoidAsync("disposeSemanticTokensProvider", _semanticDisposable); }
-            catch { /* best-effort cleanup */ }
-            try { await _semanticDisposable.DisposeAsync(); }
+            try { await JsRuntime.InvokeVoidAsync("unregisterSemanticTokensCell", _modelUri); }
             catch { /* best-effort cleanup */ }
         }
         _semanticDotNetRef?.Dispose();

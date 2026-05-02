@@ -350,7 +350,12 @@ class KernelConnection:
             try:
                 names = script.get_names(all_scopes=True, references=True)
             except Exception:
+                logger.info("semantic_tokens: get_names() failed, falling back to AST", exc_info=True)
                 return _run_ast()
+
+            # Cache for resolved definition types: name_string → resolved_type
+            # Used so we don't call goto() multiple times for the same name.
+            _goto_cache: dict[str, str | None] = {}
 
             for name in names:
                 line = name.line - context_line_count
@@ -359,7 +364,7 @@ class KernelConnection:
                 col = name.column
                 length = len(name.name)
 
-                token_type = _classify_jedi_name(name)
+                token_type = _classify_jedi_name(name, _goto_cache)
                 if token_type is None:
                     continue
 
@@ -370,12 +375,42 @@ class KernelConnection:
                     "token_type": token_type,
                 })
 
+            logger.info("semantic_tokens: %d names → %d tokens, sample: %s",
+                        len(names), len(tokens),
+                        [(n.name, n.type, _classify_jedi_name(n, _goto_cache)) for n in names[:20]])
             return tokens
 
-        def _classify_jedi_name(name) -> str | None:
+        def _is_pascal_case(n: str) -> bool:
+            """Return True if name follows PascalCase (class naming convention)."""
+            return len(n) > 1 and n[0].isupper() and not n.isupper()
+
+        def _resolve_statement_type(name, cache: dict[str, str | None]) -> str | None:
+            """Resolve the actual definition type of a 'statement' name via goto().
+
+            Jedi's get_names(references=True) returns type='statement' for
+            references.  This helper calls name.goto() to find the definition
+            and returns the resolved type (e.g. 'module', 'function', 'class').
+            Results are cached by name string to avoid redundant resolutions.
+            Returns None if resolution fails or the definition is also a statement.
+            """
+            n = name.name
+            if n in cache:
+                return cache[n]
+            try:
+                defs = name.goto()
+                if defs:
+                    resolved = defs[0].type
+                    if resolved != "statement":
+                        cache[n] = resolved
+                        return resolved
+            except Exception:
+                pass
+            cache[n] = None
+            return None
+
+        def _classify_jedi_name(name, goto_cache: dict[str, str | None]) -> str | None:
             """Map a Jedi Name object to a semantic token type."""
             n = name.name
-            desc = name.description or ""
             ntype = name.type  # function, class, module, instance, keyword, param, statement, etc.
 
             if ntype == "keyword":
@@ -387,6 +422,9 @@ class KernelConnection:
             if ntype == "function":
                 if n in KernelConnection._PYTHON_BUILTINS:
                     return "builtin"
+                # PascalCase "function" calls are class constructors (e.g. MyClass())
+                if _is_pascal_case(n):
+                    return "class"
                 return "function"
             if ntype == "class":
                 return "class"
@@ -395,6 +433,10 @@ class KernelConnection:
             if ntype == "instance":
                 if n in KernelConnection._PYTHON_BUILTINS:
                     return "builtin"
+                # PascalCase instances are likely class/type references that Jedi
+                # couldn't fully resolve (e.g. unresolved imports).
+                if _is_pascal_case(n):
+                    return "class"
                 return "variable"
             if ntype == "property":
                 return "property"
@@ -404,6 +446,31 @@ class KernelConnection:
                     return "decorator"
                 if n in KernelConnection._PYTHON_BUILTINS:
                     return "builtin"
+                # Try to resolve the actual definition type via goto().
+                # This correctly identifies references like module names,
+                # function calls, and class references that Jedi reports
+                # as 'statement' in get_names(references=True).
+                resolved = _resolve_statement_type(name, goto_cache)
+                if resolved is not None:
+                    # Re-classify using the resolved type by creating a
+                    # lightweight wrapper with the resolved type.
+                    if resolved == "function":
+                        if _is_pascal_case(n):
+                            return "class"
+                        return "function"
+                    if resolved == "class":
+                        return "class"
+                    if resolved == "module":
+                        return "namespace"
+                    if resolved == "instance":
+                        if _is_pascal_case(n):
+                            return "class"
+                        return "variable"
+                    if resolved == "property":
+                        return "property"
+                # PascalCase fallback for unresolved statements
+                if _is_pascal_case(n):
+                    return "class"
                 return "variable"
             # Fallback: skip unknown types
             return None
@@ -462,19 +529,28 @@ class KernelConnection:
                         })
                 elif isinstance(node, _ast.Name):
                     line = node.lineno - context_line_count
-                    if line >= 1 and node.id in KernelConnection._PYTHON_BUILTINS:
-                        tokens.append({
-                            "line": line,
-                            "start_char": node.col_offset,
-                            "length": len(node.id),
-                            "token_type": "builtin",
-                        })
+                    if line >= 1:
+                        if node.id in KernelConnection._PYTHON_BUILTINS:
+                            tokens.append({
+                                "line": line,
+                                "start_char": node.col_offset,
+                                "length": len(node.id),
+                                "token_type": "builtin",
+                            })
+                        elif _is_pascal_case(node.id):
+                            tokens.append({
+                                "line": line,
+                                "start_char": node.col_offset,
+                                "length": len(node.id),
+                                "token_type": "class",
+                            })
 
             return tokens
 
         try:
             return await asyncio.to_thread(_run_jedi)
         except Exception:
+            logger.info("semantic_tokens: _run_jedi() failed, falling back to AST", exc_info=True)
             return await asyncio.to_thread(_run_ast)
 
     async def hover(self, code: str, line: int, column: int, context: str = "") -> list[str]:

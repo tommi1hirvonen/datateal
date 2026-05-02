@@ -210,32 +210,43 @@ window._duckhouseSemanticTokenLegend = {
     tokenModifiers: [],
 };
 
-// Register a DocumentSemanticTokensProvider for Python that calls back
-// to a .NET DotNetObjectReference for token data.
-window.registerSemanticTokensProvider = function (dotNetRef) {
-    var legend = window._duckhouseSemanticTokenLegend;
-
-    var disposable = monaco.languages.registerDocumentSemanticTokensProvider('duckhouse-python', {
-        getLegend: function () { return legend; },
-        provideDocumentSemanticTokens: async function (model, lastResultId, token) {
-            try {
-                var encoded = await dotNetRef.invokeMethodAsync('GetSemanticTokensEncodedAsync');
-                if (!encoded || encoded.length === 0) {
-                    return { data: new Uint32Array(0) };
-                }
-                return { data: new Uint32Array(encoded) };
-            } catch {
-                return { data: new Uint32Array(0) };
-            }
-        },
-        releaseDocumentSemanticTokens: function () { },
-    });
-
-    return disposable;
+// Global singleton registry: one provider dispatches to all cells by model URI.
+window._duckhouseSemanticTokensRegistry = {
+    cells: {},           // modelUri → dotNetRef
+    registered: false,
+    disposable: null,
 };
 
-window.disposeSemanticTokensProvider = function (disposable) {
-    if (disposable && typeof disposable.dispose === 'function') {
-        disposable.dispose();
+// Register a cell's dotNetRef for semantic tokens. Lazily creates the single
+// global provider on first call.
+window.registerSemanticTokensCell = function (dotNetRef, modelUri) {
+    var registry = window._duckhouseSemanticTokensRegistry;
+    registry.cells[modelUri] = dotNetRef;
+
+    if (!registry.registered) {
+        var legend = window._duckhouseSemanticTokenLegend;
+        registry.disposable = monaco.languages.registerDocumentSemanticTokensProvider('duckhouse-python', {
+            getLegend: function () { return legend; },
+            provideDocumentSemanticTokens: async function (model, lastResultId, token) {
+                var uri = model.uri.toString();
+                var ref = registry.cells[uri];
+                if (!ref) return { data: new Uint32Array(0) };
+                try {
+                    // Fetch fresh tokens from the runtime — no caching, no race conditions.
+                    var encoded = await ref.invokeMethodAsync('ProvideSemanticTokensAsync');
+                    if (!encoded || encoded.length === 0) return { data: new Uint32Array(0) };
+                    return { data: new Uint32Array(encoded) };
+                } catch {
+                    return { data: new Uint32Array(0) };
+                }
+            },
+            releaseDocumentSemanticTokens: function () { },
+        });
+        registry.registered = true;
     }
+};
+
+// Remove a cell from the registry when it is disposed.
+window.unregisterSemanticTokensCell = function (modelUri) {
+    delete window._duckhouseSemanticTokensRegistry.cells[modelUri];
 };

@@ -209,7 +209,7 @@ else
                     Height="160"
                     ReadOnly="@(_isDead || _executing)"
                     OnExecute="ExecuteAsync"
-                    PriorContext="@(() => string.Join("\n", _history.Select(h => h.Code)))"
+                    PriorContext="@(() => Task.FromResult(string.Join("\n", _history.Select(h => h.Code))))"
                     Class="editor-cell-mb2" />
     <Space Align="SpaceAlign.Center">
         <SpaceItem>
