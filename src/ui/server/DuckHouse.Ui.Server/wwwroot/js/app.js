@@ -1,10 +1,10 @@
 // Theme interop helpers called by ThemeService and CodeCell.
 
 // ── Monaco readiness promise ──
-// Resolves when both custom themes and the DuckDB language are registered.
+// Resolves when custom themes, DuckDB language, and Python language are all registered.
 window.duckhouseMonacoReady = new Promise(function (resolve) {
     function check() {
-        if (window._duckhouseThemesReady && window._duckhouseLanguageReady) {
+        if (window._duckhouseThemesReady && window._duckhouseLanguageReady && window._duckhousePythonReady) {
             resolve();
         }
     }
@@ -13,6 +13,7 @@ window.duckhouseMonacoReady = new Promise(function (resolve) {
     // Hook into the resolve callbacks set by the individual scripts
     window._duckhouseThemesResolve = check;
     window._duckhouseLanguageResolve = check;
+    window._duckhousePythonResolve = check;
 });
 
 // Waits for Monaco themes/language to be ready, then applies the correct
@@ -23,16 +24,13 @@ window.applyDuckhouseMonacoTheme = async function (editorId, language) {
     var theme = window.getDuckhouseMonacoTheme();
     if (typeof monaco !== 'undefined') {
         monaco.editor.setTheme(theme);
-        // Re-apply the language in case the editor was created before registration
+        // Always re-apply language to ensure correct tokenization after registration
         if (language) {
             var holder = window.blazorMonaco?.editors?.find(function (h) { return h.id === editorId; });
             if (holder) {
                 var model = holder.editor.getModel();
                 if (model) {
-                    var currentLang = model.getLanguageId ? model.getLanguageId() : model.getModeId();
-                    if (currentLang !== language) {
-                        monaco.editor.setModelLanguage(model, language);
-                    }
+                    monaco.editor.setModelLanguage(model, language);
                 }
             }
         }
@@ -217,7 +215,7 @@ window._duckhouseSemanticTokenLegend = {
 window.registerSemanticTokensProvider = function (dotNetRef) {
     var legend = window._duckhouseSemanticTokenLegend;
 
-    var disposable = monaco.languages.registerDocumentSemanticTokensProvider('python', {
+    var disposable = monaco.languages.registerDocumentSemanticTokensProvider('duckhouse-python', {
         getLegend: function () { return legend; },
         provideDocumentSemanticTokens: async function (model, lastResultId, token) {
             try {

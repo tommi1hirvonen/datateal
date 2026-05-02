@@ -221,7 +221,7 @@
         {
             <CodeCell Value="@Cell.Source"
                       ValueChanged="@(v => { Cell.Source = v; OnCellChanged?.Invoke(); })"
-                      Language="@(Cell.Language == NotebookCellLanguage.Sql ? "duckdb-sql" : "python")"
+                      Language="@(Cell.Language == NotebookCellLanguage.Sql ? "duckdb-sql" : "duckhouse-python")"
                       OnExecute="OnExecute"
                       AlwaysConsumeMouseWheel="@AlwaysConsumeMouseWheel"
                       Class="editor-cell" />

@@ -79,7 +79,7 @@
     private Task RegisterCompletionProviderAsync() =>
         BlazorMonaco.Languages.Global.RegisterCompletionItemProvider(
             JsRuntime,
-            "python",
+            "duckhouse-python",
             new CompletionItemProvider(new List<string> { ".", "/" }, ProvideCompletionsAsync, null));
 
     private async Task<CompletionList> ProvideCompletionsAsync(

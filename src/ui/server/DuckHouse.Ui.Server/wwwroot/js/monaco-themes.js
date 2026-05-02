@@ -15,8 +15,7 @@ require(['vs/editor/editor.main'], function () {
         rules: [
             // ── Python tokens (Monarch grammar) ──
             { token: 'keyword', foreground: '0000FF' },
-            { token: 'keyword.flow', foreground: 'AF00DB' },
-            { token: 'keyword.python', foreground: '0000FF' },
+            { token: 'keyword.control', foreground: 'AF00DB' },
             { token: 'string', foreground: 'A31515' },
             { token: 'string.escape', foreground: 'EE0000' },
             { token: 'comment', foreground: '008000' },
@@ -27,14 +26,15 @@ require(['vs/editor/editor.main'], function () {
             { token: 'operator', foreground: '000000' },
             { token: 'delimiter', foreground: '000000' },
             { token: 'type', foreground: '267F99' },
+            { token: 'builtin', foreground: '795E26' },
+            { token: 'function', foreground: '795E26' },
+            { token: 'function.call', foreground: '795E26' },
 
             // Python semantic token types (Workstream B)
-            { token: 'function', foreground: '795E26' },
             { token: 'class', foreground: '267F99' },
             { token: 'parameter', foreground: '001080' },
             { token: 'variable', foreground: '001080' },
             { token: 'selfParameter', foreground: '0000FF' },
-            { token: 'builtin', foreground: '795E26' },       // built-in functions like print, len
             { token: 'property', foreground: '001080' },
             { token: 'namespace', foreground: '267F99' },
             { token: 'enumMember', foreground: '0070C1' },
@@ -67,8 +67,7 @@ require(['vs/editor/editor.main'], function () {
         rules: [
             // ── Python tokens (Monarch grammar) ──
             { token: 'keyword', foreground: '569CD6' },
-            { token: 'keyword.flow', foreground: 'C586C0' },
-            { token: 'keyword.python', foreground: '569CD6' },
+            { token: 'keyword.control', foreground: 'C586C0' },
             { token: 'string', foreground: 'CE9178' },
             { token: 'string.escape', foreground: 'D7BA7D' },
             { token: 'comment', foreground: '6A9955' },
@@ -79,14 +78,15 @@ require(['vs/editor/editor.main'], function () {
             { token: 'operator', foreground: 'D4D4D4' },
             { token: 'delimiter', foreground: 'D4D4D4' },
             { token: 'type', foreground: '4EC9B0' },
+            { token: 'builtin', foreground: 'DCDCAA' },
+            { token: 'function', foreground: 'DCDCAA' },
+            { token: 'function.call', foreground: 'DCDCAA' },
 
             // Python semantic token types (Workstream B)
-            { token: 'function', foreground: 'DCDCAA' },
             { token: 'class', foreground: '4EC9B0' },
             { token: 'parameter', foreground: '9CDCFE' },
             { token: 'variable', foreground: '9CDCFE' },
             { token: 'selfParameter', foreground: '569CD6' },
-            { token: 'builtin', foreground: 'DCDCAA' },       // built-in functions like print, len
             { token: 'property', foreground: '9CDCFE' },
             { token: 'namespace', foreground: '4EC9B0' },
             { token: 'enumMember', foreground: '4FC1FF' },

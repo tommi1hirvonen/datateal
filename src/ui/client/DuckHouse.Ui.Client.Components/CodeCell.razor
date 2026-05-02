@@ -12,7 +12,7 @@
     [Parameter] public string Value { get; set; } = "";
     [Parameter] public EventCallback<string> ValueChanged { get; set; }
     [Parameter] public bool ReadOnly { get; set; }
-    [Parameter] public string Language { get; set; } = "python";
+    [Parameter] public string Language { get; set; } = "duckhouse-python";
     [Parameter] public int Height { get; set; } = 0; // 0 = auto-size from line count
     [Parameter] public EventCallback OnExecute { get; set; }
     [Parameter] public EventCallback OnEditorReady { get; set; }
