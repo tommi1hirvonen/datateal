@@ -45,6 +45,7 @@
 
     private CodeCell _codeCell = default!;
     private TextModel? _model;
+    private string _modelUri = "";
     private string _currentCode = "";
     private CancellationTokenSource? _diagCts;
     private CancellationTokenSource? _semanticCts;
@@ -70,7 +71,10 @@
     private async Task OnEditorReadyAsync()
     {
         _model = await _codeCell.Editor!.GetModel();
+        _modelUri = _model?.Uri ?? "";
+        _currentCode = Value;
         await RegisterCompletionProviderAsync();
+        await RegisterHoverProviderAsync();
         await RegisterSemanticTokensProviderAsync();
         await RunDiagnosticsAsync(_currentCode);
         await ScheduleSemanticTokensAsync(_currentCode);
@@ -81,6 +85,65 @@
             JsRuntime,
             "duckhouse-python",
             new CompletionItemProvider(new List<string> { ".", "/" }, ProvideCompletionsAsync, null));
+
+    private Task RegisterHoverProviderAsync() =>
+        BlazorMonaco.Languages.Global.RegisterHoverProviderAsync(
+            JsRuntime,
+            "duckhouse-python",
+            async (uri, position, _) =>
+            {
+                try
+                {
+                    // Only respond for our own editor model — the provider is registered globally.
+                    if (!string.Equals(uri, _modelUri, StringComparison.Ordinal))
+                        return null;
+
+                    var code = _model is not null ? await _model.GetValue(EndOfLinePreference.LF, false) : _currentCode;
+                    if (string.IsNullOrEmpty(code))
+                        return null;
+
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                    var response = await KernelService.GetHoverInfoAsync(
+                        NodeName, KernelId,
+                        new HoverInfoRequest(code, position.LineNumber, position.Column - 1, PriorContext?.Invoke() ?? ""),
+                        cts.Token);
+
+                    if (response.Contents.Count == 0)
+                        return null;
+
+                    // Determine the word range for the hover highlight
+                    BlazorMonaco.Range? range = null;
+                    if (_model is not null)
+                    {
+                        var word = await _model.GetWordAtPosition(position);
+                        if (word is not null)
+                        {
+                            range = new BlazorMonaco.Range
+                            {
+                                StartLineNumber = position.LineNumber,
+                                EndLineNumber = position.LineNumber,
+                                StartColumn = word.StartColumn,
+                                EndColumn = word.EndColumn,
+                            };
+                        }
+                    }
+
+                    return new BlazorMonaco.Languages.Hover
+                    {
+                        // SupportThemeIcons must be explicitly set to avoid a BlazorMonaco serialization
+                        // bug where null bool? properties break Monaco's hover renderer (Issue #184).
+                        Contents = response.Contents
+                            .Select(c => new BlazorMonaco.MarkdownString { Value = c, SupportThemeIcons = false })
+                            .ToArray(),
+                        Range = range,
+                    };
+                }
+                catch (Exception ex)
+                {
+                    await JsRuntime.InvokeVoidAsync("console.error", "Error fetching hover info:", ex.ToString());
+                    return null;
+                }
+            });
 
     private async Task<CompletionList> ProvideCompletionsAsync(
         string modelUri,

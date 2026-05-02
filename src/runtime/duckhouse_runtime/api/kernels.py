@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from duckhouse_runtime.api.auth import verify_api_key
@@ -13,6 +15,8 @@ from duckhouse_runtime.kernels.models import (
     ExecuteRequest,
     ExecutionHandle,
     ExecutionResult,
+    HoverRequest,
+    HoverResponse,
     KernelInfo,
     Output,
     PollExecutionResponse,
@@ -22,6 +26,7 @@ from duckhouse_runtime.kernels.models import (
 )
 
 router = APIRouter(prefix="/kernels", tags=["kernels"], dependencies=[Depends(verify_api_key)])
+logger = logging.getLogger(__name__)
 
 
 def _to_info(conn: KernelConnection) -> KernelInfo:
@@ -141,3 +146,13 @@ async def semantic_tokens(kernel_id: str, body: SemanticTokenRequest):
         raise HTTPException(status_code=404, detail="Kernel not found")
     tokens = await conn.semantic_tokens(body.code, body.context)
     return SemanticTokenResponse(tokens=[SemanticToken(**t) for t in tokens])
+
+
+@router.post("/{kernel_id}/hover", response_model=HoverResponse)
+async def hover(kernel_id: str, body: HoverRequest):
+    conn = registry.get(kernel_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Kernel not found")
+    contents = await conn.hover(body.code, body.line, body.column, body.context)
+    logger.info("hover kernel=%s line=%d col=%d → %d content items", kernel_id, body.line, body.column, len(contents))
+    return HoverResponse(contents=contents)

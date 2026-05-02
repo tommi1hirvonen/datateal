@@ -1,5 +1,6 @@
 import asyncio
 import ast as _ast
+import logging
 import os
 import sys
 import time
@@ -10,6 +11,8 @@ import pathlib
 import pyflakes.checker
 import jedi
 from jedi.api.environment import Environment as JediEnvironment
+
+logger = logging.getLogger(__name__)
 
 from jupyter_client.manager import AsyncKernelManager
 from jupyter_client.asynchronous.client import AsyncKernelClient
@@ -473,6 +476,132 @@ class KernelConnection:
             return await asyncio.to_thread(_run_jedi)
         except Exception:
             return await asyncio.to_thread(_run_ast)
+
+    async def hover(self, code: str, line: int, column: int, context: str = "") -> list[str]:
+        """Return markdown hover content for the symbol at (line, column).
+
+        Strategy (first non-empty result wins):
+        1. ``get_signatures`` — when the cursor is inside a call's parentheses.
+        2. ``goto(follow_imports=True)`` — resolves the definition; best for
+           compiled extensions (e.g. duckdb) where ``help()`` often returns nothing.
+        3. ``infer`` — type inference; useful for variables and literals.
+        4. ``help`` — last resort; works well for pure-Python identifiers.
+
+        Returns an empty list when nothing useful can be shown.
+        """
+        kernel_python = os.environ.get("DUCKHOUSE_KERNEL_PYTHON", sys.executable)
+
+        def _format_doc(full_name: str, doc: str) -> list[str]:
+            """Build a markdown hover from a fully-qualified name and docstring."""
+            result: list[str] = [f"**{full_name}**"]
+            doc = doc.strip()
+            if doc:
+                paragraphs = doc.split("\n\n")
+                snippet = "\n\n".join(paragraphs[:3])
+                if len(snippet) > 1000:
+                    snippet = snippet[:1000] + "…"
+                result.append(snippet)
+            return result
+
+        def _run() -> list[str]:
+            context_line_count = context.count("\n") + 1 if context else 0
+            full_code = (context + "\n" + code) if context else code
+            adj_line = line + context_line_count
+            total_lines = full_code.count("\n") + 1
+
+            logger.info(
+                "hover _run: line=%d col=%d context_lines=%d adj_line=%d total_lines=%d code_len=%d context_len=%d",
+                line, column, context_line_count, adj_line, total_lines, len(code), len(context))
+
+            if adj_line < 1 or adj_line > total_lines:
+                logger.warning(
+                    "hover: adj_line %d out of range [1, %d] — code=%r context_tail=%r",
+                    adj_line, total_lines, code[:100], context[-100:] if context else "")
+                return []
+
+            env = JediEnvironment(kernel_python)
+            script = jedi.Script(full_code, environment=env)
+
+            # ── 1. Try signatures (cursor inside call parentheses) ──
+            try:
+                sigs = script.get_signatures(adj_line, column)
+                logger.info("get_signatures(%d, %d) → %d", adj_line, column, len(sigs))
+                if sigs:
+                    sig = sigs[0]
+                    params = [p.description for p in sig.params]
+                    if sig.index is not None and 0 <= sig.index < len(params):
+                        params[sig.index] = f"**{params[sig.index]}**"
+                    sig_str = f"{sig.name}({', '.join(params)})"
+                    contents: list[str] = [f"```python\n{sig_str}\n```"]
+                    doc = sig.docstring(raw=True).strip()
+                    if doc:
+                        paragraphs = doc.split("\n\n")
+                        snippet = "\n\n".join(paragraphs[:3])
+                        if len(snippet) > 1000:
+                            snippet = snippet[:1000] + "…"
+                        contents.append(snippet)
+                    return contents
+            except Exception:
+                logger.info("get_signatures failed at (%d, %d)", adj_line, column, exc_info=True)
+
+            # ── 2. Try goto (resolves to definition — best for compiled modules) ──
+            try:
+                defs = script.goto(adj_line, column, follow_imports=True, follow_builtin_imports=True)
+                logger.info("goto(%d, %d) → %d defs: %s", adj_line, column, len(defs),
+                            [(d.full_name, d.type) for d in defs[:3]])
+                for d in defs:
+                    full_name = d.full_name or d.name
+                    doc = d.docstring(raw=True)
+                    desc = d.description
+                    if doc:
+                        return _format_doc(full_name, doc)
+                    elif desc and desc != full_name:
+                        return [f"**{full_name}**", f"```python\n{desc}\n```"]
+                    elif full_name:
+                        return [f"**{full_name}**"]
+            except Exception:
+                logger.info("goto failed at (%d, %d)", adj_line, column, exc_info=True)
+
+            # ── 3. Try infer (type inference) ──
+            try:
+                names = script.infer(adj_line, column)
+                logger.info("infer(%d, %d) → %d names: %s", adj_line, column, len(names),
+                            [(n.full_name, n.type) for n in names[:3]])
+                for n in names:
+                    full_name = n.full_name or n.name
+                    doc = n.docstring(raw=True)
+                    if doc:
+                        return _format_doc(full_name, doc)
+                    elif full_name:
+                        return [f"**{full_name}**"]
+            except Exception:
+                logger.info("infer failed at (%d, %d)", adj_line, column, exc_info=True)
+
+            # ── 4. Try help (last resort) ──
+            try:
+                names = script.help(adj_line, column)
+                logger.info("help(%d, %d) → %d names: %s", adj_line, column, len(names),
+                            [(n.full_name, n.type) for n in names[:3]])
+                for n in names:
+                    full_name = n.full_name or n.name
+                    doc = n.docstring(raw=True)
+                    if doc:
+                        return _format_doc(full_name, doc)
+                    elif full_name:
+                        return [f"**{full_name}**"]
+            except Exception:
+                logger.info("help failed at (%d, %d)", adj_line, column, exc_info=True)
+
+            return []
+
+        try:
+            return await asyncio.wait_for(asyncio.to_thread(_run), timeout=10.0)
+        except asyncio.TimeoutError:
+            logger.warning("hover() timed out for (line=%d, col=%d)", line, column)
+            return []
+        except Exception:
+            logger.warning("hover() failed for (line=%d, col=%d)", line, column, exc_info=True)
+            return []
 
 
 class KernelRegistry:

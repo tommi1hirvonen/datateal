@@ -75,4 +75,11 @@ internal class KernelService(HttpClient httpClient) : IKernelService
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<SemanticTokenResponse>(JsonOptions, cancellationToken))!;
     }
+
+    public async Task<HoverInfoResponse> GetHoverInfoAsync(string nodeName, string kernelId, HoverInfoRequest request, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync($"api/nodes/{nodeName}/kernels/{kernelId}/hover", request, JsonOptions, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<HoverInfoResponse>(JsonOptions, cancellationToken))!;
+    }
 }

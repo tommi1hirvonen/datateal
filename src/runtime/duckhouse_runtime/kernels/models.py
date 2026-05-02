@@ -96,3 +96,14 @@ class SemanticToken(BaseModel):
 
 class SemanticTokenResponse(BaseModel):
     tokens: list[SemanticToken]
+
+
+class HoverRequest(BaseModel):
+    code: str
+    line: int    # 1-based (Jedi convention)
+    column: int  # 0-based (Jedi convention)
+    context: str = ""  # code from all prior cells joined by newlines
+
+
+class HoverResponse(BaseModel):
+    contents: list[str]  # markdown strings; empty means nothing to show

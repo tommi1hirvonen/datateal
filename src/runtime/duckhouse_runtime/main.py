@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
+import logging
 from fastapi import FastAPI
 import uvicorn
 from duckhouse_runtime.api import health, kernels
 from duckhouse_runtime.kernels.manager import registry
 
+logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):

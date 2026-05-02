@@ -101,6 +101,14 @@ public static class NodeEndpoints
             Results.Ok(await mediator.SendAsync(new DiagnoseKernelRequest(name, kernelId, request), ct)))
             .WithName("DiagnoseKernel");
 
+        kernels.MapPost("/{kernelId}/semantic-tokens", async (string name, string kernelId, SemanticTokenRequest request, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.SendAsync(new GetSemanticTokensRequest(name, kernelId, request), ct)))
+            .WithName("GetSemanticTokens");
+
+        kernels.MapPost("/{kernelId}/hover", async (string name, string kernelId, HoverInfoRequest request, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.SendAsync(new GetHoverInfoRequest(name, kernelId, request), ct)))
+            .WithName("GetHoverInfo");
+
         return endpoints;
     }
 }

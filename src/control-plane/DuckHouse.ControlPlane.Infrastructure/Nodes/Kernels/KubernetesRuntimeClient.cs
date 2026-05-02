@@ -124,4 +124,25 @@ public sealed class KubernetesRuntimeClient : INodeRuntimeClient
         var response = await SendAsync(httpRequest, cancellationToken);
         return (await response.Content.ReadFromJsonAsync<DiagnoseResponse>(_jsonOptions, cancellationToken))!;
     }
+
+    public async Task<SemanticTokenResponse> GetSemanticTokensAsync(string nodeName, string kernelId, SemanticTokenRequest request, CancellationToken cancellationToken = default)
+    {
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, ProxyUri(nodeName, $"kernels/{kernelId}/semantic-tokens"))
+        {
+            Content = JsonContent.Create(request, options: _jsonOptions),
+        };
+        var response = await SendAsync(httpRequest, cancellationToken);
+        return (await response.Content.ReadFromJsonAsync<SemanticTokenResponse>(_jsonOptions, cancellationToken))!;
+    }
+
+    public async Task<HoverInfoResponse> HoverAsync(string nodeName, string kernelId, HoverInfoRequest request, CancellationToken cancellationToken = default)
+    {
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, ProxyUri(nodeName, $"kernels/{kernelId}/hover"))
+        {
+            Content = JsonContent.Create(request, options: _jsonOptions),
+        };
+        var httpResponse = await SendAsync(httpRequest, cancellationToken);
+        var response = await httpResponse.Content.ReadFromJsonAsync<HoverInfoResponse>(_jsonOptions, cancellationToken);
+        return response!;
+    }
 }
