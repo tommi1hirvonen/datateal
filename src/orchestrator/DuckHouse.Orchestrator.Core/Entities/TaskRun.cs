@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DuckHouse.Core.Orchestration;
 using DuckHouse.Orchestrator.Core.Enums;
@@ -31,4 +32,7 @@ public abstract class TaskRun
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public double? DurationMs { get; set; }
+
+    [NotMapped]
+    public List<string> DependencyTaskNames { get; set; } = [];
 }

@@ -80,7 +80,7 @@
             </Descriptions>
 
             <h3>Tasks</h3>
-            <Table TItem="TaskRunDto" DataSource="_run.TaskRuns" Size="@TableSize.Small"
+            <Table TItem="TaskRunDto" DataSource="SortedTaskRuns" Size="@TableSize.Small"
                    PageSize="int.MaxValue" HidePagination="true">
                 <PropertyColumn Property="c => c.TaskName" Title="Task">
                     @context.TaskName
@@ -172,6 +172,39 @@
         {
             _loading = false;
         }
+    }
+
+    private IEnumerable<TaskRunDto> SortedTaskRuns
+    {
+        get
+        {
+            if (_run is null) return [];
+            var tasks = _run.TaskRuns;
+            if (tasks.Count <= 1) return tasks;
+
+            var topoRank = BuildTopoRanks(tasks);
+            return tasks
+                .OrderBy(t => t.StartedAt ?? DateTime.MaxValue)
+                .ThenBy(t => topoRank.GetValueOrDefault(t.TaskName, -1))
+                .ThenBy(t => t.TaskName, NaturalSortComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private static Dictionary<string, int> BuildTopoRanks(List<TaskRunDto> tasks)
+    {
+        if (tasks.Count == 0) return [];
+        var nameComparer = Comparer<TaskRunDto>.Create((a, b) =>
+            NaturalSortComparer.OrdinalIgnoreCase.Compare(a.TaskName, b.TaskName));
+        var comparer = new TopologicalComparer<TaskRunDto, string>(
+            tasks,
+            t => t?.TaskName ?? "",
+            t => t.DependencyTaskNames,
+            nameComparer);
+        var ordered = tasks.OrderBy(t => t, comparer).ToList();
+        var rank = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < ordered.Count; i++)
+            rank[ordered[i].TaskName] = i;
+        return rank;
     }
 
     private async Task RefreshAsync() => await LoadAsync();

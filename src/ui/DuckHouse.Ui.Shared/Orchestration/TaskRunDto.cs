@@ -15,4 +15,5 @@ public record TaskRunDto(
     DateTime? StartedAt,
     DateTime? CompletedAt,
     double? DurationMs,
-    Dictionary<string, string>? Parameters);
+    Dictionary<string, string>? Parameters,
+    List<string> DependencyTaskNames);
