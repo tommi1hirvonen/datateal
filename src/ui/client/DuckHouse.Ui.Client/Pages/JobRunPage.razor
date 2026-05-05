@@ -3,6 +3,7 @@
 
 @using DuckHouse.Ui.Shared.Orchestration
 @using DuckHouse.Core.Orchestration
+@using AntDesign.TableModels
 @inject IJobService JobService
 @inject NavigationManager Navigation
 
@@ -32,7 +33,7 @@
                         <Tag Color="@GetStatusColor(_run.Status)">@_run.Status</Tag>
                     </SpaceItem>
                 </Space>
-                <Space>
+                <Space Align="SpaceAlign.Center" Size="SpaceSize.Small">
                     @if (_run.Status is JobRunStatus.Running or JobRunStatus.Pending)
                     {
                         <SpaceItem>
@@ -44,12 +45,19 @@
                                 </Popconfirm>
                             </AuthorizeView>
                         </SpaceItem>
-                        <SpaceItem>
-                            <Button OnClick="RefreshAsync">
-                                <Icon Type="@IconType.Outline.Reload" /> Refresh
-                            </Button>
-                        </SpaceItem>
                     }
+                    <SpaceItem>
+                        <Button OnClick="RefreshAsync">
+                            <Icon Type="@IconType.Outline.Reload" /> Refresh
+                        </Button>
+                    </SpaceItem>
+                    <SpaceItem>
+                        <span style="font-size: 12px;">
+                            <AntDesign.Text Type="TextElementType.Secondary">
+                                as of @_now.ToString("HH:mm:ss")
+                            </AntDesign.Text>
+                        </span>
+                    </SpaceItem>
                 </Space>
             </Flex>
 
@@ -64,9 +72,23 @@
                 {
                     <DescriptionsItem Title="Completed">@_run.CompletedAt.Value.ToString("yyyy-MM-dd HH:mm:ss")</DescriptionsItem>
                 }
-                @if (_run.StartedAt.HasValue && _run.CompletedAt.HasValue)
+                @if (_run.StartedAt.HasValue)
                 {
-                    <DescriptionsItem Title="Duration">@FormatDuration((_run.CompletedAt.Value - _run.StartedAt.Value).TotalMilliseconds)</DescriptionsItem>
+                    var startUtc = DateTime.SpecifyKind(_run.StartedAt.Value, DateTimeKind.Utc);
+                    var durationMs = _run.CompletedAt.HasValue
+                        ? (_run.CompletedAt.Value - _run.StartedAt.Value).TotalMilliseconds
+                        : (_now - startUtc).TotalMilliseconds;
+                    <DescriptionsItem Title="Duration">
+                        @FormatDuration(durationMs)
+                        @if (!_run.CompletedAt.HasValue)
+                        {
+                            <span style="font-size: 12px; margin-left: 4px;">
+                                <AntDesign.Text Type="TextElementType.Secondary">
+                                    (running)
+                                </AntDesign.Text>
+                            </span>
+                        }
+                    </DescriptionsItem>
                 }
                 @if (_run.Parameters is { Count: > 0 })
                 {
@@ -81,7 +103,9 @@
 
             <h3>Tasks</h3>
             <Table TItem="TaskRunDto" DataSource="SortedTaskRuns" Size="@TableSize.Small"
-                   PageSize="int.MaxValue" HidePagination="true">
+                   PageSize="int.MaxValue" HidePagination="true"
+                   RowExpandable="row => HasExpandableContent(row.Data)"
+                   ExpandTemplate="@TaskExpandTemplate">
                 <PropertyColumn Property="c => c.TaskName" Title="Task">
                     @context.TaskName
                 </PropertyColumn>
@@ -90,39 +114,31 @@
                 </PropertyColumn>
                 <PropertyColumn Property="c => c.Status" Title="Status">
                     <Tag Color="@GetStatusColor(context.Status)">@context.Status</Tag>
-                </PropertyColumn>
-                <PropertyColumn Property="c => c.AttemptNumber" Title="Attempt" />
-                <PropertyColumn Property="c => c.DurationMs" Title="Duration">
-                    @(context.DurationMs.HasValue ? FormatDuration(context.DurationMs.Value) : "—")
-                </PropertyColumn>
-                <PropertyColumn Property="c => c.NodeName" Title="Node">
-                    @(context.NodeName ?? "—")
-                </PropertyColumn>
-                <PropertyColumn Property="c => c.Parameters" Title="Parameters">
-                    @if (context.Parameters is { Count: > 0 })
-                    {
-                        <Popover ContentTemplate="@ParametersContent(context.Parameters)" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Click })">
-                            <Tag Style="cursor:pointer;">@context.Parameters.Count param(s)</Tag>
-                        </Popover>
-                    }
-                    else
-                    {
-                        <span>—</span>
-                    }
-                </PropertyColumn>
-                <PropertyColumn Property="c => c.ErrorMessage" Title="Error">
                     @if (!string.IsNullOrEmpty(context.ErrorMessage))
                     {
-                        <span style="color: #ff4d4f; font-size: 12px;" title="@context.ErrorMessage">
-                            @(context.ErrorMessage.Length > 60
-                                ? context.ErrorMessage[..60] + "..."
-                                : context.ErrorMessage)
+                        <Icon Type="@IconType.Outline.ExclamationCircle" Style="color: #ff4d4f; margin-left: 4px;" />
+                    }
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.AttemptNumber" Title="Attempt">
+                    @(context.AttemptNumber > 1 ? context.AttemptNumber.ToString() : "—")
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.StartedAt" Title="Started">
+                    @if (context.StartedAt.HasValue)
+                    {
+                        <span>
+                            @context.StartedAt.Value.ToString("yyyy-MM-dd HH:mm:ss")
                         </span>
                     }
                     else
                     {
                         <span>—</span>
                     }
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.DurationMs" Title="Duration">
+                    @FormatTaskDuration(context)
+                </PropertyColumn>
+                <PropertyColumn Property="c => c.NodeName" Title="Node">
+                    @(context.NodeName ?? "—")
                 </PropertyColumn>
                 <ActionColumn Title="">
                     @if (context.TaskType == TaskType.Notebook)
@@ -151,6 +167,7 @@
     private JobRunDetail? _run;
     private bool _loading = true;
     private string? _error;
+    private DateTime _now = DateTime.UtcNow;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -163,6 +180,7 @@
         try
         {
             _run = await JobService.GetRunAsync(Id);
+            _now = DateTime.UtcNow;
         }
         catch (Exception ex)
         {
@@ -207,6 +225,54 @@
         return rank;
     }
 
+    private static bool HasExpandableContent(TaskRunDto task) =>
+        task.Parameters is { Count: > 0 }
+        || !string.IsNullOrEmpty(task.ErrorMessage)
+        || task.DependencyTaskNames.Count > 0
+        || !string.IsNullOrEmpty(task.KernelId);
+
+    private RenderFragment<RowData<TaskRunDto>> TaskExpandTemplate => row =>
+        @<div style="padding: 8px 16px 8px 48px;">
+            <Descriptions Bordered="false" Size="@DescriptionsSize.Small" Column="1">
+                @if (!string.IsNullOrEmpty(row.Data.ErrorMessage))
+                {
+                    <DescriptionsItem Title="Error">
+                        <span style="font-family: monospace; font-size: 12px; white-space: pre-wrap;">
+                            <AntDesign.Text Type="TextElementType.Danger">
+                                @row.Data.ErrorMessage
+                            </AntDesign.Text>
+                        </span>
+                    </DescriptionsItem>
+                }
+                @if (row.Data.Parameters is { Count: > 0 })
+                {
+                    <DescriptionsItem Title="Parameters">
+                        <div style="font-family: monospace; font-size: 12px;">
+                            @foreach (var kv in row.Data.Parameters)
+                            {
+                                <div><strong>@kv.Key</strong> = @kv.Value</div>
+                            }
+                        </div>
+                    </DescriptionsItem>
+                }
+                @if (row.Data.DependencyTaskNames.Count > 0)
+                {
+                    <DescriptionsItem Title="Dependencies">
+                        @foreach (var dep in row.Data.DependencyTaskNames)
+                        {
+                            <Tag Style="margin-bottom: 4px;">@dep</Tag>
+                        }
+                    </DescriptionsItem>
+                }
+                @if (!string.IsNullOrEmpty(row.Data.KernelId))
+                {
+                    <DescriptionsItem Title="Kernel">
+                        <span style="font-family: monospace; font-size: 12px;">@row.Data.KernelId</span>
+                    </DescriptionsItem>
+                }
+            </Descriptions>
+        </div>;
+
     private async Task RefreshAsync() => await LoadAsync();
 
     private async Task CancelAsync()
@@ -243,14 +309,6 @@
         _ => "default",
     };
 
-    private static RenderFragment ParametersContent(Dictionary<string, string> parameters) =>
-        @<div style="font-family: monospace; font-size: 12px; min-width: 160px;">
-            @foreach (var kv in parameters)
-            {
-                <div><strong>@kv.Key</strong> = @kv.Value</div>
-            }
-        </div>;
-
     private static string GetTaskTypeColor(TaskType taskType) => taskType switch
     {
         TaskType.Notebook => "blue",
@@ -266,5 +324,19 @@
         int total = (int)s;
         if (total < 60) return $"{total}s";
         return $"{total / 60}m {total % 60}s";
+    }
+
+    private string FormatTaskDuration(TaskRunDto task)
+    {
+        if (task.DurationMs.HasValue)
+            return FormatDuration(task.DurationMs.Value);
+        if (task.StartedAt.HasValue
+            && (task.Status.Equals("running", StringComparison.OrdinalIgnoreCase)
+                || task.Status.Equals("retrying", StringComparison.OrdinalIgnoreCase)))
+        {
+            var ms = (_now - DateTime.SpecifyKind(task.StartedAt.Value, DateTimeKind.Utc)).TotalMilliseconds;
+            return ms >= 0 ? FormatDuration(ms) : "—";
+        }
+        return "—";
     }
 }
