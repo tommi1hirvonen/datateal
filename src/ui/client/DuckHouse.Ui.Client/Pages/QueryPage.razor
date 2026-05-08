@@ -298,6 +298,7 @@
     private CatalogSession _catalog = default!;
 
     private bool _isLoading;
+    private bool _splitterInitialized;
     private bool HasKernel => !string.IsNullOrEmpty(_kernelId);
 
     protected override async Task OnInitializedAsync()
@@ -777,8 +778,13 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        // Cannot use `firstRender` here: when a query is loaded by ID, _isLoading is set to true
+        // before the first await in OnInitializedAsync, so the first render shows the spinner and
+        // the split-pane elements don't exist in the DOM yet. We initialize on the first render
+        // where _isLoading is false (i.e. the split pane is actually rendered).
+        if (!_splitterInitialized && !_isLoading)
         {
+            _splitterInitialized = true;
             _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("initQueryPageSplitter", "qp-top-pane", "qp-drag-handle", _dotNetRef);
         }
