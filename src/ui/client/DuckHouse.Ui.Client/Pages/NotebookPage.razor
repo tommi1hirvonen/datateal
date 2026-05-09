@@ -277,7 +277,20 @@
     private bool AnyExecuting => _notebook.Cells.Any(c => c.IsExecuting);
     private InteractivePoolDto? SelectedPool => _pools.FirstOrDefault(p => p.Name == _poolName);
 
-    private void MarkDirty() => _notebook.IsDirty = true;
+    // NotebookCellView.OnCellChanged is Action? (not EventCallback) deliberately: EventCallback would call
+    // StateHasChanged() on NotebookPage after every single keystroke, forcing the entire
+    // page — including SetParametersAsync on every NotebookCellView — to reconcile on
+    // each character typed. On a large notebook this makes editing noticeably laggy.
+    //
+    // Instead, we call StateHasChanged() ourselves, but only on the false→true transition.
+    // The Save button needs to become active on the very first change; after that IsDirty
+    // stays true until the next save, so no further re-render is needed for this purpose.
+    private void MarkDirty()
+    {
+        if (_notebook.IsDirty) return; // already dirty — Save button already active
+        _notebook.IsDirty = true;
+        StateHasChanged(); // one re-render per save cycle, not one per keystroke
+    }
 
     private void NavigateToWorkspace(Guid? folderId) =>
         Navigation.NavigateTo(folderId is null ? "/workspace" : $"/workspace?folder={folderId}");
