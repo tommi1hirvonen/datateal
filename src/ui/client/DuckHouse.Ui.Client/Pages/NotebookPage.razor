@@ -180,7 +180,8 @@
 
         </div>@* end .nb-header *@
 
-        <div class="nb-cells">
+        <div class="nb-cells-wrapper">
+        <div class="nb-cells" id="nb-cells-scroll">
         @* Cell list *@
         <AddCellBar OnAddPython="() => AddCell(0, NotebookCellType.Code, NotebookCellLanguage.Python)"
                     OnAddSql="() => AddCell(0, NotebookCellType.Code, NotebookCellLanguage.Sql)"
@@ -190,6 +191,7 @@
         {
             var cell = _notebook.Cells[ci];
             var index = ci; // capture for closure
+            <div id="@($"nb-cell-{cell.Id}")">
             <NotebookCellView @key="cell.Id" Cell="cell"
                             NodeName="@_nodeName"
                             KernelId="@_kernelId"
@@ -209,6 +211,7 @@
                             OnToggleParameters="@(() => ToggleParameterCell(cell))"
                             OnInsertPythonCellBelow="@(() => AddCell(index + 1, NotebookCellType.Code, NotebookCellLanguage.Python, "display(_sqldf)"))"
                             OnInsertSqlCellBelow="@(() => AddCell(index + 1, NotebookCellType.Code, NotebookCellLanguage.Sql, "FROM _sqldf"))" />
+            </div>
             <AddCellBar @key="@($"add-{cell.Id}")" OnAddPython="() => AddCell(index + 1, NotebookCellType.Code, NotebookCellLanguage.Python)"
                         OnAddSql="() => AddCell(index + 1, NotebookCellType.Code, NotebookCellLanguage.Sql)"
                         OnAddMarkdown="() => AddCell(index + 1, NotebookCellType.Markdown)" />
@@ -222,6 +225,8 @@
         }
 
         </div>@* end .nb-cells *@
+        <NotebookProgressGutter Cells="@_notebook.Cells" ScrollContainerId="nb-cells-scroll" />
+        </div>@* end .nb-cells-wrapper *@
 
         @* Folder picker modal — shown when saving to workspace for the first time *@
         <FolderPickerModal Visible="_showFolderPicker"

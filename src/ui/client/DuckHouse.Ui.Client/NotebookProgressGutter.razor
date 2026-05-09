@@ -1,0 +1,58 @@
+@using DuckHouse.Ui.Client.Notebook
+@inject IJSRuntime JS
+
+@if (Cells.Count > 0)
+{
+    <div class="nb-gutter-container">
+        <Dropdown Trigger="@(new Trigger[] { Trigger.Click })"
+                  Placement="@Placement.LeftBottom">
+            <Overlay>
+                <Menu Style="max-height: 300px; overflow-y: auto;">
+                    @for (int i = 0; i < Cells.Count; i++)
+                    {
+                        var cell = Cells[i];
+                        var label = $"Cell {i + 1}";
+                        <MenuItem OnClick="@(() => _ = ScrollToCellAsync(cell))">
+                            <span class="nb-gutter-dot @GetDotClass(cell)"></span>
+                            @label
+                        </MenuItem>
+                    }
+                </Menu>
+            </Overlay>
+            <ChildContent>
+                <div class="nb-gutter-ticks" title="Execution progress — click to navigate">
+                    @foreach (var cell in Cells)
+                    {
+                        <div class="nb-gutter-tick @GetTickClass(cell)"></div>
+                    }
+                </div>
+            </ChildContent>
+        </Dropdown>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<NotebookCell> Cells { get; set; } = [];
+    [Parameter] public string ScrollContainerId { get; set; } = "";
+
+    private string GetTickClass(NotebookCell cell)
+    {
+        if (cell.IsExecuting) return "nb-tick-running";
+        if (cell.Error is not null) return "nb-tick-failed";
+        if (cell.DurationMs.HasValue) return "nb-tick-success";
+        return "nb-tick-pending";
+    }
+
+    private string GetDotClass(NotebookCell cell)
+    {
+        if (cell.IsExecuting) return "nb-dot-running";
+        if (cell.Error is not null) return "nb-dot-failed";
+        if (cell.DurationMs.HasValue) return "nb-dot-success";
+        return "nb-dot-pending";
+    }
+
+    private async Task ScrollToCellAsync(NotebookCell cell)
+    {
+        await JS.InvokeVoidAsync("scrollNotebookToCell", cell.Id, ScrollContainerId);
+    }
+}

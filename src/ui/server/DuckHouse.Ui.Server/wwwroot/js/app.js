@@ -124,6 +124,17 @@ window.setItemNodePref = function (itemId, nodeName) {
     localStorage.setItem('duckhouse-node:' + itemId, nodeName);
 };
 
+// Scrolls the notebook cell container so that the top of the given cell
+// is aligned with the top of the visible scroll area.
+window.scrollNotebookToCell = function (cellId, containerId) {
+    const container = document.getElementById(containerId);
+    const cell = document.getElementById('nb-cell-' + cellId);
+    if (!container || !cell) return;
+    const containerRect = container.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    container.scrollTop += cellRect.top - containerRect.top;
+};
+
 window.initCatalogPanelSplitter = function (panelId, handleId, dotNetRef) {
     const panel = document.getElementById(panelId);
     const handle = document.getElementById(handleId);
