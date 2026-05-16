@@ -161,57 +161,57 @@
         {
             <Alert Type="AlertType.Error" Message="@_error" Closable OnClose="@(() => _error = null)" />
         }
+    </div>
 
-        @* ── Agent proposals panel ── *@
-        @if (_pendingProposals is { Count: > 0 })
-        {
-            var acceptedCount = _pendingProposals.Count(p => p.Accepted);
-            <div class="ai-proposals-panel">
-                <div class="ai-proposals-header">
-                    <span>Proposed Changes (@_pendingProposals.Count change@(_pendingProposals.Count == 1 ? "" : "s"))</span>
-                    <Space Size="SpaceSize.Small">
-                        <SpaceItem>
-                            <button class="cp-collapse-btn" @onclick="@(() => { foreach (var p in _pendingProposals) p.Accepted = true; })" title="Select all">All</button>
-                        </SpaceItem>
-                        <SpaceItem>
-                            <button class="cp-collapse-btn" @onclick="@(() => { foreach (var p in _pendingProposals) p.Accepted = false; })" title="Deselect all">None</button>
-                        </SpaceItem>
-                    </Space>
-                </div>
-                <div class="ai-proposals-items">
-                @foreach (var entry in _pendingProposals)
-                {
-                    <div class="ai-proposal-item">
-                        <div class="ai-proposal-item-header" @onclick="@(() => entry.Expanded = !entry.Expanded)">
-                            <Checkbox Value="@entry.Accepted" ValueChanged="@(v => entry.Accepted = v)" @onclick:stopPropagation />
-                            <span class="ai-proposal-cell-label">@ProposalLabel(entry.Proposal)</span>
-                            <span class="ai-proposal-explanation">@entry.Proposal.Explanation</span>
-                            @if (entry.Proposal.Operation != CellProposalOperation.Remove)
-                            {
-                                <Icon Type="@(entry.Expanded ? IconType.Outline.Up : IconType.Outline.Down)" Style="flex-shrink:0; color:#8c8c8c;" />
-                            }
-                        </div>
-                        @if (entry.Expanded && entry.Proposal.Operation != CellProposalOperation.Remove)
+    @* ── Agent proposals panel (outside the message scroll area so it's always visible) ── *@
+    @if (_pendingProposals is { Count: > 0 })
+    {
+        var acceptedCount = _pendingProposals.Count(p => p.Accepted);
+        <div class="ai-proposals-panel">
+            <div class="ai-proposals-header">
+                <span>Proposed Changes (@_pendingProposals.Count change@(_pendingProposals.Count == 1 ? "" : "s"))</span>
+                <Space Size="SpaceSize.Small">
+                    <SpaceItem>
+                        <button class="cp-collapse-btn" @onclick="@(() => { foreach (var p in _pendingProposals) p.Accepted = true; })" title="Select all">All</button>
+                    </SpaceItem>
+                    <SpaceItem>
+                        <button class="cp-collapse-btn" @onclick="@(() => { foreach (var p in _pendingProposals) p.Accepted = false; })" title="Deselect all">None</button>
+                    </SpaceItem>
+                </Space>
+            </div>
+            <div class="ai-proposals-items">
+            @foreach (var entry in _pendingProposals)
+            {
+                <div class="ai-proposal-item">
+                    <div class="ai-proposal-item-header" @onclick="@(() => entry.Expanded = !entry.Expanded)">
+                        <Checkbox Value="@entry.Accepted" ValueChanged="@(v => entry.Accepted = v)" @onclick:stopPropagation />
+                        <span class="ai-proposal-cell-label">@ProposalLabel(entry.Proposal)</span>
+                        <span class="ai-proposal-explanation">@entry.Proposal.Explanation</span>
+                        @if (entry.Proposal.Operation != CellProposalOperation.Remove)
                         {
-                            <div class="ai-proposal-preview">
-                                <pre><code>@entry.Proposal.NewContent</code></pre>
-                            </div>
+                            <Icon Type="@(entry.Expanded ? IconType.Outline.Up : IconType.Outline.Down)" Style="flex-shrink:0; color:#8c8c8c;" />
                         }
                     </div>
-                }
+                    @if (entry.Expanded && entry.Proposal.Operation != CellProposalOperation.Remove)
+                    {
+                        <div class="ai-proposal-preview">
+                            <pre><code>@entry.Proposal.NewContent</code></pre>
+                        </div>
+                    }
                 </div>
-                <div class="ai-proposals-footer">
-                    <Button Size="ButtonSize.Small" OnClick="@(() => _pendingProposals = null)">Discard</Button>
-                    <Button Type="ButtonType.Primary"
-                            Size="ButtonSize.Small"
-                            Disabled="@(acceptedCount == 0)"
-                            OnClick="ApplyProposalsAsync">
-                        Apply @(acceptedCount > 0 ? acceptedCount : "") Accepted
-                    </Button>
-                </div>
+            }
             </div>
-        }
-    </div>
+            <div class="ai-proposals-footer">
+                <Button Size="ButtonSize.Small" OnClick="@(() => _pendingProposals = null)">Discard</Button>
+                <Button Type="ButtonType.Primary"
+                        Size="ButtonSize.Small"
+                        Disabled="@(acceptedCount == 0)"
+                        OnClick="ApplyProposalsAsync">
+                    Apply @(acceptedCount > 0 ? acceptedCount : "") Accepted
+                </Button>
+            </div>
+        </div>
+    }
 
     @* ── Input area ── *@
     <div class="ai-sidebar-input">
