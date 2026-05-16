@@ -1,4 +1,6 @@
 @using DuckHouse.Core.Kernels
+@using ClosedXML.Excel
+@inject IJSRuntime JS
 
 <div class="df-view @(Fill ? "df-view-fill" : "")">
     <table class="df-table">
@@ -45,9 +47,34 @@
     </p>
 }
 
+@if (ShowExportButton)
+{
+    <div style="margin-top: 8px;">
+        <Dropdown Trigger="@(new Trigger[] { Trigger.Click })">
+            <Overlay>
+                <Menu>
+                    <MenuItem OnClick="ExportCsvAsync">
+                        <Icon Type="@IconType.Outline.FileText" /> CSV (.csv)
+                    </MenuItem>
+                    <MenuItem OnClick="ExportExcelAsync">
+                        <Icon Type="@IconType.Outline.FileExcel" /> Excel (.xlsx)
+                    </MenuItem>
+                </Menu>
+            </Overlay>
+            <ChildContent>
+                <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Download">
+                    Export <Icon Type="@IconType.Outline.Down" />
+                </Button>
+            </ChildContent>
+        </Dropdown>
+    </div>
+}
+
 @code {
     [Parameter, EditorRequired] public DataFrameOutput Data { get; set; } = default!;
     [Parameter] public bool Fill { get; set; }
+    [Parameter] public string ExportFileName { get; set; } = "export";
+    [Parameter] public bool ShowExportButton { get; set; } = true;
 
     private record struct IndexedRow(int Number, IReadOnlyList<object?> Cells);
 
@@ -82,4 +109,126 @@
 
     private static string FormatCell(object? value) =>
         value is null ? "" : value.ToString() ?? "";
+
+    public async Task ExportCsvAsync()
+    {
+        var sb = new System.Text.StringBuilder();
+
+        // Header row
+        sb.AppendLine(string.Join(",", Data.Columns.Select(c => CsvEscape(c.Name))));
+
+        // Data rows
+        foreach (var row in Data.Rows)
+        {
+            var parts = Data.Columns.Select((col, i) => CsvEscape(FormatCsvCell(i < row.Count ? row[i] : null, col)));
+            sb.AppendLine(string.Join(",", parts));
+        }
+
+        await JS.InvokeVoidAsync("downloadFile", $"{ExportFileName}.csv", sb.ToString());
+    }
+
+    public async Task ExportExcelAsync()
+    {
+        byte[] bytes;
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+
+            // Header row — bold
+            for (int i = 0; i < Data.Columns.Count; i++)
+            {
+                var cell = ws.Cell(1, i + 1);
+                cell.Value = Data.Columns[i].Name;
+                cell.Style.Font.Bold = true;
+            }
+
+            // Data rows with typed cell values
+            for (int r = 0; r < Data.Rows.Count; r++)
+            {
+                var row = Data.Rows[r];
+                for (int c = 0; c < Data.Columns.Count; c++)
+                {
+                    var raw = c < row.Count ? row[c] : null;
+                    SetExcelCell(ws.Cell(r + 2, c + 1), raw, Data.Columns[c]);
+                }
+            }
+
+            // Only adjust column widths based on the first 100 rows for performance.
+            ws.Columns().AdjustToContents(0, 100);
+
+            using var ms = new System.IO.MemoryStream();
+            wb.SaveAs(ms);
+            bytes = ms.ToArray();
+        }
+
+        await JS.InvokeVoidAsync("downloadFileBytes", $"{ExportFileName}.xlsx", bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    /// <summary>
+    /// Formats a cell value for CSV export. Datetime columns are written as-is
+    /// (ISO 8601 strings from the runtime, T separator preserved).
+    /// </summary>
+    private static string FormatCsvCell(object? value, DataFrameColumn col)
+    {
+        if (value is null) return "";
+        if (col.Type == "datetime" && value is string s)
+            return s;
+        return value.ToString() ?? "";
+    }
+
+    /// <summary>
+    /// Sets a ClosedXML cell value with the best native Excel type.
+    /// Datetime columns are stored as proper Excel date/datetime values.
+    /// Timezone-aware values (datetimeoffsets) are converted to UTC before export.
+    /// </summary>
+    private static void SetExcelCell(IXLCell xlCell, object? raw, DataFrameColumn col)
+    {
+        switch (raw)
+        {
+            case null:
+                xlCell.Value = "";
+                return;
+            case bool b:
+                xlCell.Value = b;
+                return;
+            case long l:
+                xlCell.Value = l;
+                return;
+            case double d:
+                xlCell.Value = d;
+                return;
+            case int i:
+                xlCell.Value = (long)i;
+                return;
+            case float f:
+                xlCell.Value = (double)f;
+                return;
+        }
+
+        if (col.Type == "datetime" && raw is string s)
+        {
+            // DateTimeOffset.TryParse handles both timezone-aware ("…+02:00", "…Z")
+            // and timezone-naive strings. Timezone-aware values are converted to UTC;
+            // timezone-naive values are taken as-is (UtcDateTime == DateTime for Unspecified kind).
+            if (DateTimeOffset.TryParse(s, out var dto))
+            {
+                var dt = dto.UtcDateTime;
+                xlCell.Value = dt;
+                xlCell.Style.NumberFormat.Format = dt.TimeOfDay == TimeSpan.Zero
+                    ? "yyyy-mm-dd"
+                    : "yyyy-mm-dd hh:mm:ss";
+                return;
+            }
+        }
+
+        xlCell.Value = raw?.ToString() ?? "";
+    }
+
+    private static string CsvEscape(string value)
+    {
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
 }

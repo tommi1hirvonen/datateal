@@ -218,13 +218,32 @@
                         <Text Type="TextElementType.Secondary" Style="font-size: 0.875rem;">
                             @_resultDf.TotalRows.ToString("N0")@(_resultDf.TotalRows == DataFrameOutput.RowCap ? "+" : "") rows
                         </Text>
-                        @if (_lastExecutedAt.HasValue)
-                        {
-                            <span style="font-size: 0.75rem; opacity: 0.6;">Last run @_lastExecutedAt.Value.ToLocalTime().ToString("HH:mm:ss")</span>
-                        }
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            @if (_lastExecutedAt.HasValue)
+                            {
+                                <span style="font-size: 0.75rem; opacity: 0.6;">Last run @_lastExecutedAt.Value.ToLocalTime().ToString("HH:mm:ss")</span>
+                            }
+                            <Dropdown Trigger="@(new Trigger[] { Trigger.Click })">
+                                <Overlay>
+                                    <Menu>
+                                        <MenuItem OnClick="@(() => _dataFrameView!.ExportCsvAsync())">
+                                            <Icon Type="@IconType.Outline.FileText" /> CSV (.csv)
+                                        </MenuItem>
+                                        <MenuItem OnClick="@(() => _dataFrameView!.ExportExcelAsync())">
+                                            <Icon Type="@IconType.Outline.FileExcel" /> Excel (.xlsx)
+                                        </MenuItem>
+                                    </Menu>
+                                </Overlay>
+                                <ChildContent>
+                                    <Button Size="ButtonSize.Small" Icon="@IconType.Outline.Download">
+                                        Export <Icon Type="@IconType.Outline.Down" />
+                                    </Button>
+                                </ChildContent>
+                            </Dropdown>
+                        </div>
                     </div>
                     <div style="flex: 1 1 0%; overflow: auto;">
-                        <DataFrameView Data="_resultDf" Fill="true" />
+                        <DataFrameView @ref="_dataFrameView" Data="_resultDf" Fill="true" ShowExportButton="false" ExportFileName="@_title" />
                     </div>
                 }
                 else if (_resultError is not null)
@@ -279,6 +298,8 @@
 @code {
     [Parameter] public Guid Id { get; set; }
     [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private DataFrameView? _dataFrameView;
 
     private string _title = "Untitled Query";
     private string _sql = "";

@@ -10,6 +10,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="ClosedXML" />
         <PackageReference Include="BlazorMonaco" />
         <PackageReference Include="CronExpressionDescriptor" />
         <PackageReference Include="HtmlSanitizer" />
