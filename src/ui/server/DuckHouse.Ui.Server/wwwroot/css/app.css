@@ -688,3 +688,58 @@ html.ant-dark .ai-user-bubble {
     background: #111d2c;
     color: rgba(255, 255, 255, 0.85);
 }
+
+/* Markdown rendered text in AI assistant messages */
+.ai-md-text {
+    font-size: 0.875rem;
+    line-height: 1.6;
+    word-break: break-word;
+}
+
+.ai-md-text p {
+    margin: 0 0 0.5em;
+}
+
+.ai-md-text p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-md-text code {
+    background: rgba(0, 0, 0, 0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.8125em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.ai-md-text ul,
+.ai-md-text ol {
+    margin: 0 0 0.5em;
+    padding-left: 1.5em;
+}
+
+.ai-md-text li {
+    margin-bottom: 0.2em;
+}
+
+.ai-md-text h1, .ai-md-text h2, .ai-md-text h3,
+.ai-md-text h4, .ai-md-text h5, .ai-md-text h6 {
+    margin: 0.75em 0 0.25em;
+    font-weight: 600;
+}
+
+.ai-md-text blockquote {
+    margin: 0 0 0.5em;
+    padding-left: 0.75em;
+    border-left: 3px solid #d9d9d9;
+    color: #595959;
+}
+
+html.ant-dark .ai-md-text code {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+html.ant-dark .ai-md-text blockquote {
+    border-left-color: #434343;
+    color: #8c8c8c;
+}

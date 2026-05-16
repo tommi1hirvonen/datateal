@@ -55,7 +55,7 @@ internal class CatalogService(HttpClient httpClient) : ICatalogService
 
     public async Task<CatalogMetadataDto> GetMetadataAsync(Guid catalogId, CancellationToken ct = default) =>
         await httpClient.GetFromJsonAsync<CatalogMetadataDto>($"api/catalogs/{catalogId}/metadata", JsonOptions, ct)
-        ?? new CatalogMetadataDto([]);
+        ?? new CatalogMetadataDto("", []);
 
     public async Task<CatalogInfoDto> GetCatalogInfoAsync(Guid catalogId, CancellationToken ct = default) =>
         await httpClient.GetFromJsonAsync<CatalogInfoDto>($"api/catalogs/{catalogId}/info", JsonOptions, ct)

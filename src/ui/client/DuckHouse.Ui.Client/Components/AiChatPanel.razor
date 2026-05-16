@@ -1,5 +1,6 @@
 @using DuckHouse.Ui.Shared.Ai
 @using System.Text.RegularExpressions
+@using Markdig
 @inject IAiAssistantService AiAssistantService
 @inject IAiSettingsService AiSettingsService
 @inject IAiCredentialService AiCredentialService
@@ -112,7 +113,7 @@
                         }
                         else if (!string.IsNullOrEmpty(segment.Content))
                         {
-                            <div style="font-size: 0.875rem; white-space: pre-wrap; word-break: break-word; line-height: 1.6;">@segment.Content</div>
+                            <div class="ai-md-text">@((MarkupString)HtmlSanitizeHelper.Sanitize(Markdig.Markdown.ToHtml(segment.Content, _mdPipeline)))</div>
                         }
                     }
                 </div>
@@ -139,7 +140,7 @@
                         }
                         else if (!string.IsNullOrEmpty(segment.Content))
                         {
-                            <div style="font-size: 0.875rem; white-space: pre-wrap; word-break: break-word; line-height: 1.6;">@segment.Content</div>
+                            <div class="ai-md-text">@((MarkupString)HtmlSanitizeHelper.Sanitize(Markdig.Markdown.ToHtml(segment.Content, _mdPipeline)))</div>
                         }
                     }
                     <div style="display: flex; align-items: center; gap: 4px; color: #8c8c8c; font-size: 0.75rem;">
@@ -373,6 +374,9 @@
     private static readonly Regex CodeBlockRegex = new(
         @"```(\w*)\n?([\s\S]*?)```",
         RegexOptions.Compiled);
+
+    private static readonly MarkdownPipeline _mdPipeline =
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
 
     private static List<MessageSegment> ParseMessageSegments(string text)
     {
