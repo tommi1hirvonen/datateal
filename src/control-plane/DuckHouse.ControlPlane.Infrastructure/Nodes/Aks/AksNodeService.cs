@@ -7,6 +7,7 @@ using DuckHouse.ControlPlane.Core.Services;
 using DuckHouse.ControlPlane.Infrastructure.Nodes.Kernels;
 using DuckHouse.Core.Nodes;
 using k8s;
+using k8s.Autorest;
 using k8s.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -93,6 +94,13 @@ public sealed class AksNodeService : INodeService
             var provisioningState = pool.Data.ProvisioningState ?? "Unknown";
             var powerState = pool.Data.PowerStateCode?.ToString() ?? "Unknown";
             var state = CalculateState(provisioningState, powerState);
+
+            // ARM "Running" only means the VM pool is provisioned. The pod still needs to
+            // pull the image, install packages, and start FastAPI. Only return Running when
+            // the readiness probe confirms the runtime is accepting connections.
+            if (state == NodeState.Running)
+                state = await GetPodReadyStateAsync(name, cancellationToken);
+
             return new NodeInfo(
                 Name: pool.Data.Name,
                 ProvisioningState: provisioningState,
@@ -103,6 +111,21 @@ public sealed class AksNodeService : INodeService
         catch (Azure.RequestFailedException ex) when (ex.Status == 404)
         {
             return null;
+        }
+    }
+
+    private async Task<NodeState> GetPodReadyStateAsync(string podName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pod = await _kubernetes.CoreV1.ReadNamespacedPodAsync(podName, Namespace, cancellationToken: cancellationToken);
+            var isReady = pod.Status?.Phase == "Running"
+                && pod.Status?.ContainerStatuses?.All(c => c.Ready) == true;
+            return isReady ? NodeState.Running : NodeState.Creating;
+        }
+        catch (HttpOperationException ex) when ((int)ex.Response.StatusCode == 404)
+        {
+            return NodeState.Creating;
         }
     }
 
@@ -122,13 +145,25 @@ public sealed class AksNodeService : INodeService
         };
 
         // Node pool provisioning is long-running; start the operation and return immediately.
-        await cluster.GetContainerServiceAgentPools().CreateOrUpdateAsync(
-            WaitUntil.Started,
-            request.Name,
-            nodePoolData,
-            cancellationToken);
+        // Catching 409 handles the case where the resilience pipeline retried this request
+        // after an AttemptTimeout — the ARM operation is already in progress, so we proceed
+        // to ensure Kubernetes resources are created idempotently.
+        try
+        {
+            await cluster.GetContainerServiceAgentPools().CreateOrUpdateAsync(
+                WaitUntil.Started,
+                request.Name,
+                nodePoolData,
+                cancellationToken);
 
-        _logger.LogInformation("Started provisioning node pool {PoolName} with VM size {VmSize}", request.Name, vmSize);
+            _logger.LogInformation("Started provisioning node pool {PoolName} with VM size {VmSize}", request.Name, vmSize);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 409)
+        {
+            _logger.LogWarning(
+                "Node pool {PoolName} is already being provisioned (status 409); proceeding to ensure Kubernetes resources",
+                request.Name);
+        }
 
         var volumes = new List<V1Volume>();
         var volumeMounts = new List<V1VolumeMount>();
@@ -222,6 +257,13 @@ public sealed class AksNodeService : INodeService
                         Ports = [new V1ContainerPort { ContainerPort = 8000 }],
                         Env = envVars.Count > 0 ? envVars : null,
                         VolumeMounts = volumeMounts.Count > 0 ? volumeMounts : null,
+                        ReadinessProbe = new V1Probe
+                        {
+                            HttpGet = new V1HTTPGetAction { Path = "/health", Port = "8000" },
+                            InitialDelaySeconds = 10,
+                            PeriodSeconds = 5,
+                            FailureThreshold = 120,
+                        },
                     },
                 ],
                 Volumes = volumes.Count > 0 ? volumes : null,
@@ -229,8 +271,17 @@ public sealed class AksNodeService : INodeService
             },
         };
 
-        var created = await _kubernetes.CoreV1.CreateNamespacedPodAsync(pod, Namespace, cancellationToken: cancellationToken);
-        _logger.LogInformation("Created pod {PodName} in namespace {Namespace}", created.Metadata.Name, Namespace);
+        V1Pod created;
+        try
+        {
+            created = await _kubernetes.CoreV1.CreateNamespacedPodAsync(pod, Namespace, cancellationToken: cancellationToken);
+            _logger.LogInformation("Created pod {PodName} in namespace {Namespace}", created.Metadata.Name, Namespace);
+        }
+        catch (HttpOperationException ex) when ((int)ex.Response.StatusCode == 409)
+        {
+            _logger.LogWarning("Pod {PodName} already exists; reading existing pod", request.Name);
+            created = await _kubernetes.CoreV1.ReadNamespacedPodAsync(request.Name, Namespace, cancellationToken: cancellationToken);
+        }
 
         if (request.WheelContents is { Count: > 0 })
         {
@@ -299,8 +350,15 @@ public sealed class AksNodeService : INodeService
                 },
             };
 
-            await _kubernetes.CoreV1.CreateNamespacedConfigMapAsync(configMap, Namespace, cancellationToken: cancellationToken);
-            _logger.LogInformation("Created ConfigMap {ConfigMapName} for wheel {FileName}", configMapName, wheel.FileName);
+            try
+            {
+                await _kubernetes.CoreV1.CreateNamespacedConfigMapAsync(configMap, Namespace, cancellationToken: cancellationToken);
+                _logger.LogInformation("Created ConfigMap {ConfigMapName} for wheel {FileName}", configMapName, wheel.FileName);
+            }
+            catch (HttpOperationException ex) when ((int)ex.Response.StatusCode == 409)
+            {
+                _logger.LogWarning("ConfigMap {ConfigMapName} already exists; continuing", configMapName);
+            }
 
             volumes.Add(new V1Volume
             {
@@ -359,8 +417,15 @@ public sealed class AksNodeService : INodeService
             StringData = new Dictionary<string, string>(secrets),
         };
 
-        await _kubernetes.CoreV1.CreateNamespacedSecretAsync(secret, Namespace, cancellationToken: cancellationToken);
-        _logger.LogInformation("Created Secret {SecretName} with {Count} key(s)", secretName, secrets.Count);
+        try
+        {
+            await _kubernetes.CoreV1.CreateNamespacedSecretAsync(secret, Namespace, cancellationToken: cancellationToken);
+            _logger.LogInformation("Created Secret {SecretName} with {Count} key(s)", secretName, secrets.Count);
+        }
+        catch (HttpOperationException ex) when ((int)ex.Response.StatusCode == 409)
+        {
+            _logger.LogWarning("Secret {SecretName} already exists; continuing", secretName);
+        }
     }
 
     private async Task SetSecretOwnerReferenceAsync(string secretName, V1Pod pod, CancellationToken cancellationToken)

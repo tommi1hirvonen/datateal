@@ -626,7 +626,7 @@
         StateHasChanged();
     }
 
-    private static readonly int KernelCreateMaxRetries = 6;
+    private static readonly int KernelCreateMaxRetries = 18;
     private static readonly TimeSpan KernelCreateRetryInterval = TimeSpan.FromSeconds(5);
 
     private static TimeSpan GetPollDelay(int attempt) => attempt switch

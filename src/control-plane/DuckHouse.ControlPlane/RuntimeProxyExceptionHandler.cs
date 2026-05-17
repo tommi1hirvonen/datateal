@@ -1,3 +1,5 @@
+using Azure;
+using k8s.Autorest;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
@@ -8,6 +10,8 @@ namespace DuckHouse.ControlPlane;
 // API server proxy) back to the caller as proper HTTP responses instead of 500s.
 // For example, when the runtime returns 404 (kernel evicted), the control plane
 // returns 404 rather than letting the unhandled HttpRequestException become a 500.
+// Also handles Azure SDK and Kubernetes management exceptions so unhandled ARM/K8s
+// errors produce a meaningful status code rather than a generic 500.
 internal sealed class RuntimeProxyExceptionHandler(
     ILogger<RuntimeProxyExceptionHandler> logger,
     IHostEnvironment environment) : IExceptionHandler
@@ -17,20 +21,28 @@ internal sealed class RuntimeProxyExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
-        if (exception is not HttpRequestException { StatusCode: { } statusCode })
+        int? statusCode = exception switch
+        {
+            HttpRequestException { StatusCode: { } s } => (int)s,
+            RequestFailedException e => e.Status,
+            HttpOperationException e => (int)e.Response.StatusCode,
+            _ => null,
+        };
+
+        if (statusCode is null)
             return false;
 
         logger.LogWarning(
-            "Runtime proxy returned {StatusCode}: {Message}",
-            (int)statusCode, exception.Message);
+            "Upstream service returned {StatusCode}: {Message}",
+            statusCode, exception.Message);
 
         var title = environment.IsDevelopment()
             ? exception.Message
             : "An upstream service error occurred.";
 
-        httpContext.Response.StatusCode = (int)statusCode;
+        httpContext.Response.StatusCode = statusCode.Value;
         await httpContext.Response.WriteAsJsonAsync(
-            new ProblemDetails { Status = (int)statusCode, Title = title },
+            new ProblemDetails { Status = statusCode, Title = title },
             cancellationToken: cancellationToken);
         return true;
     }
