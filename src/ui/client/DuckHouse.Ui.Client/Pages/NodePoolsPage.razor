@@ -91,15 +91,8 @@
                     <PropertyColumn Property="c => c.Description" Title="Description">
                         @(context.Description ?? "—")
                     </PropertyColumn>
-                    <PropertyColumn Property="c => c.NodeState" Title="State">
-                        @if (context.NodeState.HasValue)
-                        {
-                            <Tag Color="@NodeStateTagColor(context.NodeState.Value)">@context.NodeState.Value</Tag>
-                        }
-                        else
-                        {
-                            <Tag Color="@("default")">Stopped</Tag>
-                        }
+                    <PropertyColumn Property="c => c.Status" Title="Status">
+                        <Tag Color="@InteractivePoolStatusTagColor(context.Status)">@context.Status</Tag>
                     </PropertyColumn>
                     <ActionColumn Title="Actions">
                         <Space>
@@ -129,7 +122,7 @@
                                     </Tooltip>
                                 </AuthorizeView>
                             </SpaceItem>
-                            @if (!context.NodeState.HasValue || context.NodeState.Value == NodeState.Failure)
+                            @if (context.Status is InteractivePoolStatus.Stopped or InteractivePoolStatus.Error)
                             {
                                 var poolName = context.Name;
                                 <SpaceItem>
@@ -141,7 +134,7 @@
                                     </Button>
                                 </SpaceItem>
                             }
-                            @if (context.NodeState is NodeState.Running or NodeState.Creating)
+                            @if (context.Status is InteractivePoolStatus.Running or InteractivePoolStatus.Starting)
                             {
                                 var nodeName = context.NodeName;
                                 <SpaceItem>
@@ -712,7 +705,7 @@
         if (pool.PoolType == NodePoolType.Interactive)
         {
             var live = _interactivePools.FirstOrDefault(p => p.Id == pool.Id);
-            return live?.NodeState is NodeState.Running or NodeState.Creating;
+            return live?.Status is InteractivePoolStatus.Running or InteractivePoolStatus.Starting;
         }
         return pool.WarmNodes > 0;
     }
@@ -823,6 +816,15 @@
         }
         return $"{(int)t.TotalMinutes} min";
     }
+
+    private static string InteractivePoolStatusTagColor(InteractivePoolStatus status) => status switch
+    {
+        InteractivePoolStatus.Running  => "success",
+        InteractivePoolStatus.Starting => "processing",
+        InteractivePoolStatus.Stopping => "warning",
+        InteractivePoolStatus.Error    => "error",
+        _                              => "default",
+    };
 
     private static string NodeStateTagColor(NodeState state) => state switch
     {

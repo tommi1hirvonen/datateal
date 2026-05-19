@@ -1,5 +1,4 @@
 @using DuckHouse.Core.Kernels
-@using DuckHouse.Core.Nodes
 @using DuckHouse.Ui.Shared.Kernels
 @using DuckHouse.Ui.Shared.Nodes
 
@@ -59,14 +58,11 @@
                                  @onclick="() => SelectPoolAsync(pool.Name)">
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <span>@pool.Name</span>
-                                    @if (pool.NodeState.HasValue)
-                                    {
-                                        <Tag Color="@NodeStateColor(pool.NodeState.Value)" Style="font-size: 0.75rem; line-height: 1.2;">@pool.NodeState.Value</Tag>
+                                    @{
+                                        var statusColor = InteractivePoolStatusColor(pool.Status);
+                                        var statusLabel = pool.Status.ToString();
                                     }
-                                    else
-                                    {
-                                        <Tag Color="@("default")" Style="font-size: 0.75rem; line-height: 1.2;">Stopped</Tag>
-                                    }
+                                    <Tag Color="@statusColor" Style="font-size: 0.75rem; line-height: 1.2;">@statusLabel</Tag>
                                 </div>
                                 <div style="font-size: 11px; color: #888; margin-top: 1px;">@pool.VmSize</div>
                             </div>
@@ -127,16 +123,16 @@
         (true, _, KernelStatus.Starting or KernelStatus.Restarting)           => ("Starting", "processing"),
         (true, _, KernelStatus.Dead)                                           => ("Dead", "error"),
         (true, _, _)                                                           => ("Connected", "success"),
-        (false, _, _) when SelectedPool?.NodeState == NodeState.Running        => ("Running", "success"),
-        (false, _, _) when SelectedPool?.NodeState.HasValue == true            => (SelectedPool!.NodeState!.Value.ToString(), "warning"),
+        (false, _, _) when SelectedPool?.Status == InteractivePoolStatus.Running => ("Running", "success"),
+        (false, _, _) when SelectedPool?.Status is not null and not InteractivePoolStatus.Stopped => (SelectedPool!.Status.ToString(), "warning"),
         _                                                                      => ("Disconnected", "default"),
     };
 
-    private string ConnectLabel => SelectedPool?.NodeState switch
+    private string ConnectLabel => SelectedPool?.Status switch
     {
-        NodeState.Running  => "Connect",
-        NodeState.Creating => "Wait and connect",
-        _                  => "Start and connect",
+        InteractivePoolStatus.Running  => "Connect",
+        InteractivePoolStatus.Starting => "Wait and connect",
+        _                              => "Start and connect",
     };
 
     private async Task SelectPoolAsync(string name)
@@ -154,10 +150,12 @@
         _                                                     => "default",
     };
 
-    private static string NodeStateColor(NodeState state) => state switch
+    private static string InteractivePoolStatusColor(InteractivePoolStatus status) => status switch
     {
-        NodeState.Running  => "success",
-        NodeState.Failure  => "error",
-        _                  => "warning",
+        InteractivePoolStatus.Running  => "success",
+        InteractivePoolStatus.Starting => "processing",
+        InteractivePoolStatus.Stopping => "warning",
+        InteractivePoolStatus.Error    => "error",
+        _                              => "default",
     };
 }

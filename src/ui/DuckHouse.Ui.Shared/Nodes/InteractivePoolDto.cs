@@ -1,5 +1,3 @@
-using DuckHouse.Core.Nodes;
-
 namespace DuckHouse.Ui.Shared.Nodes;
 
 public record InteractivePoolDto(
@@ -10,4 +8,4 @@ public record InteractivePoolDto(
     TimeSpan? KernelIdleTimeout,
     TimeSpan? NodeIdleTimeout,
     string? Description,
-    NodeState? NodeState);
+    InteractivePoolStatus Status);

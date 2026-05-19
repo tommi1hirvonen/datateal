@@ -454,7 +454,7 @@
                     if (match is not null)
                     {
                         _poolName = match.Name;
-                        if (match.NodeState == NodeState.Running)
+                        if (match.Status == InteractivePoolStatus.Running)
                             _ = ConnectAsync();
                     }
                 }
@@ -590,7 +590,7 @@
                     await Task.Delay(3000, ct);
                     var updated = await NodeService.GetNodeAsync(nodeName, ct);
                     if (updated is null) throw new Exception("Node not found.");
-                    _pools = _pools.Select(p => p.NodeName == nodeName ? p with { NodeState = updated.State } : p).ToList();
+                    _pools = _pools.Select(p => p.NodeName == nodeName ? p with { Status = updated.State.ToInteractivePoolStatus() } : p).ToList();
                     StateHasChanged();
                     if (updated.State == NodeState.Running) break;
                     if (updated.State == NodeState.Failure) throw new Exception("Node failed to start.");

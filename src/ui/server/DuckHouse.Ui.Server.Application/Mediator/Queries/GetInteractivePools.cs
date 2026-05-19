@@ -30,7 +30,7 @@ internal class GetInteractivePoolsHandler(IInteractivePoolRepository poolReposit
                     pool.KernelIdleTimeout,
                     pool.NodeIdleTimeout,
                     pool.Description,
-                    nodeTask.Result?.State))
+                    (nodeTask.Result?.State).ToInteractivePoolStatus()))
             .ToList();
     }
 }

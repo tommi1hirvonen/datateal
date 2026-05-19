@@ -48,7 +48,7 @@ Interactive node pools are a class of `NodePoolConfig` with `PoolType = "Interac
   - `GET api/interactive-pools` — lists all `InteractiveNodePoolConfig` entries with live node state (fetched from the control plane per pool)
   - `POST api/interactive-pools/{name}/ensure-node` — idempotent "start or join" call; returns `NodeInfo`; handles 409 race by retrying GET
 - Client: `IInteractivePoolService` / `InteractivePoolService` in `DuckHouse.Ui.Client/Services/`; registered in `Program.cs`
-- DTO: `InteractivePoolDto` in `DuckHouse.Ui.Shared/Nodes/`; carries `Name`, `VmSize`, `Description`, `NodeState`
+- DTO: `InteractivePoolDto` in `DuckHouse.Ui.Shared/Nodes/`; carries `Name`, `VmSize`, `Description`, `Status` (of type `InteractivePoolStatus`)
 
 **Node naming**: `"i" + pool.Id.ToString("N")[..11].ToLowerInvariant()` — stable across pool renames; always 12 characters.
 
