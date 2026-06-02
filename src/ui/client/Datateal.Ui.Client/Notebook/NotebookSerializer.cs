@@ -13,13 +13,6 @@ public static class NotebookSerializer
 
         var document = new NotebookDocument();
 
-        if (root.TryGetProperty("metadata", out var meta)
-            && meta.TryGetProperty("datateal", out var dh)
-            && dh.TryGetProperty("title", out var titleEl))
-        {
-            document.Title = titleEl.GetString() ?? "Untitled";
-        }
-
         if (!root.TryGetProperty("cells", out var cellsEl)) return document;
 
         foreach (var cellEl in cellsEl.EnumerateArray())
@@ -150,7 +143,6 @@ public static class NotebookSerializer
         writer.WriteEndObject();
         writer.WriteStartObject("datateal");
         writer.WriteString("version", "1");
-        writer.WriteString("title", document.Title);
         writer.WriteEndObject();
         writer.WriteEndObject(); // metadata
 

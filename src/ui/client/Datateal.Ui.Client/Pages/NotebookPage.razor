@@ -367,6 +367,7 @@
                 if (detail is not null)
                 {
                     _notebook = NotebookSerializer.Deserialize(detail.Content);
+                    _notebook.Title = detail.Title;
                     _notebook.IsDirty = false;
                     _workspaceNotebookId = detail.Id;
                     _workspaceNotebookFolderId = detail.FolderId;
@@ -954,6 +955,7 @@
             using var reader = new StreamReader(stream);
             var json = await reader.ReadToEndAsync();
             _notebook = NotebookSerializer.Deserialize(json);
+            _notebook.Title = System.IO.Path.GetFileNameWithoutExtension(args.File.Name);
             // Mark dirty so "Save to workspace" is enabled — a local file has never been saved to the workspace.
             // Clear all workspace-bound state so the user is prompted to pick a location rather than
             // silently overwriting whatever notebook was open before. Kernel connection is left intact

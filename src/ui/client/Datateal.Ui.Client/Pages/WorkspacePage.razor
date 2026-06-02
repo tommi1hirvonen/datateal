@@ -6,6 +6,7 @@
 @inject IWorkspaceService WorkspaceService
 @inject IRecentItemsService RecentItemsService
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Workspace — Datateal</PageTitle>
 
@@ -29,6 +30,12 @@
         </SpaceItem>
         <SpaceItem>
             <Button Icon="@IconType.Outline.Code" OnClick="StartNewQuery">New query</Button>
+        </SpaceItem>
+        <SpaceItem>
+            <AuthorizeView Policy="@AuthPolicy.WorkspaceManage">
+                <Button Icon="@IconType.Outline.Upload" Disabled="@_importing" OnClick="OpenImportDialogAsync">Import</Button>
+                <InputFile @ref="_importFileInput" style="display:none;" multiple accept=".ipynb" OnChange="OnImportFilesSelectedAsync" />
+            </AuthorizeView>
         </SpaceItem>
     </Space>
 </Flex>
@@ -398,6 +405,10 @@ else
     // Move item (notebook or query)
     private WorkspaceItemSummary? _moveItemTarget;
 
+    // Import
+    private InputFile _importFileInput = default!;
+    private bool _importing;
+
     protected override async Task OnParametersSetAsync()
     {
         if (Folder == _lastLoadedFolder) return;
@@ -489,6 +500,48 @@ else
     // ── New Query ─────────────────────────────────────────────────────
 
     private void StartNewQuery() => Navigation.NavigateTo("/query");
+
+    // ── Import Notebooks ──────────────────────────────────────────────
+
+    private async Task OpenImportDialogAsync()
+    {
+        await JS.InvokeVoidAsync("clickElement", _importFileInput.Element);
+    }
+
+    private async Task OnImportFilesSelectedAsync(InputFileChangeEventArgs args)
+    {
+        if (_importing) return;
+        _importing = true;
+        _error = null;
+        var errors = new List<string>();
+        try
+        {
+            foreach (var file in args.GetMultipleFiles(100))
+            {
+                try
+                {
+                    using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+                    using var reader = new StreamReader(stream);
+                    var json = await reader.ReadToEndAsync();
+                    var title = System.IO.Path.GetFileNameWithoutExtension(file.Name);
+                    await WorkspaceService.CreateNotebookAsync(new CreateNotebookRequest(title, json, Folder));
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"{file.Name}: {ex.Message}");
+                }
+            }
+        }
+        finally
+        {
+            _importing = false;
+        }
+
+        if (errors.Count > 0)
+            _error = $"Some notebooks could not be imported:\n{string.Join("\n", errors)}";
+
+        await LoadAsync();
+    }
 
     // ── Rename Folder ─────────────────────────────────────────────────
 
