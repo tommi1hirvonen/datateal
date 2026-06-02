@@ -36,7 +36,7 @@
         </SpaceItem>
         <SpaceItem>
             <AuthorizeView Policy="@AuthPolicy.WorkspaceManage">
-                <Button Icon="@IconType.Outline.Upload" Disabled="@_importing" OnClick="OpenImportDialogAsync">Import</Button>
+                <Button Icon="@IconType.Outline.Upload" Disabled="@_importing" OnClick="OpenImportDialogAsync">Import notebooks</Button>
                 <InputFile @ref="_importFileInput" style="display:none;" multiple accept=".ipynb" OnChange="OnImportFilesSelectedAsync" />
             </AuthorizeView>
         </SpaceItem>
