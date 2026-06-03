@@ -321,6 +321,8 @@ This means the assistant can reference your actual table and column names, gener
 
 The AI assistant uses **Azure OpenAI**. Configure the endpoint URL, API key, and deployment name in the Settings page (`/settings`). Credentials are stored in `localStorage` in the browser and are sent directly from the client to the server over SignalR — they are never persisted server-side.
 
+The reference implementation is deployed via **[Microsoft Foundry](https://ai.azure.com/)**, which provides model hosting, deployment management, and access to the latest OpenAI models (e.g. `GPT-4.1-mini`) through a single Azure resource.
+
 ---
 
 ### Authentication & Authorization
