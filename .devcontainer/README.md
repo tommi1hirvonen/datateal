@@ -7,7 +7,7 @@ This devcontainer supports local development of Datateal inside GitHub Codespace
 - Python 3.12
 - `kubectl` and `minikube` (via `kubectl-helm-minikube` feature)
 - Docker CLI + daemon (via `docker-in-docker` feature)
-- PostgreSQL server (feature-installed, default password `datateal`)
+- PostgreSQL server (installed via apt in the Dockerfile, started in `postStartCommand`, default password `datateal`)
 - VS Code extensions: C#, Python, Docker, Kubernetes, and Postgres (`ms-ossdata.vscode-pgsql`)
 
 ### Overview
