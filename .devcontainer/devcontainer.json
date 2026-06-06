@@ -1,0 +1,71 @@
+{
+  "name": "Datateal",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:1-10.0-bookworm",
+
+  // docker-in-docker: isolated Docker daemon required for minikube (--driver=docker),
+  //   building the datateal-runtime image, and Aspire-managed containers.
+  // kubectl-helm-minikube: installs kubectl and minikube (helm disabled).
+  // postgres: runs Postgres directly in the devcontainer, reachable by .NET services
+  //   at localhost:5432 and by runtime pods at host.minikube.internal:5432.
+  // python: required to build the datateal-runtime wheel and Docker image.
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": true,
+      "installDockerBuildx": true,
+      "version": "latest",
+      "dockerDashComposeVersion": "v2"
+    },
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "helm": "none"
+    },
+    "ghcr.io/devcontainers/features/postgres:1": {
+      "version": "17",
+      "postgresPassword": "datateal",
+      "start": true
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // C# / .NET
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "ms-dotnettools.csdevkit",
+        // Python
+        "ms-python.python",
+        // PostgreSQL
+        "ms-ossdata.vscode-pgsql",
+        // Docker
+        "ms-azuretools.vscode-docker",
+        // Kubernetes
+        "ms-kubernetes-tools.vscode-kubernetes-tools"
+      ]
+    }
+  },
+
+  // 15888 is the Aspire dashboard (printed to console on startup).
+  "forwardPorts": [15888],
+  "portsAttributes": {
+    "15888": {
+      "label": "Aspire Dashboard",
+      "onAutoForward": "openBrowser",
+      "visibility": "private"
+    }
+  },
+
+  // postCreateCommand: creates the DuckLake data directory needed by minikube mount
+  // and scaffolds appsettings.Development.json files with Codespaces defaults (skipped
+  // if the files already exist, so developer edits are never overwritten).
+  "postCreateCommand": "mkdir -p ${containerWorkspaceFolder}/data/ducklake && bash .devcontainer/setup-appsettings.sh",
+
+  // postStartCommand: (re)starts minikube on every container start and mounts the
+  // DuckLake directory into the cluster at /data/ducklake so that runtime pods using
+  // a hostPath volume see the workspace files.
+  "postStartCommand": "minikube start --driver=docker 2>&1 | tee /tmp/minikube-start.log && nohup minikube mount ${containerWorkspaceFolder}/data/ducklake:/data/ducklake > /tmp/minikube-mount.log 2>&1 &",
+
+  "remoteUser": "vscode"
+}
