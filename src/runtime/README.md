@@ -31,13 +31,13 @@ macOS / Linux:
 Build the wheel package with uv.
 
 ```
-> uv build
+> uv build --no-cache
 ```
 
 The wheel package can then be installed in development mode.
 
 ```
-uv pip install --python .venv/bin/python --editable .
+uv pip install --editable .
 ```
 
 ### Testing

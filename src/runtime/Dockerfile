@@ -7,7 +7,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 RUN python -m venv /opt/venvs/api
 
 COPY dist/*.whl /tmp/wheels/
-RUN uv pip install --python /opt/venvs/api/bin/python /tmp/wheels/*.whl \
+RUN uv pip install --no-cache --python /opt/venvs/api/bin/python /tmp/wheels/*.whl \
     && rm -rf /tmp/wheels
 
 # ── Kernel environment ───────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ RUN uv pip install --python /opt/venvs/api/bin/python /tmp/wheels/*.whl \
 # KERNEL_PACKAGES environment variable, or via a requirements.txt file
 # mounted at /etc/datateal/kernel-requirements.txt.
 RUN python -m venv /opt/venvs/kernel \
-    && uv pip install --python /opt/venvs/kernel/bin/python ipykernel==7.2.0 duckdb==1.5.2 numpy==2.4.4 pandas==3.0.2
+    && uv pip install --no-cache --python /opt/venvs/kernel/bin/python ipykernel==7.2.0 duckdb==1.5.2 numpy==2.4.4 pandas==3.0.2
 
 # ── Entrypoint ───────────────────────────────────────────────────────────────
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
