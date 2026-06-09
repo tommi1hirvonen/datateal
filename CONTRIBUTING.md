@@ -45,6 +45,7 @@ The control plane configuration references this path in a format that the Docker
 | -- | --------- | ------------------------------ |
 | Windows | `C:\Users\<you>\data\ducklake` | `/run/desktop/mnt/host/c/Users/<you>/data/ducklake` |
 | macOS | `/Users/<you>/data/ducklake` | `/Users/<you>/data/ducklake` |
+| Linux | `/home/<you>/data/ducklake` | `/home/<you>/data/ducklake` |
 
 Keep this in mind when filling in the `DataVolumeHostPath` setting below.
 
