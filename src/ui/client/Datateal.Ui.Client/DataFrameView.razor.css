@@ -1,0 +1,55 @@
+.df-view {
+    overflow: auto;
+    max-height: 400px;
+    border: 1px solid #f0f0f0;
+    border-radius: 2px;
+}
+
+.df-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.df-table th,
+.df-table td {
+    padding: 4px 8px;
+    border-right: 1px solid #f0f0f0;
+    border-bottom: 1px solid #f0f0f0;
+    background: #fff;
+    white-space: nowrap;
+}
+
+.df-table th {
+    font-weight: 600;
+    background: #fafafa;
+    color: rgba(0, 0, 0, 0.85);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+html.ant-dark .df-view {
+    border-color: #303030;
+}
+
+html.ant-dark .df-table th,
+html.ant-dark .df-table td {
+    border-color: #303030;
+}
+
+html.ant-dark .df-table th {
+    background: #1d1d1d;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+html.ant-dark .df-table td {
+    background: #141414;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Fill mode: parent handles scrolling */
+.df-view-fill {
+    overflow: unset;
+    max-height: none;
+}
