@@ -6,7 +6,7 @@ using Datateal.Orchestrator.Core.Repositories;
 
 namespace Datateal.Orchestrator.Application.Mediator.Commands;
 
-public record CancelRunRequest(Guid RunId) : IRequest;
+public record CancelRunRequest(Guid WorkspaceId, Guid RunId) : IRequest;
 
 internal class CancelRunHandler(
     IJobRunRepository jobRunRepository,
@@ -16,6 +16,8 @@ internal class CancelRunHandler(
     {
         var run = await jobRunRepository.GetJobRunAsync(request.RunId, cancellationToken)
             ?? throw new InvalidOperationException($"Run {request.RunId} not found.");
+        if (run.WorkspaceId != request.WorkspaceId)
+            throw new InvalidOperationException($"Run {request.RunId} not found.");
 
         // Cancel via the dispatcher (triggers CancellationToken on the coordinator)
         await runDispatcher.CancelRunAsync(run.Id);

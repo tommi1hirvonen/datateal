@@ -8,6 +8,7 @@ using Datateal.Orchestrator.Core.Repositories;
 namespace Datateal.Orchestrator.Application.Mediator.Commands;
 
 public record UpdateJobRequest(
+    Guid WorkspaceId,
     Guid Id,
     string Name,
     string? Description,
@@ -40,6 +41,7 @@ internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<
     {
         var existing = await jobRepository.GetJobAsync(request.Id, cancellationToken);
         if (existing is null) return null;
+        if (existing.WorkspaceId != request.WorkspaceId) return null;
 
         // Validate unique task names in the submitted task list.
         var taskNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

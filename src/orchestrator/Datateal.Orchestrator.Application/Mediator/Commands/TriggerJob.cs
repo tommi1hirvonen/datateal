@@ -10,14 +10,15 @@ using Datateal.Orchestrator.Core.Repositories;
 namespace Datateal.Orchestrator.Application.Mediator.Commands;
 
 public record TriggerJobRequest(
+    Guid WorkspaceId,
     Guid JobId,
     Dictionary<string, string>? Parameters,
-    JobRunTrigger Trigger = JobRunTrigger.Manual) : IRequest<JobRun>;
+    JobRunTrigger Trigger = JobRunTrigger.Manual) : IRequest<JobRun?>;
 
 internal class TriggerJobHandler(
     IJobRepository jobRepository,
     IJobRunRepository jobRunRepository,
-    RunDispatcher runDispatcher) : IRequestHandler<TriggerJobRequest, JobRun>
+    RunDispatcher runDispatcher) : IRequestHandler<TriggerJobRequest, JobRun?>
 {
     private static readonly JsonSerializerOptions SnapshotOptions = new(JsonSerializerDefaults.Web)
     {
@@ -46,10 +47,10 @@ internal class TriggerJobHandler(
         return result;
     }
 
-    public async Task<JobRun> Handle(TriggerJobRequest request, CancellationToken cancellationToken)
+    public async Task<JobRun?> Handle(TriggerJobRequest request, CancellationToken cancellationToken)
     {
-        var job = await jobRepository.GetJobAsync(request.JobId, cancellationToken)
-            ?? throw new InvalidOperationException($"Job {request.JobId} not found.");
+        var job = await jobRepository.GetJobAsync(request.JobId, cancellationToken);
+        if (job is null || job.WorkspaceId != request.WorkspaceId) return null;
 
         var activeCount = await jobRunRepository.GetActiveRunCountAsync(job.Id, cancellationToken);
         if (activeCount >= job.MaxConcurrentRuns)

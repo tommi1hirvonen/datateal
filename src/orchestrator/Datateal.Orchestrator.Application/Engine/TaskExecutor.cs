@@ -298,9 +298,12 @@ public class TaskExecutor(
             task.SubJobId, task.Name);
 
         var resolvedParameters = ResolveParameters(task.Parameters, jobRunParameters);
+        var parentRun = await ctx.Repo.GetJobRunAsync(taskRun.JobRunId, ct)
+            ?? throw new InvalidOperationException($"Parent run {taskRun.JobRunId} not found.");
 
         var subRun = await mediator.SendAsync(
-            new TriggerJobRequest(task.SubJobId, resolvedParameters, JobRunTrigger.SubJob), ct);
+            new TriggerJobRequest(parentRun.WorkspaceId, task.SubJobId, resolvedParameters, JobRunTrigger.SubJob), ct)
+            ?? throw new InvalidOperationException($"Job {task.SubJobId} not found.");
 
         // Set parent references
         subRun.ParentRunId = taskRun.JobRunId;

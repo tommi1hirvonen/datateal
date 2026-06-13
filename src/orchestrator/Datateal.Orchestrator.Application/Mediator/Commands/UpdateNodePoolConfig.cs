@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace Datateal.Orchestrator.Application.Mediator.Commands;
 
 public record UpdateNodePoolConfigRequest(
+    Guid WorkspaceId,
     Guid Id,
     string Name,
     string VmSize,
@@ -39,6 +40,7 @@ internal class UpdateNodePoolConfigHandler(
 
         var existing = await repository.GetAsync(request.Id, cancellationToken);
         if (existing is null) return null;
+        if (existing.WorkspaceId != request.WorkspaceId) return null;
 
         if (existing is JobNodePoolConfig)
         {

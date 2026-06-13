@@ -17,26 +17,44 @@ public static class RunEndpoints
 
         group.MapGet("/{id:guid}", async (Guid workspaceId, Guid id, IMediator mediator, CancellationToken ct) =>
         {
-            var run = await mediator.SendAsync(new GetJobRunRequest(id), ct);
+            var run = await mediator.SendAsync(new GetJobRunRequest(workspaceId, id), ct);
             return run is null ? Results.NotFound() : Results.Ok(run);
         })
         .WithName("GetJobRun");
 
         group.MapGet("/{id:guid}/tasks/{taskRunId:guid}", async (Guid workspaceId, Guid id, Guid taskRunId, IMediator mediator, CancellationToken ct) =>
         {
+            var run = await mediator.SendAsync(new GetJobRunRequest(workspaceId, id), ct);
+            if (run is null) return Results.NotFound();
+
             var taskRun = await mediator.SendAsync(new GetTaskRunRequest(taskRunId), ct);
-            return taskRun is null ? Results.NotFound() : Results.Ok(taskRun);
+            return taskRun is null || taskRun.JobRunId != id ? Results.NotFound() : Results.Ok(taskRun);
         })
         .WithName("GetTaskRun");
 
         group.MapGet("/{id:guid}/tasks/{taskRunId:guid}/cells", async (Guid workspaceId, Guid id, Guid taskRunId, IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.SendAsync(new GetCellOutputsRequest(taskRunId), ct)))
-            .WithName("GetCellOutputs");
+        {
+            var run = await mediator.SendAsync(new GetJobRunRequest(workspaceId, id), ct);
+            if (run is null) return Results.NotFound();
+
+            var taskRun = await mediator.SendAsync(new GetTaskRunRequest(taskRunId), ct);
+            if (taskRun is null || taskRun.JobRunId != id) return Results.NotFound();
+
+            return Results.Ok(await mediator.SendAsync(new GetCellOutputsRequest(taskRunId), ct));
+        })
+        .WithName("GetCellOutputs");
 
         group.MapPost("/{id:guid}/cancel", async (Guid workspaceId, Guid id, IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.SendAsync(new CancelRunRequest(id), ct);
-            return Results.NoContent();
+            try
+            {
+                await mediator.SendAsync(new CancelRunRequest(workspaceId, id), ct);
+                return Results.NoContent();
+            }
+            catch (InvalidOperationException)
+            {
+                return Results.NotFound();
+            }
         })
         .WithName("CancelRun");
 

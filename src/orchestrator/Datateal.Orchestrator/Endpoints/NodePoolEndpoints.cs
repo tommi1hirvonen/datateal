@@ -16,7 +16,7 @@ public static class NodePoolEndpoints
 
         group.MapGet("/{id:guid}", async (Guid workspaceId, Guid id, IMediator mediator, CancellationToken ct) =>
         {
-            var config = await mediator.SendAsync(new GetNodePoolConfigRequest(id), ct);
+            var config = await mediator.SendAsync(new GetNodePoolConfigRequest(workspaceId, id), ct);
             return config is null ? Results.NotFound() : Results.Ok(config);
         })
         .WithName("GetNodePoolConfig");
@@ -31,7 +31,7 @@ public static class NodePoolEndpoints
 
         group.MapPut("/{id:guid}", async (Guid workspaceId, Guid id, UpdateNodePoolConfigRequest request, IMediator mediator, CancellationToken ct) =>
         {
-            var updated = request with { Id = id };
+            var updated = request with { WorkspaceId = workspaceId, Id = id };
             var config = await mediator.SendAsync(updated, ct);
             return config is null ? Results.NotFound() : Results.Ok(config);
         })
@@ -39,8 +39,8 @@ public static class NodePoolEndpoints
 
         group.MapDelete("/{id:guid}", async (Guid workspaceId, Guid id, IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.SendAsync(new DeleteNodePoolConfigRequest(id), ct);
-            return Results.NoContent();
+            var deleted = await mediator.SendAsync(new DeleteNodePoolConfigRequest(workspaceId, id), ct);
+            return deleted ? Results.NoContent() : Results.NotFound();
         })
         .WithName("DeleteNodePoolConfig");
 

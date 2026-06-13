@@ -6,7 +6,7 @@ using Datateal.Orchestrator.Core.Repositories;
 
 namespace Datateal.Orchestrator.Application.Mediator.Queries;
 
-public record GetJobRunRequest(Guid Id) : IRequest<JobRun?>;
+public record GetJobRunRequest(Guid WorkspaceId, Guid Id) : IRequest<JobRun?>;
 
 internal class GetJobRunHandler(IJobRunRepository jobRunRepository)
     : IRequestHandler<GetJobRunRequest, JobRun?>
@@ -24,8 +24,9 @@ internal class GetJobRunHandler(IJobRunRepository jobRunRepository)
     public async Task<JobRun?> Handle(GetJobRunRequest request, CancellationToken cancellationToken)
     {
         var run = await jobRunRepository.GetJobRunAsync(request.Id, cancellationToken);
-        if (run is not null)
-            EnrichWithSnapshotDependencies(run);
+        if (run is null || run.WorkspaceId != request.WorkspaceId) return null;
+
+        EnrichWithSnapshotDependencies(run);
         return run;
     }
 

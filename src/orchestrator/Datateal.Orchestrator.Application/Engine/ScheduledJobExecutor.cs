@@ -54,8 +54,9 @@ public class ScheduledJobExecutor(
 
             // TriggerJobRequest handler handles both DB persistence and dispatch via RunDispatcher.
             var run = await mediator.SendAsync(
-                new TriggerJobRequest(jobId, schedule.Parameters, JobRunTrigger.Scheduled),
-                context.CancellationToken);
+                new TriggerJobRequest(job.WorkspaceId, jobId, schedule.Parameters, JobRunTrigger.Scheduled),
+                context.CancellationToken)
+                ?? throw new InvalidOperationException($"Job {jobId} not found.");
 
             logger.LogInformation(
                 "Run {RunId} triggered for job '{JobName}' ({JobId}) via schedule {ScheduleId}",
