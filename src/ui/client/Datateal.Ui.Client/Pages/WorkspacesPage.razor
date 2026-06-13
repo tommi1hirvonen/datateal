@@ -32,9 +32,6 @@
 <Spin Spinning="_loading">
     <Table TItem="WorkspaceDto" DataSource="_workspaces" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
         <PropertyColumn Property="w => w.Name" Title="Name" Sortable />
-        <PropertyColumn Property="w => w.Slug" Title="Slug">
-            <span style="font-family: monospace;">@context.Slug</span>
-        </PropertyColumn>
         <PropertyColumn Property="w => w.Description" Title="Description">
             @if (string.IsNullOrWhiteSpace(context.Description))
             {
@@ -93,22 +90,14 @@
                 <Input @bind-Value="context.Name" Placeholder="Sales (Dev)" BindOnInput
                        OnPressEnter="@(async _ => await ConfirmSave())"
                        Class="@(NameDisplayError is not null ? "ant-input-status-error" : "")" />
+                <div style="color: #8c8c8c; font-size: 12px;">
+                    Unique across the tenant and used as the stable identifier for deployment
+                    automation. Encode environments by convention
+                    (e.g. <span style="font-family: monospace;">Sales (Dev)</span>, <span style="font-family: monospace;">Sales (Prod)</span>).
+                </div>
                 @if (NameDisplayError is not null)
                 {
                     <div class="ant-form-item-explain-error">@NameDisplayError</div>
-                }
-            </FormItem>
-            <FormItem Label="Slug">
-                <Input @bind-Value="context.Slug" Placeholder="sales-dev" BindOnInput
-                       OnPressEnter="@(async _ => await ConfirmSave())"
-                       Class="@(SlugDisplayError is not null ? "ant-input-status-error" : "")" />
-                <div style="color: #8c8c8c; font-size: 12px;">
-                    Lowercase letters, numbers and hyphens. Encode environments by convention
-                    (e.g. <span style="font-family: monospace;">sales-dev</span>, <span style="font-family: monospace;">sales-prod</span>).
-                </div>
-                @if (SlugDisplayError is not null)
-                {
-                    <div class="ant-form-item-explain-error">@SlugDisplayError</div>
                 }
             </FormItem>
             <FormItem Label="Description">
@@ -245,9 +234,6 @@
     private string? NameDisplayError =>
         (_submitAttempted || !string.IsNullOrEmpty(_form.Name)) ? GetNameError() : null;
 
-    private string? SlugDisplayError =>
-        (_submitAttempted || !string.IsNullOrEmpty(_form.Slug)) ? GetSlugError() : null;
-
     private string? GetNameError()
     {
         if (string.IsNullOrWhiteSpace(_form.Name)) return "Name is required.";
@@ -256,19 +242,7 @@
         return null;
     }
 
-    private string? GetSlugError()
-    {
-        if (string.IsNullOrWhiteSpace(_form.Slug)) return "Slug is required.";
-        if (!IsValidSlug(_form.Slug.Trim())) return "Lowercase letters, numbers and internal hyphens only.";
-        if (_workspaces.Any(w => w.Slug.Equals(_form.Slug.Trim(), StringComparison.OrdinalIgnoreCase) && w != _editTarget))
-            return "A workspace with this slug already exists.";
-        return null;
-    }
-
-    private static bool IsValidSlug(string slug) =>
-        System.Text.RegularExpressions.Regex.IsMatch(slug, "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$");
-
-    private bool IsFormValid() => GetNameError() is null && GetSlugError() is null;
+    private bool IsFormValid() => GetNameError() is null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -304,7 +278,6 @@
         _form = new WorkspaceFormModel
         {
             Name = workspace.Name,
-            Slug = workspace.Slug,
             Description = workspace.Description ?? "",
         };
         _submitAttempted = false;
@@ -322,13 +295,12 @@
         try
         {
             var name = _form.Name.Trim();
-            var slug = _form.Slug.Trim();
             var desc = string.IsNullOrWhiteSpace(_form.Description) ? null : _form.Description.Trim();
 
             if (_editTarget is null)
-                await WorkspaceService.CreateAsync(new CreateWorkspaceRequest(name, slug, desc));
+                await WorkspaceService.CreateAsync(new CreateWorkspaceRequest(name, desc));
             else
-                await WorkspaceService.UpdateAsync(_editTarget.Id, new UpdateWorkspaceRequest(name, slug, desc));
+                await WorkspaceService.UpdateAsync(_editTarget.Id, new UpdateWorkspaceRequest(name, desc));
 
             _showEdit = false;
             await LoadWorkspacesAsync();
@@ -408,7 +380,6 @@
     private class WorkspaceFormModel
     {
         public string Name { get; set; } = "";
-        public string Slug { get; set; } = "";
         public string Description { get; set; } = "";
     }
 }

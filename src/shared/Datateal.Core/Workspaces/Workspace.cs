@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-
 namespace Datateal.Core.Workspaces;
 
 /// <summary>
@@ -10,22 +8,17 @@ namespace Datateal.Core.Workspaces;
 /// </summary>
 public class Workspace
 {
-    private static readonly Regex ValidSlug = new("^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$", RegexOptions.Compiled);
-
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Human-friendly display name. Unique across the tenant.
+    /// Human-friendly display name. Unique across the tenant, and used as the stable
+    /// identifier in the planned git/deployment-automation feature (where workspaces are
+    /// referenced from version-controlled definitions and content is promoted across
+    /// environments), the same way job names are. Lower/upper environments
+    /// (dev/test/qa/prod) are encoded by convention in the name (e.g. <c>Sales (Dev)</c>,
+    /// <c>Sales (Prod)</c>). Note: in-app links use the workspace <see cref="Id"/>.
     /// </summary>
     public required string Name { get; set; }
-
-    /// <summary>
-    /// URL-safe, immutable-ish identifier used in links and (later) deployment
-    /// automation. Lower/upper environments (dev/test/qa/prod) are encoded by
-    /// convention in the slug (e.g. <c>sales-dev</c>, <c>sales-prod</c>).
-    /// Unique across the tenant.
-    /// </summary>
-    public required string Slug { get; set; }
 
     public string? Description { get; set; }
 
@@ -39,14 +32,4 @@ public class Workspace
     public DateTime UpdatedAt { get; set; }
 
     public List<WorkspaceMembership> Memberships { get; set; } = [];
-
-    public static bool IsValidSlug(string slug) => ValidSlug.IsMatch(slug);
-
-    public static void ValidateSlug(string slug)
-    {
-        if (!IsValidSlug(slug))
-            throw new ArgumentException(
-                $"Workspace slug '{slug}' is not valid. Slugs must be lowercase alphanumeric with internal hyphens.",
-                nameof(slug));
-    }
 }

@@ -4,7 +4,6 @@ namespace Datateal.Ui.Shared.Workspaces;
 public record WorkspaceDto(
     Guid Id,
     string Name,
-    string Slug,
     string? Description,
     bool IsDefault);
 
@@ -15,9 +14,9 @@ public record WorkspaceMemberDto(
     string DisplayName,
     IReadOnlyList<string> Roles);
 
-public record CreateWorkspaceRequest(string Name, string Slug, string? Description);
+public record CreateWorkspaceRequest(string Name, string? Description);
 
-public record UpdateWorkspaceRequest(string Name, string Slug, string? Description);
+public record UpdateWorkspaceRequest(string Name, string? Description);
 
 /// <summary>Creates or replaces a user's membership roles in a workspace.</summary>
 public record SetWorkspaceMemberRequest(Guid UserId, IReadOnlyList<string> Roles);

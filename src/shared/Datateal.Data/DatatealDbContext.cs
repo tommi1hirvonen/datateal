@@ -86,8 +86,6 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(256).IsRequired();
             entity.HasIndex(e => e.Name).IsUnique();
-            entity.Property(e => e.Slug).HasMaxLength(128).IsRequired();
-            entity.HasIndex(e => e.Slug).IsUnique();
             entity.Property(e => e.Description).HasMaxLength(1024);
             entity.HasIndex(e => e.IsDefault)
                 .IsUnique()

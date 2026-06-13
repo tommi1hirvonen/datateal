@@ -19,17 +19,13 @@ internal class WorkspaceManagementRepository(DatatealDbContext db) : IWorkspaceM
     public Task<bool> NameExistsAsync(string name, Guid? excludeId = null, CancellationToken ct = default) =>
         db.Workspaces.AnyAsync(w => w.Name == name && (excludeId == null || w.Id != excludeId), ct);
 
-    public Task<bool> SlugExistsAsync(string slug, Guid? excludeId = null, CancellationToken ct = default) =>
-        db.Workspaces.AnyAsync(w => w.Slug == slug && (excludeId == null || w.Id != excludeId), ct);
-
-    public async Task<Workspace> CreateAsync(string name, string slug, string? description, CancellationToken ct = default)
+    public async Task<Workspace> CreateAsync(string name, string? description, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
         var workspace = new Workspace
         {
             Id = Guid.CreateVersion7(),
             Name = name,
-            Slug = slug,
             Description = description,
             IsDefault = false,
             CreatedAt = now,
@@ -40,13 +36,12 @@ internal class WorkspaceManagementRepository(DatatealDbContext db) : IWorkspaceM
         return workspace;
     }
 
-    public async Task<Workspace?> UpdateAsync(Guid id, string name, string slug, string? description, CancellationToken ct = default)
+    public async Task<Workspace?> UpdateAsync(Guid id, string name, string? description, CancellationToken ct = default)
     {
         var workspace = await db.Workspaces.FirstOrDefaultAsync(w => w.Id == id, ct);
         if (workspace is null) return null;
 
         workspace.Name = name;
-        workspace.Slug = slug;
         workspace.Description = description;
         workspace.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);

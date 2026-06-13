@@ -108,7 +108,6 @@ namespace Datateal.Data.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                    Slug = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     Description = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
                     IsDefault = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -124,8 +123,8 @@ namespace Datateal.Data.Migrations
             // so existing rows are backfilled to it before the foreign keys are added.
             migrationBuilder.Sql(
                 """
-                INSERT INTO "Workspaces" ("Id", "Name", "Slug", "Description", "IsDefault", "CreatedAt", "UpdatedAt")
-                VALUES ('11111111-1111-1111-1111-111111111111', 'Default', 'default',
+                INSERT INTO "Workspaces" ("Id", "Name", "Description", "IsDefault", "CreatedAt", "UpdatedAt")
+                VALUES ('11111111-1111-1111-1111-111111111111', 'Default',
                         'Default workspace (migrated from single-tenant data).', true, now(), now());
                 """);
 
@@ -269,12 +268,6 @@ namespace Datateal.Data.Migrations
                 name: "IX_Workspaces_Name",
                 table: "Workspaces",
                 column: "Name",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Workspaces_Slug",
-                table: "Workspaces",
-                column: "Slug",
                 unique: true);
 
             migrationBuilder.AddForeignKey(

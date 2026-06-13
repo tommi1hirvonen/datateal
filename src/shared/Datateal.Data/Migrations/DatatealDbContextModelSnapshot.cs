@@ -368,11 +368,6 @@ namespace Datateal.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -384,9 +379,6 @@ namespace Datateal.Data.Migrations
                         .HasFilter("\"IsDefault\"");
 
                     b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.HasIndex("Slug")
                         .IsUnique();
 
                     b.ToTable("Workspaces");

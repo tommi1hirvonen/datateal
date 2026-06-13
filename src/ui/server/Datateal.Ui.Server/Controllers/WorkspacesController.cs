@@ -52,14 +52,10 @@ public class WorkspacesController(
     [Authorize(Policy = AuthPolicy.Admin)]
     public async Task<IActionResult> Create(CreateWorkspaceRequest body, CancellationToken ct)
     {
-        if (!Workspace.IsValidSlug(body.Slug))
-            return BadRequest(Problem400("Invalid slug", $"'{body.Slug}' is not a valid workspace slug."));
         if (await repository.NameExistsAsync(body.Name, ct: ct))
             return Conflict(Problem409("Name conflict", $"A workspace named '{body.Name}' already exists."));
-        if (await repository.SlugExistsAsync(body.Slug, ct: ct))
-            return Conflict(Problem409("Slug conflict", $"A workspace with slug '{body.Slug}' already exists."));
 
-        var workspace = await repository.CreateAsync(body.Name, body.Slug, body.Description, ct);
+        var workspace = await repository.CreateAsync(body.Name, body.Description, ct);
         return Created($"api/workspaces/{workspace.Id}", ToDto(workspace));
     }
 
@@ -67,14 +63,10 @@ public class WorkspacesController(
     [Authorize(Policy = AuthPolicy.Admin)]
     public async Task<IActionResult> Update(Guid id, UpdateWorkspaceRequest body, CancellationToken ct)
     {
-        if (!Workspace.IsValidSlug(body.Slug))
-            return BadRequest(Problem400("Invalid slug", $"'{body.Slug}' is not a valid workspace slug."));
         if (await repository.NameExistsAsync(body.Name, id, ct))
             return Conflict(Problem409("Name conflict", $"A workspace named '{body.Name}' already exists."));
-        if (await repository.SlugExistsAsync(body.Slug, id, ct))
-            return Conflict(Problem409("Slug conflict", $"A workspace with slug '{body.Slug}' already exists."));
 
-        var workspace = await repository.UpdateAsync(id, body.Name, body.Slug, body.Description, ct);
+        var workspace = await repository.UpdateAsync(id, body.Name, body.Description, ct);
         return workspace is null ? NotFound() : Ok(ToDto(workspace));
     }
 
@@ -142,7 +134,7 @@ public class WorkspacesController(
         || WorkspaceRoleClaims.GetRoles(User, workspaceId).Contains(DatatealRole.WorkspaceAdmin);
 
     private static WorkspaceDto ToDto(Workspace w) =>
-        new(w.Id, w.Name, w.Slug, w.Description, w.IsDefault);
+        new(w.Id, w.Name, w.Description, w.IsDefault);
 
     private static ProblemDetails Problem400(string title, string detail) =>
         new() { Status = 400, Title = title, Detail = detail };
