@@ -1,4 +1,4 @@
-@page "/workspace"
+@page "/w/{WorkspaceId:guid}/workspace"
 @attribute [Authorize(Policy = AuthPolicy.WorkspaceRead)]
 
 @using Datateal.Ui.Shared.Workspace
@@ -95,14 +95,14 @@ else
                 }
                 else if (context.IsNotebook)
                 {
-                    <a href="@($"/notebook/{context.Item!.Id}")" style="font-weight: 500;">
+                    <a href="@($"/w/{WorkspaceId}/notebook/{context.Item!.Id}")" style="font-weight: 500;">
                         <Icon Type="@IconType.Outline.FileText" Style="margin-right: 6px; color: #1677ff;" />
                         @context.Name
                     </a>
                 }
                 else
                 {
-                    <a href="@($"/query/{context.Item!.Id}")" style="font-weight: 500;">
+                    <a href="@($"/w/{WorkspaceId}/query/{context.Item!.Id}")" style="font-weight: 500;">
                         <Icon Type="@IconType.Outline.Code" Style="margin-right: 6px; color: #52c41a;" />
                         @context.Name
                     </a>
@@ -335,6 +335,7 @@ else
                    OnCancel="@(() => _moveItemTarget = null)" />
 
 @code {
+    [Parameter] public Guid WorkspaceId { get; set; }
     [Parameter, SupplyParameterFromQuery(Name = "folder")]
     public Guid? Folder { get; set; }
 
@@ -462,16 +463,16 @@ else
 
     private void OpenItem(WorkspaceItemSummary item) =>
         Navigation.NavigateTo(item.ItemType == WorkspaceItemType.Notebook
-            ? $"/notebook/{item.Id}"
-            : $"/query/{item.Id}");
+            ? $"/w/{WorkspaceId}/notebook/{item.Id}"
+            : $"/w/{WorkspaceId}/query/{item.Id}");
 
     private void OpenFolder(FolderSummary folder) =>
-        Navigation.NavigateTo($"/workspace?folder={folder.Id}");
+        Navigation.NavigateTo($"/w/{WorkspaceId}/workspace?folder={folder.Id}");
 
     private void NavigateToCrumb(int index)
     {
         var crumb = _breadcrumbs[index];
-        Navigation.NavigateTo(crumb.Id is null ? "/workspace" : $"/workspace?folder={crumb.Id}");
+        Navigation.NavigateTo(crumb.Id is null ? $"/w/{WorkspaceId}/workspace" : $"/w/{WorkspaceId}/workspace?folder={crumb.Id}");
     }
 
     // ── New Folder ────────────────────────────────────────────────────
@@ -505,11 +506,11 @@ else
 
     // ── New Notebook ──────────────────────────────────────────────────
 
-    private void StartNewNotebook() => Navigation.NavigateTo("/notebook");
+    private void StartNewNotebook() => Navigation.NavigateTo($"/w/{WorkspaceId}/notebook");
 
     // ── New Query ─────────────────────────────────────────────────────
 
-    private void StartNewQuery() => Navigation.NavigateTo("/query");
+    private void StartNewQuery() => Navigation.NavigateTo($"/w/{WorkspaceId}/query");
 
     // ── Import Notebooks ──────────────────────────────────────────────
 

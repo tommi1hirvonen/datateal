@@ -15,7 +15,8 @@ namespace Datateal.Orchestrator.Application.Yaml;
 public class YamlJobImporter(
     IWorkspaceReader workspaceReader,
     IJobRepository jobRepository,
-    INodePoolConfigRepository nodePoolConfigRepository)
+    INodePoolConfigRepository nodePoolConfigRepository,
+    Datateal.Orchestrator.Core.IWorkspaceContext workspaceContext)
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -30,8 +31,10 @@ public class YamlJobImporter(
         if (string.IsNullOrWhiteSpace(model.Name))
             throw new InvalidOperationException("Job name is required.");
 
-        // Validate unique job name across all jobs.
-        var nameConflict = await jobRepository.GetJobByNameAsync(model.Name, ct);
+        var workspaceId = workspaceContext.RequireWorkspaceId();
+
+        // Validate unique job name within the workspace.
+        var nameConflict = await jobRepository.GetJobByNameAsync(model.Name, workspaceId, ct);
         if (nameConflict is not null)
             throw new JobNameConflictException(model.Name);
 
@@ -41,11 +44,12 @@ public class YamlJobImporter(
             if (string.IsNullOrWhiteSpace(pool.Name))
                 throw new InvalidOperationException("Node pool name is required.");
 
-            var existing = await nodePoolConfigRepository.GetByNameAsync(pool.Name, ct);
+            var existing = await nodePoolConfigRepository.GetByNameAsync(pool.Name, workspaceId, ct);
             if (existing is null)
             {
                 await nodePoolConfigRepository.CreateAsync(new JobNodePoolConfig
                 {
+                    WorkspaceId = workspaceId,
                     Name = pool.Name,
                     VmSize = string.IsNullOrWhiteSpace(pool.VmSize) ? "Standard_D2s_v3" : pool.VmSize,
                     KernelRequirements = pool.KernelRequirements,
@@ -59,6 +63,7 @@ public class YamlJobImporter(
         var job = new Job
         {
             Id = Guid.NewGuid(),
+            WorkspaceId = workspaceId,
             Name = model.Name,
             Description = model.Description,
             MaxConcurrentRuns = model.MaxConcurrentRuns > 0 ? model.MaxConcurrentRuns : 1,
@@ -209,7 +214,7 @@ public class YamlJobImporter(
         if (string.IsNullOrWhiteSpace(jobName))
             throw new InvalidOperationException("Job name is required for sub-job tasks.");
 
-        var subJob = await jobRepository.GetJobByNameAsync(jobName, ct)
+        var subJob = await jobRepository.GetJobByNameAsync(jobName, workspaceContext.RequireWorkspaceId(), ct)
             ?? throw new InvalidOperationException($"Sub-job not found with name: '{jobName}'.");
         return subJob.Id;
     }

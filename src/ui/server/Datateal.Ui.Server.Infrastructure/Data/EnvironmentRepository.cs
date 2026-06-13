@@ -1,19 +1,26 @@
 using Datateal.Core.Environment;
 using Datateal.Data;
 using Datateal.Ui.Server.Core.Repositories;
+using Datateal.Ui.Shared.Workspaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Datateal.Ui.Server.Infrastructure.Data;
 
-internal class EnvironmentRepository(DatatealDbContext db) : IEnvironmentRepository
+internal class EnvironmentRepository(DatatealDbContext db, IActiveWorkspaceAccessor activeWorkspace) : IEnvironmentRepository
 {
+    private Guid WorkspaceId => activeWorkspace.ActiveWorkspaceId
+        ?? throw new InvalidOperationException("No active workspace is in scope for this request.");
+
+    private IQueryable<EnvironmentVariable> Variables => db.EnvironmentVariables.Where(v => v.WorkspaceId == WorkspaceId);
+    private IQueryable<Secret> SecretsScoped => db.Secrets.Where(s => s.WorkspaceId == WorkspaceId);
+
     // ── Environment Variables ───────────────────────────────────────────
 
     public async Task<IReadOnlyList<EnvironmentVariable>> GetVariablesAsync(CancellationToken ct = default) =>
-        await db.EnvironmentVariables.OrderBy(v => v.Key).ToListAsync(ct);
+        await Variables.OrderBy(v => v.Key).ToListAsync(ct);
 
     public Task<EnvironmentVariable?> GetVariableAsync(Guid id, CancellationToken ct = default) =>
-        db.EnvironmentVariables.FirstOrDefaultAsync(v => v.Id == id, ct);
+        Variables.FirstOrDefaultAsync(v => v.Id == id, ct);
 
     public async Task<EnvironmentVariable> CreateVariableAsync(string key, string value, string? description, CancellationToken ct = default)
     {
@@ -24,6 +31,7 @@ internal class EnvironmentRepository(DatatealDbContext db) : IEnvironmentReposit
             Key = key,
             Value = value,
             Description = description,
+            WorkspaceId = WorkspaceId,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -34,7 +42,7 @@ internal class EnvironmentRepository(DatatealDbContext db) : IEnvironmentReposit
 
     public async Task<EnvironmentVariable?> UpdateVariableAsync(Guid id, string key, string value, string? description, CancellationToken ct = default)
     {
-        var variable = await db.EnvironmentVariables.FirstOrDefaultAsync(v => v.Id == id, ct);
+        var variable = await Variables.FirstOrDefaultAsync(v => v.Id == id, ct);
         if (variable is null) return null;
 
         variable.Key = key;
@@ -47,7 +55,7 @@ internal class EnvironmentRepository(DatatealDbContext db) : IEnvironmentReposit
 
     public async Task<bool> DeleteVariableAsync(Guid id, CancellationToken ct = default)
     {
-        var variable = await db.EnvironmentVariables.FirstOrDefaultAsync(v => v.Id == id, ct);
+        var variable = await Variables.FirstOrDefaultAsync(v => v.Id == id, ct);
         if (variable is null) return false;
 
         db.EnvironmentVariables.Remove(variable);
@@ -56,15 +64,15 @@ internal class EnvironmentRepository(DatatealDbContext db) : IEnvironmentReposit
     }
 
     public async Task<IReadOnlyList<EnvironmentVariable>> GetVariablesByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken ct = default) =>
-        await db.EnvironmentVariables.Where(v => ids.Contains(v.Id)).ToListAsync(ct);
+        await Variables.Where(v => ids.Contains(v.Id)).ToListAsync(ct);
 
     // ── Secrets ─────────────────────────────────────────────────────────
 
     public async Task<IReadOnlyList<Secret>> GetSecretsAsync(CancellationToken ct = default) =>
-        await db.Secrets.OrderBy(s => s.Key).ToListAsync(ct);
+        await SecretsScoped.OrderBy(s => s.Key).ToListAsync(ct);
 
     public Task<Secret?> GetSecretAsync(Guid id, CancellationToken ct = default) =>
-        db.Secrets.FirstOrDefaultAsync(s => s.Id == id, ct);
+        SecretsScoped.FirstOrDefaultAsync(s => s.Id == id, ct);
 
     public async Task<Secret> CreateSecretAsync(string key, string encryptedValue, string? description, CancellationToken ct = default)
     {
@@ -75,6 +83,7 @@ internal class EnvironmentRepository(DatatealDbContext db) : IEnvironmentReposit
             Key = key,
             EncryptedValue = encryptedValue,
             Description = description,
+            WorkspaceId = WorkspaceId,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -85,7 +94,7 @@ internal class EnvironmentRepository(DatatealDbContext db) : IEnvironmentReposit
 
     public async Task<Secret?> UpdateSecretAsync(Guid id, string key, string encryptedValue, string? description, CancellationToken ct = default)
     {
-        var secret = await db.Secrets.FirstOrDefaultAsync(s => s.Id == id, ct);
+        var secret = await SecretsScoped.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (secret is null) return null;
 
         secret.Key = key;
@@ -98,7 +107,7 @@ internal class EnvironmentRepository(DatatealDbContext db) : IEnvironmentReposit
 
     public async Task<bool> DeleteSecretAsync(Guid id, CancellationToken ct = default)
     {
-        var secret = await db.Secrets.FirstOrDefaultAsync(s => s.Id == id, ct);
+        var secret = await SecretsScoped.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (secret is null) return false;
 
         db.Secrets.Remove(secret);
@@ -107,5 +116,5 @@ internal class EnvironmentRepository(DatatealDbContext db) : IEnvironmentReposit
     }
 
     public async Task<IReadOnlyList<Secret>> GetSecretsByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken ct = default) =>
-        await db.Secrets.Where(s => ids.Contains(s.Id)).ToListAsync(ct);
+        await SecretsScoped.Where(s => ids.Contains(s.Id)).ToListAsync(ct);
 }

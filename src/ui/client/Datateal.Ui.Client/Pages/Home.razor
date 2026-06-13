@@ -3,10 +3,13 @@
 @using Datateal.Ui.Shared.Workspace
 @using Datateal.Ui.Shared.Orchestration
 @using Datateal.Core.Workspace
+@using Datateal.Ui.Client.Services
 @inject IWorkspaceService WorkspaceService
 @inject IJobService JobService
 @inject IRecentItemsService RecentItemsService
+@inject ActiveWorkspaceProvider Workspaces
 @inject NavigationManager Navigation
+@implements IDisposable
 
 <PageTitle>Home — Datateal</PageTitle>
 
@@ -102,8 +105,24 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _recentItems = (await RecentItemsService.GetRecentItemsAsync()).ToList();
+        Workspaces.Changed += OnWorkspaceChanged;
+        await LoadRecentItemsAsync();
     }
+
+    private async Task LoadRecentItemsAsync()
+    {
+        _recentItems = Workspaces.ActiveWorkspaceId is { } ws
+            ? (await RecentItemsService.GetRecentItemsAsync(ws)).ToList()
+            : [];
+    }
+
+    private async void OnWorkspaceChanged()
+    {
+        await LoadRecentItemsAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Workspaces.Changed -= OnWorkspaceChanged;
 
     private async Task RemoveRecentItemAsync(RecentItem item)
     {
@@ -160,12 +179,12 @@
 
         foreach (var item in _allItems.Where(i => i.Title.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(16))
         {
-            var url = item.ItemType == WorkspaceItemType.Notebook ? $"/notebook/{item.Id}" : $"/query/{item.Id}";
+            var url = item.ItemType == WorkspaceItemType.Notebook ? Workspaces.Link($"notebook/{item.Id}") : Workspaces.Link($"query/{item.Id}");
             opts.Add(new AutoCompleteDataItem<string>(url, item.Title));
         }
 
         foreach (var j in _allJobs.Where(j => j.Name.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(8))
-            opts.Add(new AutoCompleteDataItem<string>($"/jobs/{j.Id}", j.Name));
+            opts.Add(new AutoCompleteDataItem<string>(Workspaces.Link($"jobs/{j.Id}"), j.Name));
 
         _searchOptions = opts;
     }
@@ -181,9 +200,9 @@
     {
         var url = item.Type switch
         {
-            "Notebook" => $"/notebook/{item.Id}",
-            "Query"    => $"/query/{item.Id}",
-            "Job"      => $"/jobs/{item.Id}",
+            "Notebook" => WorkspaceRoute.Build(item.WorkspaceId, $"notebook/{item.Id}"),
+            "Query"    => WorkspaceRoute.Build(item.WorkspaceId, $"query/{item.Id}"),
+            "Job"      => WorkspaceRoute.Build(item.WorkspaceId, $"jobs/{item.Id}"),
             _          => "/"
         };
         Navigation.NavigateTo(url);
@@ -191,17 +210,17 @@
 
     private static (string Icon, string Color) GetIconForUrl(string url)
     {
-        if (url.StartsWith("/notebook/")) return (IconType.Outline.FileText,    "#1677ff");
-        if (url.StartsWith("/query/"))    return (IconType.Outline.Code,         "#52c41a");
-        if (url.StartsWith("/jobs/"))     return (IconType.Outline.Partition,  "#faad14");
+        if (url.Contains("/notebook/")) return (IconType.Outline.FileText,    "#1677ff");
+        if (url.Contains("/query/"))    return (IconType.Outline.Code,         "#52c41a");
+        if (url.Contains("/jobs/"))     return (IconType.Outline.Partition,  "#faad14");
         return (IconType.Outline.File, "#8c8c8c");
     }
 
     private static string GetTypeFromUrl(string url)
     {
-        if (url.StartsWith("/notebook/")) return "Notebook";
-        if (url.StartsWith("/query/"))    return "Query";
-        if (url.StartsWith("/jobs/"))     return "Job";
+        if (url.Contains("/notebook/")) return "Notebook";
+        if (url.Contains("/query/"))    return "Query";
+        if (url.Contains("/jobs/"))     return "Job";
         return "";
     }
 

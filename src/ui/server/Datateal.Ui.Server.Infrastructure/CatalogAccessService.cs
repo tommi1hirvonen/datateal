@@ -1,24 +1,19 @@
 using System.Security.Claims;
 using Datateal.Auth;
-using Datateal.Core.Catalogs;
 using Datateal.Data;
 using Datateal.Ui.Server.Core.Catalogs;
+using Datateal.Ui.Shared.Workspaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Datateal.Ui.Server.Infrastructure;
 
-internal class CatalogAccessService(DatatealDbContext db) : ICatalogAccessService
+internal class CatalogAccessService(DatatealDbContext db, IActiveWorkspaceAccessor activeWorkspace) : ICatalogAccessService
 {
     public async Task<IReadOnlySet<Guid>?> GetAccessibleCatalogIdsAsync(ClaimsPrincipal user, CancellationToken ct = default)
     {
-        if (HasUnrestrictedRoles(user))
-            return null;
-
-        var appUser = await ResolveUserAsync(user, ct);
-        if (appUser is null || appUser.HasAllCatalogAccess)
-            return null;
-
-        return appUser.CatalogAccessList.Select(a => a.CatalogId).ToHashSet();
+        var userSet = await GetUserAccessibleIdsAsync(user, ct);
+        var workspaceSet = await GetWorkspaceAccessibleIdsAsync(ct);
+        return Combine(userSet, workspaceSet);
     }
 
     public async Task<bool> HasAccessAsync(ClaimsPrincipal user, Guid catalogId, CancellationToken ct = default)
@@ -29,16 +24,10 @@ internal class CatalogAccessService(DatatealDbContext db) : ICatalogAccessServic
 
     public async Task<bool> HasAccessByNameAsync(ClaimsPrincipal user, string catalogName, CancellationToken ct = default)
     {
-        if (HasUnrestrictedRoles(user))
+        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, ct);
+        if (accessibleIds is null)
             return true;
 
-        var appUser = await ResolveUserAsync(user, ct);
-        if (appUser is null || appUser.HasAllCatalogAccess)
-            return true;
-
-        var accessibleIds = appUser.CatalogAccessList.Select(a => a.CatalogId).ToHashSet();
-
-        // Resolve catalog name → ID to check against the access list
         var catalog = await db.Catalogs
             .Where(c => c.Name == catalogName)
             .Select(c => new { c.Id })
@@ -53,21 +42,61 @@ internal class CatalogAccessService(DatatealDbContext db) : ICatalogAccessServic
         if (catalogNames.Count == 0)
             return catalogNames;
 
-        if (HasUnrestrictedRoles(user))
+        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, ct);
+        if (accessibleIds is null)
             return catalogNames;
 
-        var appUser = await ResolveUserAsync(user, ct);
-        if (appUser is null || appUser.HasAllCatalogAccess)
-            return catalogNames;
-
-        var accessibleIds = appUser.CatalogAccessList.Select(a => a.CatalogId).ToHashSet();
-
-        var accessibleCatalogs = await db.Catalogs
+        return await db.Catalogs
             .Where(c => catalogNames.Contains(c.Name) && accessibleIds.Contains(c.Id))
             .Select(c => c.Name)
             .ToListAsync(ct);
+    }
 
-        return accessibleCatalogs;
+    /// <summary>
+    /// User-level access: <c>null</c> means unrestricted (Admin, CatalogContributor, or the
+    /// <see cref="Core.Users.AppUser.HasAllCatalogAccess"/> flag); otherwise the explicit grants.
+    /// </summary>
+    private async Task<IReadOnlySet<Guid>?> GetUserAccessibleIdsAsync(ClaimsPrincipal user, CancellationToken ct)
+    {
+        if (HasUnrestrictedRoles(user))
+            return null;
+
+        var appUser = await ResolveUserAsync(user, ct);
+        if (appUser is null || appUser.HasAllCatalogAccess)
+            return null;
+
+        return appUser.CatalogAccessList.Select(a => a.CatalogId).ToHashSet();
+    }
+
+    /// <summary>
+    /// Workspace-level access for the active workspace: catalogs flagged accessible from all
+    /// workspaces plus those explicitly granted to the active workspace. <c>null</c> when no
+    /// workspace is in scope (no restriction applied).
+    /// </summary>
+    private async Task<IReadOnlySet<Guid>?> GetWorkspaceAccessibleIdsAsync(CancellationToken ct)
+    {
+        var workspaceId = activeWorkspace.ActiveWorkspaceId;
+        if (workspaceId is null)
+            return null;
+
+        var openIds = await db.Catalogs
+            .Where(c => c.AccessibleFromAllWorkspaces)
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+
+        var grantedIds = await db.CatalogWorkspaceAccess
+            .Where(a => a.WorkspaceId == workspaceId)
+            .Select(a => a.CatalogId)
+            .ToListAsync(ct);
+
+        return openIds.Concat(grantedIds).ToHashSet();
+    }
+
+    private static IReadOnlySet<Guid>? Combine(IReadOnlySet<Guid>? a, IReadOnlySet<Guid>? b)
+    {
+        if (a is null) return b;
+        if (b is null) return a;
+        return a.Where(b.Contains).ToHashSet();
     }
 
     private static bool HasUnrestrictedRoles(ClaimsPrincipal user) =>

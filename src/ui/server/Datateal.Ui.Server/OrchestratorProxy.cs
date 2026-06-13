@@ -62,6 +62,11 @@ public static class OrchestratorProxy
                         System.Net.Http.Headers.MediaTypeHeaderValue.Parse(context.Request.ContentType);
             }
 
+            // Forward the active workspace so the orchestrator can scope and stamp entities.
+            const string workspaceHeader = "X-Datateal-Workspace";
+            if (context.Request.Headers.TryGetValue(workspaceHeader, out var workspaceId))
+                requestMessage.Headers.TryAddWithoutValidation(workspaceHeader, workspaceId.ToArray());
+
             using var responseMessage = await client.SendAsync(requestMessage, context.RequestAborted);
 
             context.Response.StatusCode = (int)responseMessage.StatusCode;

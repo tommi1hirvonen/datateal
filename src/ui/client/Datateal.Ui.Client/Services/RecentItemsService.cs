@@ -14,7 +14,13 @@ public sealed class RecentItemsService(IJSRuntime js) : IRecentItemsService
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public async Task<IReadOnlyList<RecentItem>> GetRecentItemsAsync()
+    public async Task<IReadOnlyList<RecentItem>> GetRecentItemsAsync(Guid workspaceId)
+    {
+        var all = await GetAllAsync();
+        return all.Where(i => i.WorkspaceId == workspaceId).ToList();
+    }
+
+    private async Task<List<RecentItem>> GetAllAsync()
     {
         try
         {
@@ -28,17 +34,26 @@ public sealed class RecentItemsService(IJSRuntime js) : IRecentItemsService
         }
     }
 
-    public async Task RecordVisitAsync(Guid id, string name, string type)
+    public async Task RecordVisitAsync(Guid id, string name, string type, Guid workspaceId)
     {
         try
         {
-            var items = (await GetRecentItemsAsync()).ToList();
+            var items = await GetAllAsync();
             items.RemoveAll(i => i.Id == id);
-            items.Insert(0, new RecentItem(id, name, type, DateTime.UtcNow));
-            if (items.Count > MaxItems)
-                items = items[..MaxItems];
+            items.Insert(0, new RecentItem(id, name, type, workspaceId, DateTime.UtcNow));
 
-            var json = JsonSerializer.Serialize(items, JsonOptions);
+            // Cap the number of items retained per workspace (preserving recency order).
+            var perWorkspace = new Dictionary<Guid, int>();
+            var capped = new List<RecentItem>();
+            foreach (var item in items)
+            {
+                perWorkspace.TryGetValue(item.WorkspaceId, out var count);
+                if (count >= MaxItems) continue;
+                capped.Add(item);
+                perWorkspace[item.WorkspaceId] = count + 1;
+            }
+
+            var json = JsonSerializer.Serialize(capped, JsonOptions);
             await js.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
         }
         catch
@@ -51,7 +66,7 @@ public sealed class RecentItemsService(IJSRuntime js) : IRecentItemsService
     {
         try
         {
-            var items = (await GetRecentItemsAsync()).ToList();
+            var items = await GetAllAsync();
             items.RemoveAll(i => i.Id == id);
             var json = JsonSerializer.Serialize(items, JsonOptions);
             await js.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
@@ -63,7 +78,7 @@ public sealed class RecentItemsService(IJSRuntime js) : IRecentItemsService
     {
         try
         {
-            var items = (await GetRecentItemsAsync()).ToList();
+            var items = await GetAllAsync();
             var idx = items.FindIndex(i => i.Id == id);
             if (idx < 0) return;
             items[idx] = items[idx] with { Name = newName };

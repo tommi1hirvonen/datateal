@@ -15,4 +15,10 @@ public static class AuthPolicy
     public const string WorkspaceRead = nameof(WorkspaceRead);
     public const string CatalogManage = nameof(CatalogManage);
     public const string EnvironmentManage = nameof(EnvironmentManage);
+
+    /// <summary>
+    /// Manage user memberships and roles within the active workspace.
+    /// Satisfied by a tenant Admin or a WorkspaceAdmin of the active workspace.
+    /// </summary>
+    public const string WorkspaceMembershipManage = nameof(WorkspaceMembershipManage);
 }

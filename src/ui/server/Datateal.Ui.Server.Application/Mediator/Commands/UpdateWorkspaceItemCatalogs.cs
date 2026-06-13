@@ -13,14 +13,16 @@ internal class UpdateWorkspaceItemCatalogsHandler(IWorkspaceRepository repositor
         var item = await repository.GetItemAsync(request.ItemId, cancellationToken);
         if (item is null) return false;
 
-        // Validate that all catalog names exist
+        // Validate that all referenced catalogs exist and are accessible from this item's workspace.
         if (request.CatalogNames.Count > 0)
         {
-            var catalogs = await catalogRepository.GetByNamesAsync(request.CatalogNames, cancellationToken);
-            var found = catalogs.Select(c => c.Name).ToHashSet();
-            var missing = request.CatalogNames.Where(n => !found.Contains(n)).ToList();
-            if (missing.Count > 0)
-                throw new InvalidOperationException($"Catalogs not found: {string.Join(", ", missing)}");
+            var accessible = await catalogRepository.GetWorkspaceAccessibleNamesAsync(
+                item.WorkspaceId, request.CatalogNames, cancellationToken);
+            var accessibleSet = accessible.ToHashSet();
+            var blocked = request.CatalogNames.Where(n => !accessibleSet.Contains(n)).ToList();
+            if (blocked.Count > 0)
+                throw new InvalidOperationException(
+                    $"Catalogs not accessible from this workspace: {string.Join(", ", blocked)}");
         }
 
         item.CatalogNames = request.CatalogNames.Count > 0 ? request.CatalogNames : null;

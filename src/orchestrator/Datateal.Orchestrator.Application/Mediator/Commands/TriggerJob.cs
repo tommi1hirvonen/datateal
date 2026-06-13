@@ -70,6 +70,7 @@ internal class TriggerJobHandler(
         {
             Id = Guid.NewGuid(),
             JobId = job.Id,
+            WorkspaceId = job.WorkspaceId,
             JobName = job.Name,
             Status = JobRunStatus.Pending,
             Trigger = request.Trigger,

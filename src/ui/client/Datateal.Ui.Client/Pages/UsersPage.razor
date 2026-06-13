@@ -268,7 +268,7 @@
 
     private async Task LoadCatalogsAsync()
     {
-        try { _catalogs = await CatalogService.GetCatalogsAsync(); }
+        try { _catalogs = await CatalogService.GetAllCatalogsAsync(); }
         catch { /* non-fatal — catalog picker just won't have data */ }
     }
 

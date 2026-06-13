@@ -1,4 +1,4 @@
-@page "/nodes/{Name}/kernels"
+@page "/w/{WorkspaceId:guid}/nodes/{Name}/kernels"
 @attribute [Authorize(Policy = AuthPolicy.NodePoolOperate)]
 
 @using Datateal.Core.Kernels
@@ -7,7 +7,7 @@
 <PageTitle>Kernels — Datateal</PageTitle>
 
 <Breadcrumb Style="margin-bottom: 12px;">
-    <BreadcrumbItem Href="/node-pools">Node pools</BreadcrumbItem>
+    <BreadcrumbItem Href="@($"/w/{WorkspaceId}/node-pools")">Node pools</BreadcrumbItem>
     <BreadcrumbItem>@Name — Kernels</BreadcrumbItem>
 </Breadcrumb>
 
@@ -117,6 +117,7 @@ else
 }
 
 @code {
+    [Parameter] public Guid WorkspaceId { get; set; }
     [Parameter] public string Name { get; set; } = "";
 
     private List<KernelInfo> _kernels = [];

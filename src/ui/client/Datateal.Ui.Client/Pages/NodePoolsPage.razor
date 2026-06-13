@@ -1,4 +1,4 @@
-@page "/node-pools"
+@page "/w/{WorkspaceId:guid}/node-pools"
 @attribute [Authorize(Policy = AuthPolicy.NodePoolOperate)]
 
 @using System.ComponentModel.DataAnnotations
@@ -288,7 +288,7 @@
                             <Button Size="ButtonSize.Small"
                                     Disabled="@(context.State != NodeState.Running)"
                                     Icon="@IconType.Outline.Interaction"
-                                    OnClick="@(() => Navigation.NavigateTo($"nodes/{context.Name}/kernels"))">
+                                    OnClick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/nodes/{context.Name}/kernels"))">
                                 Kernels
                             </Button>
                         </SpaceItem>
@@ -458,6 +458,7 @@
 </Drawer>
 
 @code {
+    [Parameter] public Guid WorkspaceId { get; set; }
     private IReadOnlyList<NodePoolConfigDto> _jobAndInteractivePools = [];
     private IReadOnlyList<InteractivePoolDto> _interactivePools = [];
     private bool _loading = true;

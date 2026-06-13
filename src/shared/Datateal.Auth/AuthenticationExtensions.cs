@@ -46,35 +46,4 @@ public static class AuthenticationExtensions
 
         return services;
     }
-
-    /// <summary>
-    /// Registers authorization policies using Datateal role constants.
-    /// Used by the UI server to enforce role-based access on controllers and pages.
-    /// </summary>
-    public static IServiceCollection AddDatatealAuthorizationPolicies(this IServiceCollection services)
-    {
-        services.AddAuthorizationBuilder()
-            .AddPolicy(AuthPolicy.Admin, p =>
-                p.RequireRole(DatatealRole.Admin))
-            .AddPolicy(AuthPolicy.NodePoolManage, p =>
-                p.RequireRole(DatatealRole.Admin, DatatealRole.NodePoolContributor))
-            .AddPolicy(AuthPolicy.NodePoolOperate, p =>
-                p.RequireRole(DatatealRole.Admin, DatatealRole.NodePoolContributor, DatatealRole.NodePoolOperator))
-            .AddPolicy(AuthPolicy.JobManage, p =>
-                p.RequireRole(DatatealRole.Admin, DatatealRole.JobContributor))
-            .AddPolicy(AuthPolicy.JobOperate, p =>
-                p.RequireRole(DatatealRole.Admin, DatatealRole.JobContributor, DatatealRole.JobOperator))
-            .AddPolicy(AuthPolicy.JobRead, p =>
-                p.RequireRole(DatatealRole.Admin, DatatealRole.JobContributor, DatatealRole.JobOperator, DatatealRole.JobReader))
-            .AddPolicy(AuthPolicy.WorkspaceManage, p =>
-                p.RequireRole(DatatealRole.Admin, DatatealRole.WorkspaceContributor))
-            .AddPolicy(AuthPolicy.WorkspaceRead, p =>
-                p.RequireRole(DatatealRole.Admin, DatatealRole.WorkspaceContributor, DatatealRole.WorkspaceReader))
-            .AddPolicy(AuthPolicy.CatalogManage, p =>
-                p.RequireRole(DatatealRole.Admin, DatatealRole.CatalogContributor))
-            .AddPolicy(AuthPolicy.EnvironmentManage, p =>
-                p.RequireRole(DatatealRole.Admin, DatatealRole.EnvironmentManager));
-
-        return services;
-    }
 }

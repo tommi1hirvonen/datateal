@@ -2,6 +2,7 @@ using Datateal.Auth;
 using Datateal.Core.Catalogs;
 using Datateal.Core.Mediator;
 using Datateal.Ui.Server.Core.Catalogs;
+using Datateal.Ui.Server.Core.Repositories;
 using Datateal.Ui.Shared.Catalogs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +15,10 @@ namespace Datateal.Ui.Server.Controllers;
 [ApiController]
 [Route("api/catalogs")]
 [Authorize]
-public class CatalogsController(IMediator mediator, ICatalogAccessService catalogAccess) : ControllerBase
+public class CatalogsController(
+    IMediator mediator,
+    ICatalogAccessService catalogAccess,
+    ICatalogRepository catalogRepository) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<CatalogDto>> GetAll(CancellationToken ct)
@@ -25,6 +29,12 @@ public class CatalogsController(IMediator mediator, ICatalogAccessService catalo
             return catalogs;
         return catalogs.Where(c => accessibleIds.Contains(c.Id)).ToList();
     }
+
+    /// <summary>All catalogs, unfiltered. For tenant-level management (catalog access, user grants).</summary>
+    [HttpGet("all")]
+    [Authorize(Policy = AuthPolicy.CatalogManage)]
+    public async Task<IReadOnlyList<CatalogDto>> GetAllUnfiltered(CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.GetCatalogsRequest(), ct);
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
@@ -100,5 +110,24 @@ public class CatalogsController(IMediator mediator, ICatalogAccessService catalo
             return Forbid();
         var info = await mediator.SendAsync(new Qry.GetCatalogInfoRequest(id), ct);
         return info is null ? NotFound() : Ok(info);
+    }
+
+    [HttpGet("{id:guid}/workspace-access")]
+    [Authorize(Policy = AuthPolicy.CatalogManage)]
+    public async Task<IActionResult> GetWorkspaceAccess(Guid id, CancellationToken ct)
+    {
+        var access = await catalogRepository.GetWorkspaceAccessAsync(id, ct);
+        return access is null
+            ? NotFound()
+            : Ok(new SharedCat.CatalogWorkspaceAccessDto(access.Value.AccessibleFromAllWorkspaces, access.Value.WorkspaceIds));
+    }
+
+    [HttpPut("{id:guid}/workspace-access")]
+    [Authorize(Policy = AuthPolicy.CatalogManage)]
+    public async Task<IActionResult> SetWorkspaceAccess(Guid id, SharedCat.SetCatalogWorkspaceAccessRequest body, CancellationToken ct)
+    {
+        var updated = await catalogRepository.SetWorkspaceAccessAsync(
+            id, body.AccessibleFromAllWorkspaces, body.WorkspaceIds, ct);
+        return updated ? NoContent() : NotFound();
     }
 }

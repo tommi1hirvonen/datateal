@@ -17,6 +17,19 @@ internal class CatalogService(HttpClient httpClient) : ICatalogService
     public async Task<IReadOnlyList<CatalogDto>> GetCatalogsAsync(CancellationToken ct = default) =>
         await httpClient.GetFromJsonAsync<IReadOnlyList<CatalogDto>>("api/catalogs", JsonOptions, ct) ?? [];
 
+    public async Task<IReadOnlyList<CatalogDto>> GetAllCatalogsAsync(CancellationToken ct = default) =>
+        await httpClient.GetFromJsonAsync<IReadOnlyList<CatalogDto>>("api/catalogs/all", JsonOptions, ct) ?? [];
+
+    public async Task<CatalogWorkspaceAccessDto> GetWorkspaceAccessAsync(Guid catalogId, CancellationToken ct = default) =>
+        await httpClient.GetFromJsonAsync<CatalogWorkspaceAccessDto>($"api/catalogs/{catalogId}/workspace-access", JsonOptions, ct)
+            ?? new CatalogWorkspaceAccessDto(true, []);
+
+    public async Task SetWorkspaceAccessAsync(Guid catalogId, SetCatalogWorkspaceAccessRequest request, CancellationToken ct = default)
+    {
+        var response = await httpClient.PutAsJsonAsync($"api/catalogs/{catalogId}/workspace-access", request, JsonOptions, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task<ManagedCatalogDto> CreateManagedCatalogAsync(CreateManagedCatalogRequest request, CancellationToken ct = default)
     {
         var response = await httpClient.PostAsJsonAsync("api/catalogs/managed", request, JsonOptions, ct);

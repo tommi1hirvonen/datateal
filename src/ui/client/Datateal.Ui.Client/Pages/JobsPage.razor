@@ -1,4 +1,4 @@
-@page "/jobs"
+@page "/w/{WorkspaceId:guid}/jobs"
 @attribute [Authorize(Policy = AuthPolicy.JobRead)]
 
 @using Datateal.Ui.Shared.Orchestration
@@ -44,7 +44,7 @@
         <Spin Spinning="_loading">
             <Table TItem="JobSummary" DataSource="_jobs" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
                 <PropertyColumn Property="c => c.Name" Title="Name" Sortable>
-                    <a href="@($"/jobs/{context.Id}")">@context.Name</a>
+                    <a href="@($"/w/{WorkspaceId}/jobs/{context.Id}")">@context.Name</a>
                 </PropertyColumn>
                 <PropertyColumn Property="c => c.Description" Title="Description" />
                 <PropertyColumn Property="c => c.IsEnabled" Title="Enabled">
@@ -66,7 +66,7 @@
                     <Space>
                         <SpaceItem>
                             <Tooltip Title="Edit">
-                                <Button Size="@ButtonSize.Small" OnClick="@(() => Navigation.NavigateTo($"/jobs/{context.Id}"))">
+                                <Button Size="@ButtonSize.Small" OnClick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/jobs/{context.Id}"))">
                                     <Icon Type="@IconType.Outline.Edit" />
                                 </Button>
                             </Tooltip>
@@ -149,7 +149,7 @@
                     <PropertyColumn Property="c => c.JobName" Title="Job" Sortable>
                         @if (context.JobId.HasValue)
                         {
-                            <a href="@($"/jobs/{context.JobId}")">@context.JobName</a>
+                            <a href="@($"/w/{WorkspaceId}/jobs/{context.JobId}")">@context.JobName</a>
                         }
                         else
                         {
@@ -157,7 +157,7 @@
                         }
                     </PropertyColumn>
                     <PropertyColumn Property="c => c.Status" Title="Status">
-                        <a href="@($"/runs/{context.Id}")">
+                        <a href="@($"/w/{WorkspaceId}/runs/{context.Id}")">
                             <Tag Color="@GetStatusColor(context.Status)">@context.Status</Tag>
                         </a>
                     </PropertyColumn>
@@ -192,7 +192,7 @@
                     </PropertyColumn>
                     <ActionColumn Title="">
                         <Button Size="@ButtonSize.Small"
-                                OnClick="@(() => Navigation.NavigateTo($"/runs/{context.Id}"))">
+                                OnClick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/runs/{context.Id}"))">
                             <Icon Type="@IconType.Outline.ArrowRight" /> View
                         </Button>
                     </ActionColumn>
@@ -261,6 +261,7 @@
                  OnConfirm="TriggerConfirmedAsync" />
 
 @code {
+    [Parameter] public Guid WorkspaceId { get; set; }
     private IReadOnlyList<JobSummary> _jobs = [];
     private bool _loading = true;
     private string? _error;
@@ -381,7 +382,7 @@
         {
             var job = await JobService.ImportJobAsync(_importYaml);
             _showImportModal = false;
-            Navigation.NavigateTo($"/jobs/{job.Id}");
+            Navigation.NavigateTo($"/w/{WorkspaceId}/jobs/{job.Id}");
         }
         catch (Exception ex)
         {
@@ -411,7 +412,7 @@
             var job = await JobService.CreateJobAsync(
                 new CreateJobRequest(_createForm.Name.Trim(), _createForm.Description?.Trim(), null, 1));
             _showCreateModal = false;
-            Navigation.NavigateTo($"/jobs/{job.Id}");
+            Navigation.NavigateTo($"/w/{WorkspaceId}/jobs/{job.Id}");
         }
         catch (Exception ex)
         {

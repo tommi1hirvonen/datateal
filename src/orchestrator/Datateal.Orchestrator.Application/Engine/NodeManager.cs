@@ -20,6 +20,7 @@ public class NodeManager(
     IWheelPackageReader wheelPackageReader,
     IEnvironmentResolver environmentResolver,
     Guid jobRunId,
+    Guid workspaceId,
     WarmPoolManager? warmPoolManager,
     ILogger logger)
 {
@@ -42,7 +43,7 @@ public class NodeManager(
         if (_allocations.TryGetValue(nodePoolRef, out var existing))
             return existing.NodeName;
 
-        var config = await nodePoolConfigRepo.GetByNameAsync(nodePoolRef, ct)
+        var config = await nodePoolConfigRepo.GetByNameAsync(nodePoolRef, workspaceId, ct)
             ?? throw new InvalidOperationException(
                 $"Node pool configuration '{nodePoolRef}' not found.");
 

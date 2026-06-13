@@ -1,25 +1,32 @@
 using Datateal.Core.Workspace;
 using Datateal.Data;
 using Datateal.Ui.Server.Core.Repositories;
+using Datateal.Ui.Shared.Workspaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Datateal.Ui.Server.Infrastructure.Data;
 
-internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
+internal class WorkspaceRepository(DatatealDbContext db, IActiveWorkspaceAccessor activeWorkspace) : IWorkspaceRepository
 {
+    private Guid WorkspaceId => activeWorkspace.ActiveWorkspaceId
+        ?? throw new InvalidOperationException("No active workspace is in scope for this request.");
+
+    private IQueryable<Folder> Folders => db.Folders.Where(f => f.WorkspaceId == WorkspaceId);
+    private IQueryable<WorkspaceItem> Items => db.WorkspaceItems.Where(i => i.WorkspaceId == WorkspaceId);
+
     // ── Folders ──────────────────────────────────────────────────────────
 
     public async Task<IReadOnlyList<Folder>> GetFoldersInAsync(Guid? parentId, CancellationToken cancellationToken = default)
     {
         var query = parentId.HasValue
-            ? db.Folders.Where(f => f.ParentId == parentId)
-            : db.Folders.Where(f => f.ParentId == null);
+            ? Folders.Where(f => f.ParentId == parentId)
+            : Folders.Where(f => f.ParentId == null);
 
         return await query.OrderBy(f => f.Name).ToListAsync(cancellationToken);
     }
 
     public Task<Folder?> GetFolderAsync(Guid id, CancellationToken cancellationToken = default) =>
-        db.Folders.FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
+        Folders.FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
 
     public async Task<IReadOnlyList<Folder>> GetFolderAncestorsAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -27,7 +34,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
         var currentId = (Guid?)id;
         while (currentId.HasValue)
         {
-            var folder = await db.Folders.FirstOrDefaultAsync(f => f.Id == currentId, cancellationToken);
+            var folder = await Folders.FirstOrDefaultAsync(f => f.Id == currentId, cancellationToken);
             if (folder is null) break;
             chain.Insert(0, folder);
             currentId = folder.ParentId;
@@ -42,6 +49,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
             Id = Guid.CreateVersion7(),
             Name = name,
             ParentId = parentId,
+            WorkspaceId = WorkspaceId,
             CreatedAt = DateTime.UtcNow,
         };
         db.Folders.Add(folder);
@@ -51,7 +59,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
 
     public async Task<Folder?> UpdateFolderAsync(Guid id, string name, Guid? parentId, CancellationToken cancellationToken = default)
     {
-        var folder = await db.Folders.FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
+        var folder = await Folders.FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
         if (folder is null) return null;
 
         folder.Name = name;
@@ -62,7 +70,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
 
     public async Task DeleteFolderAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var folder = await db.Folders.FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
+        var folder = await Folders.FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
         if (folder is not null)
         {
             db.Folders.Remove(folder);
@@ -71,19 +79,19 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
     }
 
     public Task<Folder?> GetFolderByNameAsync(string name, Guid? parentId, CancellationToken cancellationToken = default) =>
-        db.Folders.FirstOrDefaultAsync(f => f.Name == name && f.ParentId == parentId, cancellationToken);
+        Folders.FirstOrDefaultAsync(f => f.Name == name && f.ParentId == parentId, cancellationToken);
 
     // ── Workspace listing ─────────────────────────────────────────────────
 
     public Task<WorkspaceItem?> GetItemAsync(Guid id, CancellationToken cancellationToken = default) =>
-        db.WorkspaceItems.FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
+        Items.FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
     public Task<WorkspaceItem?> GetItemByTitleAsync(string title, Guid? folderId, CancellationToken cancellationToken = default) =>
-        db.WorkspaceItems.FirstOrDefaultAsync(i => i.Title == title && i.FolderId == folderId, cancellationToken);
+        Items.FirstOrDefaultAsync(i => i.Title == title && i.FolderId == folderId, cancellationToken);
 
     public Task<bool> WorkspaceItemTitleExistsAsync(string title, Guid? folderId, Guid? excludeId = null, CancellationToken cancellationToken = default)
     {
-        var query = db.WorkspaceItems.Where(i =>
+        var query = Items.Where(i =>
             i.Title == title &&
             i.FolderId == folderId);
 
@@ -96,8 +104,8 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
     public async Task<IReadOnlyList<WorkspaceItemHeader>> GetItemsInAsync(Guid? folderId, CancellationToken cancellationToken = default)
     {
         var query = folderId.HasValue
-            ? db.WorkspaceItems.Where(i => i.FolderId == folderId)
-            : db.WorkspaceItems.Where(i => i.FolderId == null);
+            ? Items.Where(i => i.FolderId == folderId)
+            : Items.Where(i => i.FolderId == null);
 
         return await query
             .OrderBy(i => i.Title)
@@ -113,7 +121,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
 
     public async Task<IReadOnlyList<WorkspaceItemHeader>> SearchItemsAsync(string query, CancellationToken cancellationToken = default)
     {
-        IQueryable<WorkspaceItem> q = db.WorkspaceItems;
+        IQueryable<WorkspaceItem> q = Items;
         if (!string.IsNullOrWhiteSpace(query))
         {
             var lower = query.ToLowerInvariant();
@@ -134,7 +142,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
     // ── Notebooks ─────────────────────────────────────────────────────────
 
     public Task<Notebook?> GetNotebookAsync(Guid id, CancellationToken cancellationToken = default) =>
-        db.WorkspaceItems.OfType<Notebook>().FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+        Items.OfType<Notebook>().FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
 
     public async Task<Notebook> CreateNotebookAsync(string title, string content, Guid? folderId, CancellationToken cancellationToken = default)
     {
@@ -145,6 +153,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
             Title = title,
             Content = content,
             FolderId = folderId,
+            WorkspaceId = WorkspaceId,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -155,7 +164,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
 
     public async Task<Notebook?> UpdateNotebookAsync(Guid id, string title, string content, Guid? folderId, CancellationToken cancellationToken = default)
     {
-        var notebook = await db.WorkspaceItems.OfType<Notebook>().FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+        var notebook = await Items.OfType<Notebook>().FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
         if (notebook is null) return null;
 
         notebook.Title = title;
@@ -168,7 +177,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
 
     public async Task<bool> DeleteNotebookAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var notebook = await db.WorkspaceItems.OfType<Notebook>().FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+        var notebook = await Items.OfType<Notebook>().FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
         if (notebook is null) return false;
 
         db.WorkspaceItems.Remove(notebook);
@@ -179,7 +188,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
     // ── Queries ───────────────────────────────────────────────────────────
 
     public Task<Query?> GetQueryAsync(Guid id, CancellationToken cancellationToken = default) =>
-        db.WorkspaceItems.OfType<Query>().FirstOrDefaultAsync(q => q.Id == id, cancellationToken);
+        Items.OfType<Query>().FirstOrDefaultAsync(q => q.Id == id, cancellationToken);
 
     public async Task<Query> CreateQueryAsync(
         string title,
@@ -198,6 +207,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
             Title = title,
             Content = content,
             FolderId = folderId,
+            WorkspaceId = WorkspaceId,
             CreatedAt = now,
             UpdatedAt = now,
             LastResultStatus = lastResultStatus,
@@ -221,7 +231,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
         string? lastResultJson,
         CancellationToken cancellationToken = default)
     {
-        var query = await db.WorkspaceItems.OfType<Query>().FirstOrDefaultAsync(q => q.Id == id, cancellationToken);
+        var query = await Items.OfType<Query>().FirstOrDefaultAsync(q => q.Id == id, cancellationToken);
         if (query is null) return null;
 
         query.Title = title;
@@ -241,7 +251,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
 
     public async Task<bool> DeleteQueryAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var query = await db.WorkspaceItems.OfType<Query>().FirstOrDefaultAsync(q => q.Id == id, cancellationToken);
+        var query = await Items.OfType<Query>().FirstOrDefaultAsync(q => q.Id == id, cancellationToken);
         if (query is null) return false;
 
         db.WorkspaceItems.Remove(query);
@@ -253,7 +263,7 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
 
     public async Task<bool> UpdateItemCatalogNamesAsync(Guid itemId, List<string>? catalogNames, CancellationToken cancellationToken = default)
     {
-        var item = await db.WorkspaceItems.FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
+        var item = await Items.FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
         if (item is null) return false;
 
         item.CatalogNames = catalogNames;

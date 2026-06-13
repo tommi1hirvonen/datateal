@@ -7,6 +7,13 @@ namespace Datateal.Orchestrator.Core.Entities;
 public class JobRun
 {
     public Guid Id { get; set; }
+
+    /// <summary>
+    /// Owning workspace. Set from the triggering job; carried onto every run so run
+    /// listings can be scoped even after the source job is deleted.
+    /// </summary>
+    public Guid WorkspaceId { get; set; }
+
     public Guid? JobId { get; set; }
     [JsonIgnore]
     public Job? Job { get; set; }

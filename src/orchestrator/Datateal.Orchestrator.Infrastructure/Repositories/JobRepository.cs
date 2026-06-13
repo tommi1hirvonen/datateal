@@ -30,12 +30,12 @@ internal class JobRepository(DatatealDbContext db) : IJobRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(j => j.Id == id, cancellationToken);
 
-    public async Task<Job?> GetJobByNameAsync(string name, CancellationToken cancellationToken = default) =>
+    public async Task<Job?> GetJobByNameAsync(string name, Guid workspaceId, CancellationToken cancellationToken = default) =>
         await db.Jobs
             .Include(j => j.Parameters)
             .Include(j => j.Tasks).ThenInclude(t => t.Dependencies)
             .Include(j => j.Schedules)
-            .FirstOrDefaultAsync(j => j.Name == name, cancellationToken);
+            .FirstOrDefaultAsync(j => j.WorkspaceId == workspaceId && j.Name == name, cancellationToken);
 
     public async Task<Job> CreateJobAsync(Job job, CancellationToken cancellationToken = default)
     {

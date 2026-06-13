@@ -1,6 +1,6 @@
-@page "/notebook"
+@page "/w/{WorkspaceId:guid}/notebook"
 @attribute [Authorize(Policy = AuthPolicy.WorkspaceRead)]
-@page "/notebook/{Id:guid}"
+@page "/w/{WorkspaceId:guid}/notebook/{Id:guid}"
 
 @using Datateal.Core.Catalogs
 @using Datateal.Ui.Client.Notebook
@@ -274,6 +274,7 @@
 </div>@* end .cp-layout *@
 
 @code {
+    [Parameter] public Guid WorkspaceId { get; set; }
     [Parameter] public Guid Id { get; set; }
     [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
@@ -337,7 +338,7 @@
     }
 
     private void NavigateToWorkspace(Guid? folderId) =>
-        Navigation.NavigateTo(folderId is null ? "/workspace" : $"/workspace?folder={folderId}");
+        Navigation.NavigateTo(folderId is null ? $"/w/{WorkspaceId}/workspace" : $"/w/{WorkspaceId}/workspace?folder={folderId}");
 
     private void StartEditTitle()
     {
@@ -379,7 +380,7 @@
                     _notebook.IsDirty = false;
                     _workspaceNotebookId = detail.Id;
                     _workspaceNotebookFolderId = detail.FolderId;
-                    _ = RecentItemsService.RecordVisitAsync(detail.Id, _notebook.Title, "Notebook");
+                    _ = RecentItemsService.RecordVisitAsync(detail.Id, _notebook.Title, "Notebook", WorkspaceId);
 
                     if (detail.FolderId is not null)
                     {
@@ -1036,7 +1037,7 @@
             _workspaceNotebookId = summary.Id;
             _workspaceNotebookFolderId = folderId;
 
-            _ = RecentItemsService.RecordVisitAsync(summary.Id, _notebook.Title, "Notebook");
+            _ = RecentItemsService.RecordVisitAsync(summary.Id, _notebook.Title, "Notebook", WorkspaceId);
 
             if (_selectedCatalogNames.Any())
             {
@@ -1055,7 +1056,7 @@
             }
 
             _notebook.IsDirty = false;
-            Navigation.NavigateTo($"/notebook/{_workspaceNotebookId}", replace: true);
+            Navigation.NavigateTo($"/w/{WorkspaceId}/notebook/{_workspaceNotebookId}", replace: true);
         }
         catch (Exception ex)
         {

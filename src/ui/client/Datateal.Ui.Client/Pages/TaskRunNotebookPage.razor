@@ -1,4 +1,4 @@
-@page "/runs/{RunId:guid}/tasks/{TaskRunId:guid}/notebook"
+@page "/w/{WorkspaceId:guid}/runs/{RunId:guid}/tasks/{TaskRunId:guid}/notebook"
 @attribute [Authorize(Policy = AuthPolicy.JobRead)]
 
 @using Datateal.Ui.Shared.Orchestration
@@ -17,7 +17,7 @@
     <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
         <Space Align="SpaceAlign.Center" Size="SpaceSize.Small">
             <SpaceItem>
-                <Button OnClick="@(() => Navigation.NavigateTo($"/runs/{RunId}"))">
+                <Button OnClick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/runs/{RunId}"))">
                     <Icon Type="@IconType.Outline.ArrowLeft" /> Back to run
                 </Button>
             </SpaceItem>
@@ -218,6 +218,7 @@
 
     private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
+    [Parameter] public Guid WorkspaceId { get; set; }
     [Parameter] public Guid RunId { get; set; }
     [Parameter] public Guid TaskRunId { get; set; }
 

@@ -49,10 +49,10 @@ internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<
                 throw new InvalidOperationException($"Duplicate task name: \"{t.Name}\". Task names must be unique within a job.");
         }
 
-        // Validate unique job name — exclude this job from the check.
+        // Validate unique job name within the workspace — exclude this job from the check.
         if (!string.Equals(existing.Name, request.Name, StringComparison.OrdinalIgnoreCase))
         {
-            var nameConflict = await jobRepository.GetJobByNameAsync(request.Name, cancellationToken);
+            var nameConflict = await jobRepository.GetJobByNameAsync(request.Name, existing.WorkspaceId, cancellationToken);
             if (nameConflict is not null)
                 throw new JobNameConflictException(request.Name);
         }

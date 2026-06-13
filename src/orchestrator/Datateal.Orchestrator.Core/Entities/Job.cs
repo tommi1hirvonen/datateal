@@ -3,6 +3,10 @@ namespace Datateal.Orchestrator.Core.Entities;
 public class Job
 {
     public Guid Id { get; set; }
+
+    /// <summary>Owning workspace.</summary>
+    public Guid WorkspaceId { get; set; }
+
     public required string Name { get; set; }
     public string? Description { get; set; }
     public Guid? FolderId { get; set; }

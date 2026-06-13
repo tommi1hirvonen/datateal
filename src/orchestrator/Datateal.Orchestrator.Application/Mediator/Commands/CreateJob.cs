@@ -32,7 +32,7 @@ public record CreateTaskDependencyRequest(string DependsOnTaskName, DependencyCo
 
 public record CreateJobParameterRequest(string Name, string? DefaultValue, bool IsRequired, string? Description);
 
-internal class CreateJobHandler(IJobRepository jobRepository) : IRequestHandler<CreateJobRequest, Job>
+internal class CreateJobHandler(IJobRepository jobRepository, Datateal.Orchestrator.Core.IWorkspaceContext workspace) : IRequestHandler<CreateJobRequest, Job>
 {
     public async Task<Job> Handle(CreateJobRequest request, CancellationToken cancellationToken)
     {
@@ -44,14 +44,15 @@ internal class CreateJobHandler(IJobRepository jobRepository) : IRequestHandler<
                 throw new InvalidOperationException($"Duplicate task name: \"{t.Name}\". Task names must be unique within a job.");
         }
 
-        // Validate unique job name across all jobs.
-        var existing = await jobRepository.GetJobByNameAsync(request.Name, cancellationToken);
+        // Validate unique job name within the workspace.
+        var existing = await jobRepository.GetJobByNameAsync(request.Name, workspace.RequireWorkspaceId(), cancellationToken);
         if (existing is not null)
             throw new JobNameConflictException(request.Name);
 
         var job = new Job
         {
             Id = Guid.NewGuid(),
+            WorkspaceId = workspace.RequireWorkspaceId(),
             Name = request.Name,
             Description = request.Description,
             FolderId = request.FolderId,

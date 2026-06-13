@@ -1,4 +1,4 @@
-@page "/environment"
+@page "/w/{WorkspaceId:guid}/environment"
 @attribute [Authorize(Policy = AuthPolicy.EnvironmentManage)]
 
 @using System.ComponentModel.DataAnnotations
@@ -262,6 +262,7 @@
 </Drawer>
 
 @code {
+    [Parameter] public Guid WorkspaceId { get; set; }
     private IReadOnlyList<EnvironmentVariableDto> _variables = [];
     private IReadOnlyList<SecretDto> _secrets = [];
     private bool _loadingVars = true;

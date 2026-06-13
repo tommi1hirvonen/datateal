@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Datateal.Auth;
 using Datateal.Auth.Dev;
 using Datateal.Data;
+using Datateal.Ui.Shared.Workspaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -85,9 +86,35 @@ public class AppClaimsTransformation(
             {
                 AddRoleClaim(identity, role);
             }
+
+            // Per-workspace roles are emitted as custom claims so a single principal
+            // carries roles for every workspace it belongs to, evaluated against the
+            // active workspace at authorization time.
+            var memberships = await dbContext.WorkspaceMemberships
+                .AsNoTracking()
+                .Where(m => m.UserId == appUser.Id)
+                .Select(m => new { m.WorkspaceId, m.Roles })
+                .ToListAsync();
+
+            foreach (var membership in memberships)
+            {
+                foreach (var role in membership.Roles)
+                {
+                    AddWorkspaceRoleClaim(identity, membership.WorkspaceId, role);
+                }
+            }
         }
 
         return principal;
+    }
+
+    private static void AddWorkspaceRoleClaim(ClaimsIdentity identity, Guid workspaceId, string role)
+    {
+        var value = WorkspaceRoleClaims.FormatValue(workspaceId, role);
+        if (!identity.HasClaim(WorkspaceRoleClaims.ClaimType, value))
+        {
+            identity.AddClaim(new Claim(WorkspaceRoleClaims.ClaimType, value));
+        }
     }
 
     private static void AddRoleClaim(ClaimsIdentity identity, string role)

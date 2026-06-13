@@ -1,4 +1,4 @@
-@page "/runs/{Id:guid}"
+@page "/w/{WorkspaceId:guid}/runs/{Id:guid}"
 @attribute [Authorize(Policy = AuthPolicy.JobRead)]
 
 @using Datateal.Ui.Shared.Orchestration
@@ -22,7 +22,7 @@
             <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
                 <Space Align="SpaceAlign.Center" Size="SpaceSize.Small">
                     <SpaceItem>
-                        <Button OnClick="@(() => Navigation.NavigateTo(_run.JobId.HasValue ? $"/jobs/{_run.JobId}" : "/jobs"))">
+                        <Button OnClick="@(() => Navigation.NavigateTo(_run.JobId.HasValue ? $"/w/{WorkspaceId}/jobs/{_run.JobId}" : $"/w/{WorkspaceId}/jobs"))">
                             <Icon Type="@IconType.Outline.ArrowLeft" /> Back to job
                         </Button>
                     </SpaceItem>
@@ -144,14 +144,14 @@
                     @if (context.TaskType == TaskType.Notebook)
                     {
                         <Button Size="@ButtonSize.Small"
-                                OnClick="@(() => Navigation.NavigateTo($"/runs/{Id}/tasks/{context.Id}/notebook"))">
+                                OnClick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/runs/{Id}/tasks/{context.Id}/notebook"))">
                             <Icon Type="@IconType.Outline.FileText" /> Notebook
                         </Button>
                     }
                     else if (context.TaskType == TaskType.SqlQuery)
                     {
                         <Button Size="@ButtonSize.Small"
-                                OnClick="@(() => Navigation.NavigateTo($"/runs/{Id}/tasks/{context.Id}/query"))">
+                                OnClick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/runs/{Id}/tasks/{context.Id}/query"))">
                             <Icon Type="@IconType.Outline.Code" /> Query
                         </Button>
                     }
@@ -162,6 +162,7 @@
 </div>
 
 @code {
+    [Parameter] public Guid WorkspaceId { get; set; }
     [Parameter] public Guid Id { get; set; }
 
     private JobRunDetail? _run;

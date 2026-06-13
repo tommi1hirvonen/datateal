@@ -1,6 +1,9 @@
 @inject NavigationManager Navigation
 @inject IJobService JobService
+@inject ActiveWorkspaceProvider Workspaces
+@using Datateal.Ui.Client.Services
 @using Datateal.Ui.Shared.Orchestration
+@implements IDisposable
 
 <Menu @ref="_menu"
       Mode="MenuMode.Vertical"
@@ -17,13 +20,13 @@
     </div>
     <SubMenu Key="new" TitleTemplate="@_newTitle">
         <AuthorizeView Policy="@AuthPolicy.WorkspaceRead">
-            <MenuItem Key="new-notebook" RouterLink="/notebook" RouterMatch="NavLinkMatch.All">
+            <MenuItem Key="new-notebook" RouterLink="@Ws("notebook")" RouterMatch="NavLinkMatch.All">
                 <Icon Type="@IconType.Outline.FileText" />
                 <span>Notebook</span>
             </MenuItem>
         </AuthorizeView>
         <AuthorizeView Policy="@AuthPolicy.WorkspaceRead">
-            <MenuItem Key="new-query" RouterLink="/query" RouterMatch="NavLinkMatch.All">
+            <MenuItem Key="new-query" RouterLink="@Ws("query")" RouterMatch="NavLinkMatch.All">
                 <Icon Type="@IconType.Outline.Code" />
                 <span>SQL query</span>
             </MenuItem>
@@ -40,13 +43,13 @@
         <span>Home</span>
     </MenuItem>
     <AuthorizeView Policy="@AuthPolicy.WorkspaceRead">
-        <MenuItem Key="notebook" RouterLink="/workspace" RouterMatch="NavLinkMatch.Prefix">
+        <MenuItem Key="notebook" RouterLink="@Ws("workspace")" RouterMatch="NavLinkMatch.Prefix">
             <Icon Type="@IconType.Outline.FolderOpen" />
             <span>Workspace</span>
         </MenuItem>
     </AuthorizeView>
     <AuthorizeView Policy="@AuthPolicy.JobRead">
-        <MenuItem Key="jobs" RouterLink="/jobs" RouterMatch="NavLinkMatch.Prefix">
+        <MenuItem Key="jobs" RouterLink="@Ws("jobs")" RouterMatch="NavLinkMatch.Prefix">
             <Icon Type="@IconType.Outline.Partition" />
             <span>Jobs</span>
         </MenuItem>
@@ -56,13 +59,13 @@
         <span>Catalogs</span>
     </MenuItem>
     <AuthorizeView Policy="@AuthPolicy.NodePoolOperate">
-        <MenuItem Key="node-pools" RouterLink="/node-pools" RouterMatch="NavLinkMatch.Prefix">
+        <MenuItem Key="node-pools" RouterLink="@Ws("node-pools")" RouterMatch="NavLinkMatch.Prefix">
             <Icon Type="@IconType.Outline.Cluster" />
             <span>Node pools</span>
         </MenuItem>
     </AuthorizeView>
     <AuthorizeView Policy="@AuthPolicy.EnvironmentManage">
-        <MenuItem Key="environment" RouterLink="/environment" RouterMatch="NavLinkMatch.Prefix">
+        <MenuItem Key="environment" RouterLink="@Ws("environment")" RouterMatch="NavLinkMatch.Prefix">
             <Icon Type="@IconType.Outline.Tool" />
             <span>Environment</span>
         </MenuItem>
@@ -71,6 +74,12 @@
         <Icon Type="@IconType.Outline.Setting" />
         <span>Settings</span>
     </MenuItem>
+    <AuthorizeView Policy="@AuthPolicy.Admin">
+        <MenuItem Key="workspaces" RouterLink="/workspaces" RouterMatch="NavLinkMatch.Prefix">
+            <Icon Type="@IconType.Outline.Appstore" />
+            <span>Workspaces</span>
+        </MenuItem>
+    </AuthorizeView>
     <AuthorizeView Policy="@AuthPolicy.Admin">
         <MenuItem Key="users" RouterLink="/users" RouterMatch="NavLinkMatch.Prefix">
             <Icon Type="@IconType.Outline.Team" />
@@ -168,7 +177,7 @@
             var job = await JobService.CreateJobAsync(
                 new CreateJobRequest(_jobForm.Name.Trim(), _jobForm.Description?.Trim(), null, 1));
             _showCreateJobModal = false;
-            Navigation.NavigateTo($"/jobs/{job.Id}");
+            Navigation.NavigateTo(Ws($"jobs/{job.Id}"));
         }
         catch (Exception ex)
         {
@@ -180,17 +189,31 @@
         }
     }
 
-    protected override void OnInitialized() => UpdateSelectedKey();
+    protected override void OnInitialized()
+    {
+        Workspaces.Changed += OnWorkspaceChanged;
+        UpdateSelectedKey();
+    }
 
     protected override void OnParametersSet() => UpdateSelectedKey();
+
+    private void OnWorkspaceChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Workspaces.Changed -= OnWorkspaceChanged;
+
+    private string Ws(string suffix) => Workspaces.Link(suffix);
 
     private void UpdateSelectedKey()
     {
         var path = new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+        if (WorkspaceRoute.TryParse(path, out _, out var remainder))
+            path = "/" + remainder;
+
         _selectedKeys = path switch
         {
             "" or "/" => ["home"],
             _ when path.StartsWith("/nodes") => ["node-pools"],
+            _ when path.StartsWith("/workspaces") => ["workspaces"],
             _ when path.StartsWith("/workspace") => ["notebook"],
             _ when path.StartsWith("/notebook") => ["notebook"],
             _ when path.StartsWith("/query") => ["notebook"],

@@ -32,6 +32,7 @@ public static class ServiceExtensions
                 Options.Create(new ApiKeyDelegatingOptions { ApiKey = controlPlaneApiKey })));
 
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
+        services.AddScoped<IWorkspaceManagementRepository, WorkspaceManagementRepository>();
         services.AddScoped<IWheelPackageRepository, WheelPackageRepository>();
         services.AddScoped<IEnvironmentRepository, EnvironmentRepository>();
         services.AddScoped<ICatalogRepository, CatalogRepository>();

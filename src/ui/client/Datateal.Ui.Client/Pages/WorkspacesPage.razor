@@ -1,0 +1,412 @@
+@page "/workspaces"
+@attribute [Authorize(Policy = AuthPolicy.Admin)]
+
+@using Datateal.Ui.Shared.Users
+@using Datateal.Ui.Shared.Workspaces
+@inject IWorkspaceManagementService WorkspaceService
+@inject IUserService UserService
+
+<PageTitle>Workspaces — Datateal</PageTitle>
+
+<Space>
+    <SpaceItem>
+        <Icon Height="24px" Width="24px" Type="@IconType.Outline.Appstore" />
+    </SpaceItem>
+    <SpaceItem>
+        <h2>Workspaces</h2>
+    </SpaceItem>
+</Space>
+
+@if (!string.IsNullOrEmpty(_error))
+{
+    <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
+           Style="margin-bottom: 16px;" />
+}
+
+<Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
+    <Button Type="@ButtonType.Primary" OnClick="StartCreate">
+        <Icon Type="@IconType.Outline.Plus" /> New workspace
+    </Button>
+</Flex>
+
+<Spin Spinning="_loading">
+    <Table TItem="WorkspaceDto" DataSource="_workspaces" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
+        <PropertyColumn Property="w => w.Name" Title="Name" Sortable />
+        <PropertyColumn Property="w => w.Slug" Title="Slug">
+            <span style="font-family: monospace;">@context.Slug</span>
+        </PropertyColumn>
+        <PropertyColumn Property="w => w.Description" Title="Description">
+            @if (string.IsNullOrWhiteSpace(context.Description))
+            {
+                <span style="color: #8c8c8c;">—</span>
+            }
+            else
+            {
+                <span>@context.Description</span>
+            }
+        </PropertyColumn>
+        <PropertyColumn Property="w => w.IsDefault" Title="Default">
+            @if (context.IsDefault)
+            {
+                <Tag Color="@("green")">Default</Tag>
+            }
+        </PropertyColumn>
+        <ActionColumn Title="Actions">
+            <Space>
+                <SpaceItem>
+                    <Tooltip Title="Members">
+                        <Button Size="@ButtonSize.Small" OnClick="() => OpenMembersAsync(context)">
+                            <Icon Type="@IconType.Outline.Team" />
+                        </Button>
+                    </Tooltip>
+                </SpaceItem>
+                <SpaceItem>
+                    <Tooltip Title="Edit">
+                        <Button Size="@ButtonSize.Small" OnClick="() => StartEdit(context)">
+                            <Icon Type="@IconType.Outline.Edit" />
+                        </Button>
+                    </Tooltip>
+                </SpaceItem>
+                <SpaceItem>
+                    <Tooltip Title="@(context.IsDefault ? "The default workspace cannot be deleted" : "Delete")">
+                        <Popconfirm Title="@($"Delete workspace '{context.Name}'? All its content will be removed.")"
+                                    OnConfirm="() => DeleteAsync(context)" Disabled="context.IsDefault">
+                            <Button Danger Size="@ButtonSize.Small" Disabled="context.IsDefault">
+                                <Icon Type="@IconType.Outline.Delete" />
+                            </Button>
+                        </Popconfirm>
+                    </Tooltip>
+                </SpaceItem>
+            </Space>
+        </ActionColumn>
+    </Table>
+</Spin>
+
+@* ── Create / edit workspace drawer ───────────────────────────────────── *@
+<Drawer Closable="true" @bind-Visible="_showEdit" Placement="DrawerPlacement.Right"
+        Width="480" Title="@(_editTarget is null ? "New workspace" : "Edit workspace")"
+        OnClose="() => _showEdit = false"
+        BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+    <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        <Form Model="@_form" Layout="FormLayout.Vertical">
+            <FormItem Label="Name">
+                <Input @bind-Value="context.Name" Placeholder="Sales (Dev)" BindOnInput
+                       Class="@(NameDisplayError is not null ? "ant-input-status-error" : "")" />
+                @if (NameDisplayError is not null)
+                {
+                    <div class="ant-form-item-explain-error">@NameDisplayError</div>
+                }
+            </FormItem>
+            <FormItem Label="Slug">
+                <Input @bind-Value="context.Slug" Placeholder="sales-dev" BindOnInput
+                       Class="@(SlugDisplayError is not null ? "ant-input-status-error" : "")" />
+                <div style="color: #8c8c8c; font-size: 12px;">
+                    Lowercase letters, numbers and hyphens. Encode environments by convention
+                    (e.g. <span style="font-family: monospace;">sales-dev</span>, <span style="font-family: monospace;">sales-prod</span>).
+                </div>
+                @if (SlugDisplayError is not null)
+                {
+                    <div class="ant-form-item-explain-error">@SlugDisplayError</div>
+                }
+            </FormItem>
+            <FormItem Label="Description">
+                <TextArea @bind-Value="context.Description" Placeholder="Optional description" Rows="3" BindOnInput />
+            </FormItem>
+            @if (_saveError is not null)
+            {
+                <Alert Type="@AlertType.Error" Message="@_saveError" ShowIcon="true" />
+            }
+        </Form>
+    </div>
+    <div class="drawer-footer">
+        <Button OnClick="() => _showEdit = false">Cancel</Button>
+        <Button Type="@ButtonType.Primary" OnClick="ConfirmSave"
+                Disabled="@(!IsFormValid() || _saving)" Loading="_saving">Save</Button>
+    </div>
+</Drawer>
+
+@* ── Members drawer ───────────────────────────────────────────────────── *@
+<Drawer Closable="true" @bind-Visible="_showMembers" Placement="DrawerPlacement.Right"
+        Width="560" Title="@($"Members — {_membersTarget?.Name}")"
+        OnClose="() => _showMembers = false"
+        BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+    <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        @if (_membersError is not null)
+        {
+            <Alert Type="@AlertType.Error" Message="@_membersError" ShowIcon="true" />
+        }
+
+        <Table TItem="WorkspaceMemberDto" DataSource="_members" Size="@TableSize.Small"
+               PageSize="int.MaxValue" PaginationPosition="none">
+            <PropertyColumn Property="m => m.DisplayName" Title="User">
+                <div>@context.DisplayName</div>
+                <div style="font-family: monospace; font-size: 12px; color: #8c8c8c;">@context.Email</div>
+            </PropertyColumn>
+            <PropertyColumn Property="m => m.Roles" Title="Roles">
+                @foreach (var role in context.Roles)
+                {
+                    <Tag Color="@("blue")" Style="margin-bottom: 2px;">@role</Tag>
+                }
+            </PropertyColumn>
+            <ActionColumn Title="">
+                <Space>
+                    <SpaceItem>
+                        <Button Size="@ButtonSize.Small" OnClick="() => StartEditMember(context)">
+                            <Icon Type="@IconType.Outline.Edit" />
+                        </Button>
+                    </SpaceItem>
+                    <SpaceItem>
+                        <Popconfirm Title="@($"Remove '{context.Email}' from this workspace?")"
+                                    OnConfirm="() => RemoveMemberAsync(context)">
+                            <Button Danger Size="@ButtonSize.Small">
+                                <Icon Type="@IconType.Outline.Delete" />
+                            </Button>
+                        </Popconfirm>
+                    </SpaceItem>
+                </Space>
+            </ActionColumn>
+        </Table>
+
+        <Divider Style="margin: 8px 0;" />
+
+        <h4>@(_editMemberUserId is null ? "Add member" : "Edit member roles")</h4>
+        @if (_editMemberUserId is null)
+        {
+            <Select TItem="AppUserDto"
+                    TItemValue="Guid"
+                    DataSource="_assignableUsers"
+                    @bind-Value="_memberUserId"
+                    ValueName="@nameof(AppUserDto.Id)"
+                    LabelName="@nameof(AppUserDto.Email)"
+                    Placeholder="Select a user..."
+                    Style="width: 100%;" />
+        }
+        else
+        {
+            <div style="font-family: monospace;">@_members.FirstOrDefault(m => m.UserId == _editMemberUserId)?.Email</div>
+        }
+
+        <CheckboxGroup @bind-Value="_memberRoles" TValue="string" Style="width:100%">
+            <GridRow Gutter="(0, 8)">
+                @foreach (var role in DatatealRole.PerWorkspace)
+                {
+                    <GridCol Span="12">
+                        <Checkbox Label="@role">@role</Checkbox>
+                    </GridCol>
+                }
+            </GridRow>
+        </CheckboxGroup>
+
+        <Flex Justify="FlexJustify.FlexEnd" Gap="FlexGap.Small">
+            @if (_editMemberUserId is not null)
+            {
+                <Button OnClick="ResetMemberForm">Cancel</Button>
+            }
+            <Button Type="@ButtonType.Primary" OnClick="SaveMemberAsync"
+                    Disabled="@(!CanSaveMember || _savingMember)" Loading="_savingMember">
+                @(_editMemberUserId is null ? "Add" : "Save")
+            </Button>
+        </Flex>
+    </div>
+</Drawer>
+
+@code {
+    private IReadOnlyList<WorkspaceDto> _workspaces = [];
+    private IReadOnlyList<AppUserDto> _allUsers = [];
+    private bool _loading = true;
+    private string? _error;
+
+    // Workspace edit state
+    private bool _showEdit;
+    private WorkspaceDto? _editTarget;
+    private WorkspaceFormModel _form = new();
+    private bool _saving;
+    private string? _saveError;
+    private bool _submitAttempted;
+
+    // Members state
+    private bool _showMembers;
+    private WorkspaceDto? _membersTarget;
+    private IReadOnlyList<WorkspaceMemberDto> _members = [];
+    private string? _membersError;
+    private Guid _memberUserId;
+    private Guid? _editMemberUserId;
+    private string[] _memberRoles = [];
+    private bool _savingMember;
+
+    private IEnumerable<AppUserDto> _assignableUsers =>
+        _allUsers.Where(u => _members.All(m => m.UserId != u.Id));
+
+    private bool CanSaveMember =>
+        _memberRoles.Length > 0 && (_editMemberUserId is not null || _memberUserId != Guid.Empty);
+
+    private string? NameDisplayError =>
+        (_submitAttempted || !string.IsNullOrEmpty(_form.Name)) ? GetNameError() : null;
+
+    private string? SlugDisplayError =>
+        (_submitAttempted || !string.IsNullOrEmpty(_form.Slug)) ? GetSlugError() : null;
+
+    private string? GetNameError()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Name)) return "Name is required.";
+        if (_workspaces.Any(w => w.Name.Equals(_form.Name.Trim(), StringComparison.OrdinalIgnoreCase) && w != _editTarget))
+            return "A workspace with this name already exists.";
+        return null;
+    }
+
+    private string? GetSlugError()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Slug)) return "Slug is required.";
+        if (!IsValidSlug(_form.Slug.Trim())) return "Lowercase letters, numbers and internal hyphens only.";
+        if (_workspaces.Any(w => w.Slug.Equals(_form.Slug.Trim(), StringComparison.OrdinalIgnoreCase) && w != _editTarget))
+            return "A workspace with this slug already exists.";
+        return null;
+    }
+
+    private static bool IsValidSlug(string slug) =>
+        System.Text.RegularExpressions.Regex.IsMatch(slug, "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$");
+
+    private bool IsFormValid() => GetNameError() is null && GetSlugError() is null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadWorkspacesAsync(), LoadUsersAsync());
+    }
+
+    private async Task LoadWorkspacesAsync()
+    {
+        _loading = true;
+        try { _workspaces = await WorkspaceService.GetAccessibleAsync(); }
+        catch (Exception ex) { _error = $"Failed to load workspaces: {ex.Message}"; }
+        finally { _loading = false; }
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        try { _allUsers = await UserService.GetUsersAsync(); }
+        catch { /* non-fatal — member picker just won't have data */ }
+    }
+
+    private void StartCreate()
+    {
+        _editTarget = null;
+        _form = new WorkspaceFormModel();
+        _submitAttempted = false;
+        _saveError = null;
+        _showEdit = true;
+    }
+
+    private void StartEdit(WorkspaceDto workspace)
+    {
+        _editTarget = workspace;
+        _form = new WorkspaceFormModel
+        {
+            Name = workspace.Name,
+            Slug = workspace.Slug,
+            Description = workspace.Description ?? "",
+        };
+        _submitAttempted = false;
+        _saveError = null;
+        _showEdit = true;
+    }
+
+    private async Task ConfirmSave()
+    {
+        _submitAttempted = true;
+        if (!IsFormValid()) return;
+
+        _saving = true;
+        _saveError = null;
+        try
+        {
+            var name = _form.Name.Trim();
+            var slug = _form.Slug.Trim();
+            var desc = string.IsNullOrWhiteSpace(_form.Description) ? null : _form.Description.Trim();
+
+            if (_editTarget is null)
+                await WorkspaceService.CreateAsync(new CreateWorkspaceRequest(name, slug, desc));
+            else
+                await WorkspaceService.UpdateAsync(_editTarget.Id, new UpdateWorkspaceRequest(name, slug, desc));
+
+            _showEdit = false;
+            await LoadWorkspacesAsync();
+        }
+        catch (Exception ex) { _saveError = $"Failed to save workspace: {ex.Message}"; }
+        finally { _saving = false; }
+    }
+
+    private async Task DeleteAsync(WorkspaceDto workspace)
+    {
+        try
+        {
+            await WorkspaceService.DeleteAsync(workspace.Id);
+            await LoadWorkspacesAsync();
+        }
+        catch (Exception ex) { _error = $"Failed to delete workspace: {ex.Message}"; }
+    }
+
+    private async Task OpenMembersAsync(WorkspaceDto workspace)
+    {
+        _membersTarget = workspace;
+        _membersError = null;
+        ResetMemberForm();
+        _showMembers = true;
+        await LoadMembersAsync();
+    }
+
+    private async Task LoadMembersAsync()
+    {
+        if (_membersTarget is null) return;
+        try { _members = await WorkspaceService.GetMembersAsync(_membersTarget.Id); }
+        catch (Exception ex) { _membersError = $"Failed to load members: {ex.Message}"; }
+    }
+
+    private void StartEditMember(WorkspaceMemberDto member)
+    {
+        _editMemberUserId = member.UserId;
+        _memberRoles = member.Roles.ToArray();
+    }
+
+    private void ResetMemberForm()
+    {
+        _editMemberUserId = null;
+        _memberUserId = Guid.Empty;
+        _memberRoles = [];
+    }
+
+    private async Task SaveMemberAsync()
+    {
+        if (_membersTarget is null || !CanSaveMember) return;
+
+        _savingMember = true;
+        _membersError = null;
+        try
+        {
+            var userId = _editMemberUserId ?? _memberUserId;
+            await WorkspaceService.SetMemberAsync(_membersTarget.Id,
+                new SetWorkspaceMemberRequest(userId, _memberRoles.ToList()));
+            ResetMemberForm();
+            await LoadMembersAsync();
+        }
+        catch (Exception ex) { _membersError = $"Failed to save member: {ex.Message}"; }
+        finally { _savingMember = false; }
+    }
+
+    private async Task RemoveMemberAsync(WorkspaceMemberDto member)
+    {
+        if (_membersTarget is null) return;
+        try
+        {
+            await WorkspaceService.RemoveMemberAsync(_membersTarget.Id, member.UserId);
+            await LoadMembersAsync();
+        }
+        catch (Exception ex) { _membersError = $"Failed to remove member: {ex.Message}"; }
+    }
+
+    private class WorkspaceFormModel
+    {
+        public string Name { get; set; } = "";
+        public string Slug { get; set; } = "";
+        public string Description { get; set; } = "";
+    }
+}

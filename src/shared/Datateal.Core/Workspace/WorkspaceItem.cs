@@ -11,6 +11,11 @@ public abstract class WorkspaceItem
     public required string Title { get; set; }
     public Guid? FolderId { get; set; }
 
+    /// <summary>
+    /// Owning workspace. All workspace items belong to exactly one workspace.
+    /// </summary>
+    public Guid WorkspaceId { get; set; }
+
     public Folder? Folder { get; set; }
 
     public required string Content { get; set; }

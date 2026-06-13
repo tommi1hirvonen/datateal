@@ -20,6 +20,19 @@ public abstract class Catalog
     /// </summary>
     public required string Name { get; set; }
 
+    /// <summary>
+    /// When <c>true</c> (the default), the catalog is accessible from every workspace.
+    /// When <c>false</c>, access is limited to the workspaces listed in
+    /// <see cref="WorkspaceAccessList"/>.
+    /// </summary>
+    public bool AccessibleFromAllWorkspaces { get; set; } = true;
+
+    /// <summary>
+    /// Explicit per-workspace access grants (only relevant when
+    /// <see cref="AccessibleFromAllWorkspaces"/> is <c>false</c>).
+    /// </summary>
+    public List<CatalogWorkspaceAccess> WorkspaceAccessList { get; set; } = [];
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

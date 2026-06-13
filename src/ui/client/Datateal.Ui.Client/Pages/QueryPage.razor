@@ -1,6 +1,6 @@
-@page "/query"
+@page "/w/{WorkspaceId:guid}/query"
 @attribute [Authorize(Policy = AuthPolicy.WorkspaceRead)]
-@page "/query/{Id:guid}"
+@page "/w/{WorkspaceId:guid}/query/{Id:guid}"
 
 @using Datateal.Core.Catalogs
 @using Datateal.Core.Kernels
@@ -296,6 +296,7 @@
                    OnCancel="@(() => _showFolderPicker = false)" />
 
 @code {
+    [Parameter] public Guid WorkspaceId { get; set; }
     [Parameter] public Guid Id { get; set; }
     [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
@@ -372,7 +373,7 @@
                     _isDirty = false;
                     _workspaceQueryId = detail.Id;
                     _workspaceQueryFolderId = detail.FolderId;
-                    _ = RecentItemsService.RecordVisitAsync(detail.Id, detail.Title, "Query");
+                    _ = RecentItemsService.RecordVisitAsync(detail.Id, detail.Title, "Query", WorkspaceId);
 
                     // Restore last execution result if present
                     if (detail.LastResult is { } lr)
@@ -510,7 +511,7 @@
             _workspaceQueryId = summary.Id;
             _workspaceQueryFolderId = folderId;
 
-            _ = RecentItemsService.RecordVisitAsync(summary.Id, _title, "Query");
+            _ = RecentItemsService.RecordVisitAsync(summary.Id, _title, "Query", WorkspaceId);
 
             if (_selectedCatalogNames.Any())
             {
@@ -530,7 +531,7 @@
                 _breadcrumbs = [(null, "Workspace")];
             }
 
-            Navigation.NavigateTo($"/query/{summary.Id}", replace: true);
+            Navigation.NavigateTo($"/w/{WorkspaceId}/query/{summary.Id}", replace: true);
         }
         catch (Exception ex) { _error = $"Failed to save query: {ex.Message}"; }
     }
@@ -560,7 +561,7 @@
     }
 
     private void NavigateToWorkspace(Guid? folderId) =>
-        Navigation.NavigateTo(folderId is null ? "/workspace" : $"/workspace?folder={folderId}");
+        Navigation.NavigateTo(folderId is null ? $"/w/{WorkspaceId}/workspace" : $"/w/{WorkspaceId}/workspace?folder={folderId}");
 
     // ── Kernel connection ─────────────────────────────────────────────
 

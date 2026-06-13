@@ -1,0 +1,75 @@
+@using Datateal.Ui.Client.Services
+@using Datateal.Ui.Shared.Workspaces
+@using Microsoft.AspNetCore.Components.Authorization
+@implements IDisposable
+@inject ActiveWorkspaceProvider Workspaces
+@inject IWorkspaceManagementService WorkspaceService
+@inject NavigationManager Navigation
+
+@if (Workspaces.Available.Count > 0)
+{
+    <Select DataSource="@Workspaces.Available"
+            TItem="WorkspaceDto"
+            TItemValue="Guid"
+            @bind-Value="SelectedId"
+            LabelName="@nameof(WorkspaceDto.Name)"
+            ValueName="@nameof(WorkspaceDto.Id)"
+            Style="min-width: 200px; margin-right: 16px;"
+            Size="@InputSize.Small" />
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Guid SelectedId
+    {
+        get => Workspaces.ActiveWorkspaceId ?? Guid.Empty;
+        set { if (value != Guid.Empty) _ = OnChangedAsync(value); }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspaces.Changed += OnProviderChanged;
+
+        if (AuthenticationStateTask is not null)
+        {
+            var authState = await AuthenticationStateTask;
+            if (authState.User.Identity?.IsAuthenticated != true)
+                return;
+        }
+
+        if (!Workspaces.IsInitialized)
+        {
+            var list = await WorkspaceService.GetAccessibleAsync();
+            await Workspaces.InitializeAsync(list);
+        }
+    }
+
+    private void OnProviderChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task OnChangedAsync(Guid id)
+    {
+        if (id == Workspaces.ActiveWorkspaceId)
+            return;
+
+        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (WorkspaceRoute.TryParse("/" + relative, out _, out var remainder))
+        {
+            // On a workspace-scoped page, switch into the equivalent section of the new
+            // workspace. Item-specific routes (e.g. notebook/{id}) carry ids that don't exist
+            // in the target workspace, so fall back to that workspace's browser.
+            var section = remainder.Split('/')[0].Split('?')[0];
+            var target = section is "jobs" or "node-pools" or "environment" or "workspace"
+                ? section
+                : "workspace";
+            Navigation.NavigateTo(WorkspaceRoute.Build(id, target));
+        }
+        else
+        {
+            // On a tenant-global page: just switch the active workspace.
+            await Workspaces.SetActiveAsync(id);
+        }
+    }
+
+    public void Dispose() => Workspaces.Changed -= OnProviderChanged;
+}

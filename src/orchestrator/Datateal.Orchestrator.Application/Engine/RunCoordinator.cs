@@ -51,6 +51,7 @@ public class RunCoordinator(
 
         var nodeManager = new NodeManager(
             controlPlane, nodePoolConfigRepo, wheelPackageReader, environmentResolver, jobRunId,
+            run.WorkspaceId,
             warmPoolManager,
             loggerFactory.CreateLogger<NodeManager>());
 

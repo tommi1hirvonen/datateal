@@ -9,6 +9,10 @@ namespace Datateal.Orchestrator.Core.Entities;
 public abstract class NodePoolConfig
 {
     public Guid Id { get; set; }
+
+    /// <summary>Owning workspace.</summary>
+    public Guid WorkspaceId { get; set; }
+
     public required string Name { get; set; }
     public NodePoolType PoolType { get; protected set; }
     public required string VmSize { get; set; }

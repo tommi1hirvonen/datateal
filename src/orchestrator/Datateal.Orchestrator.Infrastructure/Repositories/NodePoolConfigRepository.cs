@@ -13,8 +13,8 @@ internal class NodePoolConfigRepository(DatatealDbContext db) : INodePoolConfigR
     public async Task<NodePoolConfig?> GetAsync(Guid id, CancellationToken cancellationToken = default)
         => await db.NodePoolConfigs.FindAsync([id], cancellationToken);
 
-    public async Task<NodePoolConfig?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
-        => await db.NodePoolConfigs.FirstOrDefaultAsync(c => c.Name == name, cancellationToken);
+    public async Task<NodePoolConfig?> GetByNameAsync(string name, Guid workspaceId, CancellationToken cancellationToken = default)
+        => await db.NodePoolConfigs.FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Name == name, cancellationToken);
 
     public async Task<NodePoolConfig> CreateAsync(NodePoolConfig config, CancellationToken cancellationToken = default)
     {

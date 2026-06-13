@@ -1,4 +1,4 @@
-@page "/jobs/{Id:guid}"
+@page "/w/{WorkspaceId:guid}/jobs/{Id:guid}"
 @attribute [Authorize(Policy = AuthPolicy.JobRead)]
 
 @using Datateal.Ui.Shared.Orchestration
@@ -29,7 +29,7 @@
         <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
             <Space Align="SpaceAlign.Center" Size="SpaceSize.Small">
                 <SpaceItem>
-                    <Button OnClick="@(() => Navigation.NavigateTo("/jobs"))">
+                    <Button OnClick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/jobs"))">
                         <Icon Type="@IconType.Outline.ArrowLeft" /> Back
                     </Button>
                 </SpaceItem>
@@ -277,7 +277,7 @@
                     </Flex>
                     <Table TItem="JobRunSummary" DataSource="_runs" Size="@TableSize.Small" Loading="_runsLoading" PageSize="int.MaxValue" PaginationPosition="none">
                         <PropertyColumn Property="c => c.Status" Title="Status">
-                            <a @onclick="@(() => Navigation.NavigateTo($"/runs/{context.Id}"))"
+                            <a @onclick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/runs/{context.Id}"))"
                                @onclick:preventDefault style="cursor: pointer;">
                                 <Tag Color="@GetStatusColor(context.Status)">@context.Status</Tag>
                             </a>
@@ -400,6 +400,7 @@
 </Spin>
 
 @code {
+    [Parameter] public Guid WorkspaceId { get; set; }
     [Parameter] public Guid Id { get; set; }
 
     private JobDetail? _job;
@@ -465,7 +466,7 @@
             _job = await JobService.GetJobAsync(Id);
             if (_job is not null)
             {
-                _ = RecentItemsService.RecordVisitAsync(Id, _job.Name, "Job");
+                _ = RecentItemsService.RecordVisitAsync(Id, _job.Name, "Job", WorkspaceId);
                 _editName = _job.Name;
                 _editDescription = _job.Description;
                 _editMaxConcurrent = _job.MaxConcurrentRuns;

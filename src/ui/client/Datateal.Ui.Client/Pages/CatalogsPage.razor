@@ -1,9 +1,13 @@
 @page "/catalogs"
 
 @using Datateal.Ui.Shared.Catalogs
+@using Datateal.Ui.Shared.Workspaces
 @using Datateal.Ui.Client.Validation
 @using Datateal.Ui.Client.Components
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ICatalogService CatalogService
+@inject IWorkspaceManagementService WorkspaceService
+@inject IAuthorizationService AuthorizationService
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -119,6 +123,13 @@
                             </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
+                            <Tooltip Title="Workspace access">
+                                <Button Size="@ButtonSize.Small" OnClick="() => StartWorkspaceAccessAsync(context)">
+                                    <Icon Type="@IconType.Outline.Appstore" />
+                                </Button>
+                            </Tooltip>
+                        </SpaceItem>
+                        <SpaceItem>
                             <Tooltip Title="Delete">
                                 <Popconfirm Title="@(context is ManagedCatalogDto ? $"Delete catalog '{context.Name}'? The PostgreSQL database will also be dropped." : $"Delete catalog '{context.Name}'?")"
                                             OnConfirm="() => DeleteAsync(context)">
@@ -228,6 +239,44 @@
         <Button Type="@ButtonType.Primary" OnClick="ConfirmSave" Disabled="@(!IsFormValid())">Save</Button>
     </div>
 </Drawer>
+
+<Drawer Closable="true" @bind-Visible="_showWsAccess" Placement="DrawerPlacement.Right"
+        Width="480" Title="@($"Workspace access — {_wsAccessTarget?.Name}")"
+        OnClose="() => _showWsAccess = false"
+        BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+    <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        @if (_wsAccessError is not null)
+        {
+            <Alert Type="@AlertType.Error" Message="@_wsAccessError" ShowIcon="true" />
+        }
+        <Checkbox Checked="_wsAccessAll" CheckedChanged="(bool v) => _wsAccessAll = v">
+            Accessible from all workspaces
+        </Checkbox>
+        @if (!_wsAccessAll)
+        {
+            <div>
+                <div style="margin-bottom: 6px;">Allowed workspaces</div>
+                <Select TItem="WorkspaceDto"
+                        TItemValue="Guid"
+                        DataSource="_workspaces"
+                        Mode="@SelectMode.Multiple"
+                        @bind-Values="_wsAccessSelected"
+                        ValueName="@nameof(WorkspaceDto.Id)"
+                        LabelName="@nameof(WorkspaceDto.Name)"
+                        Placeholder="Select workspaces..."
+                        Style="width: 100%;"
+                        AllowClear />
+                <div style="color: #8c8c8c; font-size: 12px; margin-top: 6px;">
+                    When no workspaces are selected, the catalog is not usable from any workspace.
+                </div>
+            </div>
+        }
+    </div>
+    <div class="drawer-footer">
+        <Button OnClick="() => _showWsAccess = false">Cancel</Button>
+        <Button Type="@ButtonType.Primary" OnClick="SaveWorkspaceAccessAsync" Loading="_savingWsAccess">Save</Button>
+    </div>
+</Drawer>
 </Authorized>
 </AuthorizeView>
 
@@ -248,6 +297,18 @@
     private IReadOnlyList<CatalogDto> _catalogs = [];
     private bool _loading = true;
     private string? _error;
+    private bool _canManage;
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    // ── Workspace access editor state ─────────────────────────────────
+    private bool _showWsAccess;
+    private CatalogDto? _wsAccessTarget;
+    private bool _wsAccessAll = true;
+    private IEnumerable<Guid> _wsAccessSelected = [];
+    private IReadOnlyList<WorkspaceDto> _workspaces = [];
+    private bool _savingWsAccess;
+    private string? _wsAccessError;
 
     private bool _showModal;
     private CatalogDto? _editTarget;
@@ -275,7 +336,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadCatalogsAsync();
+        if (AuthenticationStateTask is not null)
+        {
+            var state = await AuthenticationStateTask;
+            var result = await AuthorizationService.AuthorizeAsync(state.User, AuthPolicy.CatalogManage);
+            _canManage = result.Succeeded;
+        }
+
+        if (_canManage)
+            await LoadCatalogsAsync();
+        else
+            _loading = false;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -329,9 +400,44 @@
     private async Task LoadCatalogsAsync()
     {
         _loading = true;
-        try { _catalogs = await CatalogService.GetCatalogsAsync(); }
+        try { _catalogs = await CatalogService.GetAllCatalogsAsync(); }
         catch (Exception ex) { _error = $"Failed to load catalogs: {ex.Message}"; }
         finally { _loading = false; }
+    }
+
+    private async Task StartWorkspaceAccessAsync(CatalogDto catalog)
+    {
+        _wsAccessTarget = catalog;
+        _wsAccessError = null;
+        _wsAccessAll = true;
+        _wsAccessSelected = [];
+        try
+        {
+            if (_workspaces.Count == 0)
+                _workspaces = await WorkspaceService.GetAccessibleAsync();
+            var access = await CatalogService.GetWorkspaceAccessAsync(catalog.Id);
+            _wsAccessAll = access.AccessibleFromAllWorkspaces;
+            _wsAccessSelected = access.WorkspaceIds.ToList();
+        }
+        catch (Exception ex) { _wsAccessError = $"Failed to load workspace access: {ex.Message}"; }
+        _showWsAccess = true;
+    }
+
+    private async Task SaveWorkspaceAccessAsync()
+    {
+        if (_wsAccessTarget is null) return;
+
+        _savingWsAccess = true;
+        _wsAccessError = null;
+        try
+        {
+            var workspaceIds = _wsAccessAll ? new List<Guid>() : _wsAccessSelected.ToList();
+            await CatalogService.SetWorkspaceAccessAsync(_wsAccessTarget.Id,
+                new SetCatalogWorkspaceAccessRequest(_wsAccessAll, workspaceIds));
+            _showWsAccess = false;
+        }
+        catch (Exception ex) { _wsAccessError = $"Failed to save workspace access: {ex.Message}"; }
+        finally { _savingWsAccess = false; }
     }
 
     private bool IsFormValid()

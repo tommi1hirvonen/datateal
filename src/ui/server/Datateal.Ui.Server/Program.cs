@@ -9,7 +9,10 @@ using Datateal.Ui.Server.Auth;
 using Datateal.Ui.Server.Components;
 using Datateal.Ui.Server.Core.Catalogs;
 using Datateal.Ui.Server.Infrastructure;
+using Datateal.Ui.Shared.Users;
+using Datateal.Ui.Shared.Workspaces;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,7 +39,10 @@ if (authProvider.Equals("Dev", StringComparison.OrdinalIgnoreCase))
 else
     builder.Services.AddEntraIdAuthentication();
 builder.Services.AddDatatealWebAppAuthentication(builder.Configuration);
-builder.Services.AddDatatealAuthorizationPolicies();
+builder.Services.AddAuthorization(DatatealAuthorizationPolicies.Configure);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IActiveWorkspaceAccessor, HttpActiveWorkspaceAccessor>();
+builder.Services.AddScoped<IAuthorizationHandler, WorkspaceScopedRoleHandler>();
 builder.Services.Configure<AdminUsersOptions>(builder.Configuration.GetSection("Authorization"));
 builder.Services.AddScoped<IClaimsTransformation, AppClaimsTransformation>();
 
