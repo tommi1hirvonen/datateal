@@ -11,7 +11,6 @@ internal class GetJobsHandler(IJobRepository jobRepository)
 {
     public async Task<IReadOnlyList<Job>> Handle(GetJobsRequest request, CancellationToken cancellationToken)
     {
-        var jobs = await jobRepository.GetJobsAsync(cancellationToken);
-        return jobs.Where(j => j.WorkspaceId == request.WorkspaceId).ToList();
+        return await jobRepository.GetJobsAsync(request.WorkspaceId, cancellationToken);
     }
 }

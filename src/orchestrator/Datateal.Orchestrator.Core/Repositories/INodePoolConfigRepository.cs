@@ -5,6 +5,7 @@ namespace Datateal.Orchestrator.Core.Repositories;
 public interface INodePoolConfigRepository
 {
     Task<IReadOnlyList<NodePoolConfig>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<NodePoolConfig>> GetByWorkspaceAsync(Guid workspaceId, CancellationToken cancellationToken = default);
     Task<NodePoolConfig?> GetAsync(Guid id, CancellationToken cancellationToken = default);
     Task<NodePoolConfig?> GetByNameAsync(string name, Guid workspaceId, CancellationToken cancellationToken = default);
     Task<NodePoolConfig> CreateAsync(NodePoolConfig config, CancellationToken cancellationToken = default);

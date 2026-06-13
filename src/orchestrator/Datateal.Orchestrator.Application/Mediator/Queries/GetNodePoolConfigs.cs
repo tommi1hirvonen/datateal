@@ -11,7 +11,6 @@ internal class GetNodePoolConfigsHandler(INodePoolConfigRepository repository)
 {
     public async Task<IReadOnlyList<NodePoolConfig>> Handle(GetNodePoolConfigsRequest request, CancellationToken cancellationToken)
     {
-        var configs = await repository.GetAllAsync(cancellationToken);
-        return configs.Where(c => c.WorkspaceId == request.WorkspaceId).ToList();
+        return await repository.GetByWorkspaceAsync(request.WorkspaceId, cancellationToken);
     }
 }

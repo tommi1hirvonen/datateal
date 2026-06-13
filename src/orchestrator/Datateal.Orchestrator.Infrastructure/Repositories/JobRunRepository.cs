@@ -22,10 +22,10 @@ internal class JobRunRepository(DatatealDbContext db) : IJobRunRepository
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<JobRun>> GetAllRunsAsync(
-        string? jobName, string? status, DateTime? from, DateTime? to,
+        Guid workspaceId, string? jobName, string? status, DateTime? from, DateTime? to,
         int limit = 100, int offset = 0, CancellationToken cancellationToken = default)
     {
-        var query = db.JobRuns.AsQueryable();
+        var query = db.JobRuns.Where(r => r.WorkspaceId == workspaceId);
 
         if (!string.IsNullOrWhiteSpace(jobName))
             query = query.Where(r => r.JobName.ToLower().Contains(jobName.ToLower()));

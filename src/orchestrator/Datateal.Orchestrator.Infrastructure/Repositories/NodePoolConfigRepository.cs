@@ -10,6 +10,12 @@ internal class NodePoolConfigRepository(DatatealDbContext db) : INodePoolConfigR
     public async Task<IReadOnlyList<NodePoolConfig>> GetAllAsync(CancellationToken cancellationToken = default)
         => await db.NodePoolConfigs.OrderBy(c => c.Name).ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<NodePoolConfig>> GetByWorkspaceAsync(Guid workspaceId, CancellationToken cancellationToken = default)
+        => await db.NodePoolConfigs
+            .Where(c => c.WorkspaceId == workspaceId)
+            .OrderBy(c => c.Name)
+            .ToListAsync(cancellationToken);
+
     public async Task<NodePoolConfig?> GetAsync(Guid id, CancellationToken cancellationToken = default)
         => await db.NodePoolConfigs.FindAsync([id], cancellationToken);
 

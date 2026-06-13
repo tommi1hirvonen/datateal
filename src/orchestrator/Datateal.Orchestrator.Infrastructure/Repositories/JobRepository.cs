@@ -7,8 +7,9 @@ namespace Datateal.Orchestrator.Infrastructure.Repositories;
 
 internal class JobRepository(DatatealDbContext db) : IJobRepository
 {
-    public async Task<IReadOnlyList<Job>> GetJobsAsync(CancellationToken cancellationToken = default) =>
+    public async Task<IReadOnlyList<Job>> GetJobsAsync(Guid workspaceId, CancellationToken cancellationToken = default) =>
         await db.Jobs
+            .Where(j => j.WorkspaceId == workspaceId)
             .Include(j => j.Parameters)
             .Include(j => j.Tasks)
             .Include(j => j.Schedules)

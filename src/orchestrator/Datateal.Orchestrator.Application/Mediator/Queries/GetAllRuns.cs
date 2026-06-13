@@ -18,9 +18,8 @@ internal class GetAllRunsHandler(IJobRunRepository jobRunRepository)
 {
     public async Task<IReadOnlyList<JobRun>> Handle(GetAllRunsRequest request, CancellationToken cancellationToken)
     {
-        var runs = await jobRunRepository.GetAllRunsAsync(
-            request.JobName, request.Status, request.From, request.To,
+        return await jobRunRepository.GetAllRunsAsync(
+            request.WorkspaceId, request.JobName, request.Status, request.From, request.To,
             request.Limit, request.Offset, cancellationToken);
-        return runs.Where(r => r.WorkspaceId == request.WorkspaceId).ToList();
     }
 }
