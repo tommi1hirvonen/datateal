@@ -10,7 +10,7 @@ namespace Datateal.Ui.Server.Controllers;
 
 [ApiController]
 [Authorize(Policy = AuthPolicy.NodePoolOperate)]
-[Route("api/nodes")]
+[Route("api/workspaces/{workspaceId:guid}/nodes")]
 public class NodesController(IMediator mediator) : ControllerBase
 {
     [HttpGet]

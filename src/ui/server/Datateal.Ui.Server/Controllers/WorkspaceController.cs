@@ -13,41 +13,41 @@ using SharedWorkspace = Datateal.Ui.Shared.Workspace;
 namespace Datateal.Ui.Server.Controllers;
 
 [ApiController]
-[Route("api/workspace")]
+[Route("api/workspaces/{workspaceId:guid}/items")]
 [Authorize(Policy = AuthPolicy.WorkspaceRead)]
 public class WorkspaceController(IMediator mediator) : ControllerBase
 {
     [HttpGet("search")]
-    public async Task<WorkspaceSearchResult> SearchItems([FromQuery] string? q, CancellationToken ct) =>
-        await mediator.SendAsync(new Qry.SearchWorkspaceRequest(q ?? ""), ct);
+    public async Task<WorkspaceSearchResult> SearchItems(Guid workspaceId, [FromQuery] string? q, CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.SearchWorkspaceRequest(workspaceId, q ?? ""), ct);
 
     [HttpGet]
-    public async Task<WorkspaceListing> GetRoot(CancellationToken ct) =>
-        await mediator.SendAsync(new Qry.GetWorkspaceRequest(), ct);
+    public async Task<WorkspaceListing> GetRoot(Guid workspaceId, CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.GetWorkspaceRequest(workspaceId), ct);
 
     [HttpGet("folders/{id:guid}")]
-    public async Task<WorkspaceListing> GetFolder(Guid id, CancellationToken ct) =>
-        await mediator.SendAsync(new Qry.GetWorkspaceRequest(id), ct);
+    public async Task<WorkspaceListing> GetFolder(Guid workspaceId, Guid id, CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.GetWorkspaceRequest(workspaceId, id), ct);
 
     [HttpGet("folders/{id:guid}/ancestors")]
-    public async Task<IReadOnlyList<FolderSummary>> GetFolderAncestors(Guid id, CancellationToken ct) =>
-        await mediator.SendAsync(new Qry.GetFolderAncestorsRequest(id), ct);
+    public async Task<IReadOnlyList<FolderSummary>> GetFolderAncestors(Guid workspaceId, Guid id, CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.GetFolderAncestorsRequest(workspaceId, id), ct);
 
     [HttpPost("resolve")]
-    public async Task<IActionResult> ResolvePath(SharedWorkspace.ResolvePathRequest body, CancellationToken ct)
+    public async Task<IActionResult> ResolvePath(Guid workspaceId, SharedWorkspace.ResolvePathRequest body, CancellationToken ct)
     {
-        var result = await mediator.SendAsync(new Qry.ResolveWorkspacePathRequest(body.Path, body.BaseFolderId), ct);
+        var result = await mediator.SendAsync(new Qry.ResolveWorkspacePathRequest(workspaceId, body.Path, body.BaseFolderId), ct);
         return result is null ? NotFound() : Ok(result);
     }
 
     [HttpPost("folders")]
     [Authorize(Policy = AuthPolicy.WorkspaceManage)]
-    public async Task<IActionResult> CreateFolder(SharedWorkspace.CreateFolderRequest body, CancellationToken ct)
+    public async Task<IActionResult> CreateFolder(Guid workspaceId, SharedWorkspace.CreateFolderRequest body, CancellationToken ct)
     {
         try
         {
-            var folder = await mediator.SendAsync(new Cmd.CreateFolderRequest(body.Name, body.ParentId), ct);
-            return CreatedAtAction(nameof(GetFolder), new { id = folder.Id }, folder);
+            var folder = await mediator.SendAsync(new Cmd.CreateFolderRequest(workspaceId, body.Name, body.ParentId), ct);
+            return CreatedAtAction(nameof(GetFolder), new { workspaceId, id = folder.Id }, folder);
         }
         catch (WorkspaceNameValidationException ex)
         {
@@ -57,11 +57,11 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
 
     [HttpPut("folders/{id:guid}")]
     [Authorize(Policy = AuthPolicy.WorkspaceManage)]
-    public async Task<IActionResult> UpdateFolder(Guid id, SharedWorkspace.UpdateFolderRequest body, CancellationToken ct)
+    public async Task<IActionResult> UpdateFolder(Guid workspaceId, Guid id, SharedWorkspace.UpdateFolderRequest body, CancellationToken ct)
     {
         try
         {
-            var folder = await mediator.SendAsync(new Cmd.UpdateFolderRequest(id, body.Name, body.ParentId), ct);
+            var folder = await mediator.SendAsync(new Cmd.UpdateFolderRequest(workspaceId, id, body.Name, body.ParentId), ct);
             return folder is null ? NotFound() : Ok(folder);
         }
         catch (WorkspaceNameValidationException ex)
@@ -72,27 +72,27 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
 
     [HttpDelete("folders/{id:guid}")]
     [Authorize(Policy = AuthPolicy.WorkspaceManage)]
-    public async Task<IActionResult> DeleteFolder(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeleteFolder(Guid workspaceId, Guid id, CancellationToken ct)
     {
-        var found = await mediator.SendAsync(new Cmd.DeleteFolderRequest(id), ct);
+        var found = await mediator.SendAsync(new Cmd.DeleteFolderRequest(workspaceId, id), ct);
         return found ? NoContent() : NotFound();
     }
 
     [HttpGet("notebooks/{id:guid}")]
-    public async Task<IActionResult> GetNotebook(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetNotebook(Guid workspaceId, Guid id, CancellationToken ct)
     {
-        var notebook = await mediator.SendAsync(new Qry.GetNotebookRequest(id), ct);
+        var notebook = await mediator.SendAsync(new Qry.GetNotebookRequest(workspaceId, id), ct);
         return notebook is null ? NotFound() : Ok(notebook);
     }
 
     [HttpPost("notebooks")]
     [Authorize(Policy = AuthPolicy.WorkspaceManage)]
-    public async Task<IActionResult> CreateNotebook(SharedWorkspace.CreateNotebookRequest body, CancellationToken ct)
+    public async Task<IActionResult> CreateNotebook(Guid workspaceId, SharedWorkspace.CreateNotebookRequest body, CancellationToken ct)
     {
         try
         {
-            var notebook = await mediator.SendAsync(new Cmd.CreateNotebookRequest(body.Title, body.Content, body.FolderId), ct);
-            return CreatedAtAction(nameof(GetNotebook), new { id = notebook.Id }, notebook);
+            var notebook = await mediator.SendAsync(new Cmd.CreateNotebookRequest(workspaceId, body.Title, body.Content, body.FolderId), ct);
+            return CreatedAtAction(nameof(GetNotebook), new { workspaceId, id = notebook.Id }, notebook);
         }
         catch (WorkspaceNameValidationException ex)
         {
@@ -106,11 +106,11 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
 
     [HttpPut("notebooks/{id:guid}")]
     [Authorize(Policy = AuthPolicy.WorkspaceManage)]
-    public async Task<IActionResult> UpdateNotebook(Guid id, SharedWorkspace.UpdateNotebookRequest body, CancellationToken ct)
+    public async Task<IActionResult> UpdateNotebook(Guid workspaceId, Guid id, SharedWorkspace.UpdateNotebookRequest body, CancellationToken ct)
     {
         try
         {
-            var notebook = await mediator.SendAsync(new Cmd.UpdateNotebookRequest(id, body.Title, body.Content, body.FolderId), ct);
+            var notebook = await mediator.SendAsync(new Cmd.UpdateNotebookRequest(workspaceId, id, body.Title, body.Content, body.FolderId), ct);
             return notebook is null ? NotFound() : Ok(notebook);
         }
         catch (WorkspaceNameValidationException ex)
@@ -125,27 +125,27 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
 
     [HttpDelete("notebooks/{id:guid}")]
     [Authorize(Policy = AuthPolicy.WorkspaceManage)]
-    public async Task<IActionResult> DeleteNotebook(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeleteNotebook(Guid workspaceId, Guid id, CancellationToken ct)
     {
-        var found = await mediator.SendAsync(new Cmd.DeleteNotebookRequest(id), ct);
+        var found = await mediator.SendAsync(new Cmd.DeleteNotebookRequest(workspaceId, id), ct);
         return found ? NoContent() : NotFound();
     }
 
     [HttpGet("queries/{id:guid}")]
-    public async Task<IActionResult> GetQuery(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetQuery(Guid workspaceId, Guid id, CancellationToken ct)
     {
-        var query = await mediator.SendAsync(new Qry.GetQueryRequest(id), ct);
+        var query = await mediator.SendAsync(new Qry.GetQueryRequest(workspaceId, id), ct);
         return query is null ? NotFound() : Ok(query);
     }
 
     [HttpPost("queries")]
     [Authorize(Policy = AuthPolicy.WorkspaceManage)]
-    public async Task<IActionResult> CreateQuery(SharedWorkspace.CreateQueryRequest body, CancellationToken ct)
+    public async Task<IActionResult> CreateQuery(Guid workspaceId, SharedWorkspace.CreateQueryRequest body, CancellationToken ct)
     {
         try
         {
-            var query = await mediator.SendAsync(new Cmd.CreateQueryRequest(body.Title, body.Content, body.FolderId, body.LastResult), ct);
-            return CreatedAtAction(nameof(GetQuery), new { id = query.Id }, query);
+            var query = await mediator.SendAsync(new Cmd.CreateQueryRequest(workspaceId, body.Title, body.Content, body.FolderId, body.LastResult), ct);
+            return CreatedAtAction(nameof(GetQuery), new { workspaceId, id = query.Id }, query);
         }
         catch (WorkspaceNameValidationException ex)
         {
@@ -159,11 +159,11 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
 
     [HttpPut("queries/{id:guid}")]
     [Authorize(Policy = AuthPolicy.WorkspaceManage)]
-    public async Task<IActionResult> UpdateQuery(Guid id, SharedWorkspace.UpdateQueryRequest body, CancellationToken ct)
+    public async Task<IActionResult> UpdateQuery(Guid workspaceId, Guid id, SharedWorkspace.UpdateQueryRequest body, CancellationToken ct)
     {
         try
         {
-            var query = await mediator.SendAsync(new Cmd.UpdateQueryRequest(id, body.Title, body.Content, body.FolderId, body.LastResult), ct);
+            var query = await mediator.SendAsync(new Cmd.UpdateQueryRequest(workspaceId, id, body.Title, body.Content, body.FolderId, body.LastResult), ct);
             return query is null ? NotFound() : Ok(query);
         }
         catch (WorkspaceNameValidationException ex)
@@ -178,35 +178,35 @@ public class WorkspaceController(IMediator mediator) : ControllerBase
 
     [HttpDelete("queries/{id:guid}")]
     [Authorize(Policy = AuthPolicy.WorkspaceManage)]
-    public async Task<IActionResult> DeleteQuery(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeleteQuery(Guid workspaceId, Guid id, CancellationToken ct)
     {
-        var found = await mediator.SendAsync(new Cmd.DeleteQueryRequest(id), ct);
+        var found = await mediator.SendAsync(new Cmd.DeleteQueryRequest(workspaceId, id), ct);
         return found ? NoContent() : NotFound();
     }
 
     // ── Catalog associations ────────────────────────────────────────────
 
-    [HttpGet("items/{id:guid}/catalogs")]
-    public async Task<IActionResult> GetItemCatalogs(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}/catalogs")]
+    public async Task<IActionResult> GetItemCatalogs(Guid workspaceId, Guid id, CancellationToken ct)
     {
         // Re-use the notebook or query get to find the item
-        var notebook = await mediator.SendAsync(new Qry.GetNotebookRequest(id), ct);
+        var notebook = await mediator.SendAsync(new Qry.GetNotebookRequest(workspaceId, id), ct);
         if (notebook is not null) return Ok(notebook.CatalogNames ?? new List<string>());
 
-        var query = await mediator.SendAsync(new Qry.GetQueryRequest(id), ct);
+        var query = await mediator.SendAsync(new Qry.GetQueryRequest(workspaceId, id), ct);
         if (query is not null) return Ok(query.CatalogNames ?? new List<string>());
 
         return NotFound();
     }
 
-    [HttpPut("items/{id:guid}/catalogs")]
+    [HttpPut("{id:guid}/catalogs")]
     [Authorize(Policy = AuthPolicy.WorkspaceManage)]
-    public async Task<IActionResult> UpdateItemCatalogs(Guid id, SharedCat.UpdateWorkspaceItemCatalogsRequest body, CancellationToken ct)
+    public async Task<IActionResult> UpdateItemCatalogs(Guid workspaceId, Guid id, SharedCat.UpdateWorkspaceItemCatalogsRequest body, CancellationToken ct)
     {
         try
         {
             var updated = await mediator.SendAsync(
-                new Cmd.UpdateWorkspaceItemCatalogsRequest(id, body.CatalogNames), ct);
+                new Cmd.UpdateWorkspaceItemCatalogsRequest(workspaceId, id, body.CatalogNames), ct);
             return updated ? NoContent() : NotFound();
         }
         catch (CatalogNameConflictException ex)

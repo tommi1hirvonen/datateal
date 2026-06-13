@@ -2,29 +2,28 @@ using System.Security.Claims;
 using Datateal.Auth;
 using Datateal.Data;
 using Datateal.Ui.Server.Core.Catalogs;
-using Datateal.Ui.Shared.Workspaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Datateal.Ui.Server.Infrastructure;
 
-internal class CatalogAccessService(DatatealDbContext db, IActiveWorkspaceAccessor activeWorkspace) : ICatalogAccessService
+internal class CatalogAccessService(DatatealDbContext db) : ICatalogAccessService
 {
-    public async Task<IReadOnlySet<Guid>?> GetAccessibleCatalogIdsAsync(ClaimsPrincipal user, CancellationToken ct = default)
+    public async Task<IReadOnlySet<Guid>?> GetAccessibleCatalogIdsAsync(ClaimsPrincipal user, Guid? workspaceId, CancellationToken ct = default)
     {
         var userSet = await GetUserAccessibleIdsAsync(user, ct);
-        var workspaceSet = await GetWorkspaceAccessibleIdsAsync(ct);
+        var workspaceSet = await GetWorkspaceAccessibleIdsAsync(workspaceId, ct);
         return Combine(userSet, workspaceSet);
     }
 
-    public async Task<bool> HasAccessAsync(ClaimsPrincipal user, Guid catalogId, CancellationToken ct = default)
+    public async Task<bool> HasAccessAsync(ClaimsPrincipal user, Guid? workspaceId, Guid catalogId, CancellationToken ct = default)
     {
-        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, ct);
+        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, workspaceId, ct);
         return accessibleIds is null || accessibleIds.Contains(catalogId);
     }
 
-    public async Task<bool> HasAccessByNameAsync(ClaimsPrincipal user, string catalogName, CancellationToken ct = default)
+    public async Task<bool> HasAccessByNameAsync(ClaimsPrincipal user, Guid? workspaceId, string catalogName, CancellationToken ct = default)
     {
-        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, ct);
+        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, workspaceId, ct);
         if (accessibleIds is null)
             return true;
 
@@ -37,12 +36,12 @@ internal class CatalogAccessService(DatatealDbContext db, IActiveWorkspaceAccess
     }
 
     public async Task<IReadOnlyList<string>> FilterAccessibleNamesAsync(
-        ClaimsPrincipal user, IReadOnlyList<string> catalogNames, CancellationToken ct = default)
+        ClaimsPrincipal user, Guid? workspaceId, IReadOnlyList<string> catalogNames, CancellationToken ct = default)
     {
         if (catalogNames.Count == 0)
             return catalogNames;
 
-        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, ct);
+        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, workspaceId, ct);
         if (accessibleIds is null)
             return catalogNames;
 
@@ -69,13 +68,12 @@ internal class CatalogAccessService(DatatealDbContext db, IActiveWorkspaceAccess
     }
 
     /// <summary>
-    /// Workspace-level access for the active workspace: catalogs flagged accessible from all
-    /// workspaces plus those explicitly granted to the active workspace. <c>null</c> when no
-    /// workspace is in scope (no restriction applied).
+    /// Workspace-level access: catalogs flagged accessible from all workspaces plus those
+    /// explicitly granted to <paramref name="workspaceId"/>. <c>null</c> when no workspace is
+    /// in scope (no restriction applied).
     /// </summary>
-    private async Task<IReadOnlySet<Guid>?> GetWorkspaceAccessibleIdsAsync(CancellationToken ct)
+    private async Task<IReadOnlySet<Guid>?> GetWorkspaceAccessibleIdsAsync(Guid? workspaceId, CancellationToken ct)
     {
-        var workspaceId = activeWorkspace.ActiveWorkspaceId;
         if (workspaceId is null)
             return null;
 

@@ -6,13 +6,13 @@ using Datateal.Ui.Shared.Workspace;
 
 namespace Datateal.Ui.Server.Application.Mediator.Queries;
 
-public record GetQueryRequest(Guid Id) : IRequest<QueryDetail?>;
+public record GetQueryRequest(Guid WorkspaceId, Guid Id) : IRequest<QueryDetail?>;
 
 internal class GetQueryHandler(IWorkspaceRepository repository) : IRequestHandler<GetQueryRequest, QueryDetail?>
 {
     public async Task<QueryDetail?> Handle(GetQueryRequest request, CancellationToken cancellationToken)
     {
-        var query = await repository.GetQueryAsync(request.Id, cancellationToken);
+        var query = await repository.GetQueryAsync(request.WorkspaceId, request.Id, cancellationToken);
         if (query is null) return null;
 
         QueryLastResult? lastResult = null;
@@ -39,4 +39,3 @@ internal class GetQueryHandler(IWorkspaceRepository repository) : IRequestHandle
 
     internal record ResultPayload(DataFrameOutput? DataFrame, string? Text, ErrorInfo? Error);
 }
-

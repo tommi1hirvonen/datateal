@@ -1,9 +1,11 @@
 @using Datateal.Ui.Shared.Ai
+@using Datateal.Ui.Shared.Workspaces
 @using System.Text.RegularExpressions
 @using Markdig
 @inject IAiAssistantService AiAssistantService
 @inject IAiSettingsService AiSettingsService
 @inject IAiCredentialService AiCredentialService
+@inject IActiveWorkspaceAccessor ActiveWorkspace
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
 
@@ -373,6 +375,7 @@
             NotebookJson: GetNotebookJson?.Invoke(),
             FocusedCellIndex: GetFocusedCellIndex?.Invoke() ?? -1,
             QueryContent: GetQueryContent?.Invoke(),
+            WorkspaceId: ActiveWorkspace.ActiveWorkspaceId,
             CatalogIds: CatalogIds,
             Mode: _agentMode ? AiMode.Edit : AiMode.Chat
         );

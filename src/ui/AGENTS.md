@@ -26,7 +26,7 @@ Blazor Web App: ASP.NET Core server host (`Datateal.Ui.Server`) with a WebAssemb
 
 Workspaces store **notebooks** and **SQL query files** in a folder hierarchy backed by EF Core + SQLite using **TPH inheritance**. `WorkspaceItem` is the abstract EF base class; `Notebook` and `Query` are concrete subclasses. The EF discriminator column is `ItemType varchar(32)`. `Query` adds nullable columns for the last execution result (`LastExecutedAt`, `LastDurationMs`, `LastResultStatus`, `LastResultJson` as a JSON blob).
 
-- Server: `WorkspaceController` at `api/workspace`; typed repository methods use `.OfType<Notebook>()` / `.OfType<Query>()`
+- Server: `WorkspaceController` at `api/workspaces/{workspaceId:guid}/items`; typed repository methods use `.OfType<Notebook>()` / `.OfType<Query>()`
 - Client: `IWorkspaceService` / `WorkspaceService` in `Datateal.Ui.Client/Services/`
 - Workspace listing: folders first (alphabetical), then notebooks and queries merged and sorted alphabetically
 
@@ -40,9 +40,9 @@ Workspaces store **notebooks** and **SQL query files** in a folder hierarchy bac
 
 Interactive node pools are a class of `NodePoolConfig` with `PoolType = "Interactive"`. They have 0 or 1 live compute nodes at any time. Users connect to them from `NotebookPage` and `QueryPage` by selecting a pool; if the pool's node isn't running, one is created on demand.
 
-- Server: `InteractivePoolsController` at `api/interactive-pools`; key endpoints:
-  - `GET api/interactive-pools` — lists all `InteractiveNodePoolConfig` entries with live node state (fetched from the control plane per pool)
-  - `POST api/interactive-pools/{name}/ensure-node` — idempotent "start or join" call; returns `NodeInfo`; handles 409 race by retrying GET
+- Server: `InteractivePoolsController` at `api/workspaces/{workspaceId:guid}/interactive-pools`; key endpoints:
+  - `GET api/workspaces/{workspaceId}/interactive-pools` — lists all `InteractiveNodePoolConfig` entries with live node state (fetched from the control plane per pool)
+  - `POST api/workspaces/{workspaceId}/interactive-pools/{name}/ensure-node` — idempotent "start or join" call; returns `NodeInfo`; handles 409 race by retrying GET
 - Client: `IInteractivePoolService` / `InteractivePoolService` in `Datateal.Ui.Client/Services/`; registered in `Program.cs`
 - DTO: `InteractivePoolDto` in `Datateal.Ui.Shared/Nodes/`; carries `Name`, `VmSize`, `Description`, `Status` (of type `InteractivePoolStatus`)
 

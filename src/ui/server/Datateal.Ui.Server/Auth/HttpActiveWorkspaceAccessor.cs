@@ -4,8 +4,8 @@ namespace Datateal.Ui.Server.Auth;
 
 /// <summary>
 /// Server-side <see cref="IActiveWorkspaceAccessor"/>. Resolves the active workspace from
-/// the <c>X-Datateal-Workspace</c> request header (sent by the WASM client on API calls),
-/// falling back to a <c>workspaceId</c> route value or <c>ws</c> query parameter.
+/// the <c>workspaceId</c> route parameter, which is present on all workspace-scoped API
+/// routes (<c>api/workspaces/{workspaceId:guid}/...</c>).
 /// </summary>
 public sealed class HttpActiveWorkspaceAccessor(IHttpContextAccessor httpContextAccessor)
     : IActiveWorkspaceAccessor
@@ -18,17 +18,9 @@ public sealed class HttpActiveWorkspaceAccessor(IHttpContextAccessor httpContext
             if (context is null)
                 return null;
 
-            if (context.Request.Headers.TryGetValue(WorkspaceRoleClaims.HeaderName, out var header)
-                && Guid.TryParse(header.ToString(), out var headerId))
-                return headerId;
-
             if (context.Request.RouteValues.TryGetValue("workspaceId", out var routeValue)
                 && Guid.TryParse(routeValue?.ToString(), out var routeId))
                 return routeId;
-
-            if (context.Request.Query.TryGetValue("ws", out var query)
-                && Guid.TryParse(query.ToString(), out var queryId))
-                return queryId;
 
             return null;
         }

@@ -26,7 +26,7 @@ public static class OrchestratorProxy
 
     public static IEndpointRouteBuilder MapOrchestratorProxy(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.Map("/api/orchestrator/{**path}", async (
+        endpoints.Map("/api/workspaces/{workspaceId:guid}/orchestrator/{**path}", async (
             HttpContext context,
             IHttpClientFactory clientFactory,
             IAuthorizationService authorizationService) =>
@@ -64,8 +64,9 @@ public static class OrchestratorProxy
 
             // Forward the active workspace so the orchestrator can scope and stamp entities.
             const string workspaceHeader = "X-Datateal-Workspace";
-            if (context.Request.Headers.TryGetValue(workspaceHeader, out var workspaceId))
-                requestMessage.Headers.TryAddWithoutValidation(workspaceHeader, workspaceId.ToArray());
+            if (context.Request.RouteValues.TryGetValue("workspaceId", out var workspaceId)
+                && workspaceId is string workspaceIdStr)
+                requestMessage.Headers.TryAddWithoutValidation(workspaceHeader, workspaceIdStr);
 
             using var responseMessage = await client.SendAsync(requestMessage, context.RequestAborted);
 

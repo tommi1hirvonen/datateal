@@ -4,25 +4,28 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Datateal.Core.Orchestration;
 using Datateal.Ui.Shared.Orchestration;
+using Datateal.Ui.Shared.Workspaces;
 
 namespace Datateal.Ui.Client.Services;
 
-internal class JobService(HttpClient httpClient) : IJobService
+internal class JobService(HttpClient httpClient, IActiveWorkspaceAccessor workspace) : IJobService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() },
     };
 
+    private string Ws => $"api/workspaces/{workspace.ActiveWorkspaceId!.Value}/orchestrator";
+
     public async Task<IReadOnlyList<JobSummary>> GetJobsAsync(CancellationToken ct)
     {
-        return await httpClient.GetFromJsonAsync<IReadOnlyList<JobSummary>>("api/orchestrator/jobs", JsonOptions, ct)
+        return await httpClient.GetFromJsonAsync<IReadOnlyList<JobSummary>>($"{Ws}/jobs", JsonOptions, ct)
             ?? [];
     }
 
     public async Task<JobDetail?> GetJobAsync(Guid id, CancellationToken ct)
     {
-        var response = await httpClient.GetAsync($"api/orchestrator/jobs/{id}", ct);
+        var response = await httpClient.GetAsync($"{Ws}/jobs/{id}", ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<JobDetail>(JsonOptions, ct);
@@ -30,7 +33,7 @@ internal class JobService(HttpClient httpClient) : IJobService
 
     public async Task<JobSummary> CreateJobAsync(CreateJobRequest request, CancellationToken ct)
     {
-        var response = await httpClient.PostAsJsonAsync("api/orchestrator/jobs", request, JsonOptions, ct);
+        var response = await httpClient.PostAsJsonAsync($"{Ws}/jobs", request, JsonOptions, ct);
         await EnsureNoJobErrorAsync(response, ct);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<JobSummary>(JsonOptions, ct))!;
@@ -38,7 +41,7 @@ internal class JobService(HttpClient httpClient) : IJobService
 
     public async Task<JobSummary?> UpdateJobAsync(Guid id, UpdateJobRequest request, CancellationToken ct)
     {
-        var response = await httpClient.PutAsJsonAsync($"api/orchestrator/jobs/{id}", request, JsonOptions, ct);
+        var response = await httpClient.PutAsJsonAsync($"{Ws}/jobs/{id}", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         await EnsureNoJobErrorAsync(response, ct);
         response.EnsureSuccessStatusCode();
@@ -47,13 +50,13 @@ internal class JobService(HttpClient httpClient) : IJobService
 
     public async Task DeleteJobAsync(Guid id, CancellationToken ct)
     {
-        var response = await httpClient.DeleteAsync($"api/orchestrator/jobs/{id}", ct);
+        var response = await httpClient.DeleteAsync($"{Ws}/jobs/{id}", ct);
         response.EnsureSuccessStatusCode();
     }
 
     public async Task<JobRunSummary> TriggerJobAsync(Guid id, TriggerJobRequest? request, CancellationToken ct)
     {
-        var response = await httpClient.PostAsJsonAsync($"api/orchestrator/jobs/{id}/trigger",
+        var response = await httpClient.PostAsJsonAsync($"{Ws}/jobs/{id}/trigger",
             request ?? new TriggerJobRequest(), JsonOptions, ct);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<JobRunSummary>(JsonOptions, ct))!;
@@ -62,7 +65,7 @@ internal class JobService(HttpClient httpClient) : IJobService
     public async Task<IReadOnlyList<JobRunSummary>> GetRunsAsync(Guid jobId, int limit, CancellationToken ct)
     {
         return await httpClient.GetFromJsonAsync<IReadOnlyList<JobRunSummary>>(
-            $"api/orchestrator/jobs/{jobId}/runs?limit={limit}", JsonOptions, ct) ?? [];
+            $"{Ws}/jobs/{jobId}/runs?limit={limit}", JsonOptions, ct) ?? [];
     }
 
     public async Task<IReadOnlyList<JobRunSummary>> GetAllRunsAsync(string? jobName, JobRunStatus? status, DateTime? from, DateTime? to, int limit, CancellationToken ct)
@@ -73,12 +76,12 @@ internal class JobService(HttpClient httpClient) : IJobService
         if (from.HasValue) parts.Add($"from={Uri.EscapeDataString(from.Value.ToString("o"))}");
         if (to.HasValue) parts.Add($"to={Uri.EscapeDataString(to.Value.ToString("o"))}");
         return await httpClient.GetFromJsonAsync<IReadOnlyList<JobRunSummary>>(
-            $"api/orchestrator/runs?{string.Join("&", parts)}", JsonOptions, ct) ?? [];
+            $"{Ws}/runs?{string.Join("&", parts)}", JsonOptions, ct) ?? [];
     }
 
     public async Task<JobRunDetail?> GetRunAsync(Guid runId, CancellationToken ct)
     {
-        var response = await httpClient.GetAsync($"api/orchestrator/runs/{runId}", ct);
+        var response = await httpClient.GetAsync($"{Ws}/runs/{runId}", ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<JobRunDetail>(JsonOptions, ct);
@@ -86,32 +89,32 @@ internal class JobService(HttpClient httpClient) : IJobService
 
     public async Task CancelRunAsync(Guid runId, CancellationToken ct)
     {
-        var response = await httpClient.PostAsync($"api/orchestrator/runs/{runId}/cancel", null, ct);
+        var response = await httpClient.PostAsync($"{Ws}/runs/{runId}/cancel", null, ct);
         response.EnsureSuccessStatusCode();
     }
 
     public async Task<IReadOnlyList<CellOutputDto>> GetCellOutputsAsync(Guid runId, Guid taskRunId, CancellationToken ct)
     {
         return await httpClient.GetFromJsonAsync<IReadOnlyList<CellOutputDto>>(
-            $"api/orchestrator/runs/{runId}/tasks/{taskRunId}/cells", JsonOptions, ct) ?? [];
+            $"{Ws}/runs/{runId}/tasks/{taskRunId}/cells", JsonOptions, ct) ?? [];
     }
 
     public async Task<IReadOnlyList<ScheduleDto>> GetSchedulesAsync(Guid jobId, CancellationToken ct)
     {
         return await httpClient.GetFromJsonAsync<IReadOnlyList<ScheduleDto>>(
-            $"api/orchestrator/jobs/{jobId}/schedules", JsonOptions, ct) ?? [];
+            $"{Ws}/jobs/{jobId}/schedules", JsonOptions, ct) ?? [];
     }
 
     public async Task<ScheduleDto> CreateScheduleAsync(Guid jobId, CreateScheduleRequest request, CancellationToken ct)
     {
-        var response = await httpClient.PostAsJsonAsync($"api/orchestrator/jobs/{jobId}/schedules", request, JsonOptions, ct);
+        var response = await httpClient.PostAsJsonAsync($"{Ws}/jobs/{jobId}/schedules", request, JsonOptions, ct);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ScheduleDto>(JsonOptions, ct))!;
     }
 
     public async Task<ScheduleDto?> UpdateScheduleAsync(Guid jobId, Guid scheduleId, UpdateScheduleRequest request, CancellationToken ct)
     {
-        var response = await httpClient.PutAsJsonAsync($"api/orchestrator/jobs/{jobId}/schedules/{scheduleId}", request, JsonOptions, ct);
+        var response = await httpClient.PutAsJsonAsync($"{Ws}/jobs/{jobId}/schedules/{scheduleId}", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<ScheduleDto>(JsonOptions, ct);
@@ -119,26 +122,26 @@ internal class JobService(HttpClient httpClient) : IJobService
 
     public async Task DeleteScheduleAsync(Guid jobId, Guid scheduleId, CancellationToken ct)
     {
-        var response = await httpClient.DeleteAsync($"api/orchestrator/jobs/{jobId}/schedules/{scheduleId}", ct);
+        var response = await httpClient.DeleteAsync($"{Ws}/jobs/{jobId}/schedules/{scheduleId}", ct);
         response.EnsureSuccessStatusCode();
     }
 
     public async Task<IReadOnlyList<TimeZoneDto>> GetTimeZonesAsync(CancellationToken ct)
     {
         return await httpClient.GetFromJsonAsync<IReadOnlyList<TimeZoneDto>>(
-            "api/orchestrator/admin/timezones", JsonOptions, ct) ?? [];
+            $"{Ws}/admin/timezones", JsonOptions, ct) ?? [];
     }
 
     public async Task<string> ExportJobAsync(Guid id, CancellationToken ct)
     {
-        var response = await httpClient.GetAsync($"api/orchestrator/jobs/{id}/export", ct);
+        var response = await httpClient.GetAsync($"{Ws}/jobs/{id}/export", ct);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(ct);
     }
 
     public async Task<JobSummary> ImportJobAsync(string yaml, CancellationToken ct)
     {
-        var response = await httpClient.PostAsJsonAsync("api/orchestrator/jobs/import", new { yaml }, JsonOptions, ct);
+        var response = await httpClient.PostAsJsonAsync($"{Ws}/jobs/import", new { yaml }, JsonOptions, ct);
         await EnsureNoJobErrorAsync(response, ct);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<JobSummary>(JsonOptions, ct))!;

@@ -5,7 +5,7 @@ using Datateal.Ui.Shared.Nodes;
 
 namespace Datateal.Ui.Server.Application.Mediator.Queries;
 
-public record GetInteractivePoolsRequest : IRequest<IReadOnlyList<InteractivePoolDto>>;
+public record GetInteractivePoolsRequest(Guid WorkspaceId) : IRequest<IReadOnlyList<InteractivePoolDto>>;
 
 internal class GetInteractivePoolsHandler(IInteractivePoolRepository poolRepository, INodeRepository nodeRepository)
     : IRequestHandler<GetInteractivePoolsRequest, IReadOnlyList<InteractivePoolDto>>
@@ -13,7 +13,7 @@ internal class GetInteractivePoolsHandler(IInteractivePoolRepository poolReposit
     public async Task<IReadOnlyList<InteractivePoolDto>> Handle(
         GetInteractivePoolsRequest request, CancellationToken cancellationToken)
     {
-        var pools = await poolRepository.GetAllAsync(cancellationToken);
+        var pools = await poolRepository.GetAllAsync(request.WorkspaceId, cancellationToken);
 
         var nodeTasks = pools.Select(p =>
             nodeRepository.GetNodeAsync(p.NodeName, cancellationToken)).ToList();

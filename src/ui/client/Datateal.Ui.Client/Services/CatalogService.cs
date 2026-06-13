@@ -4,18 +4,25 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Datateal.Core.Kernels;
 using Datateal.Ui.Shared.Catalogs;
+using Datateal.Ui.Shared.Workspaces;
 
 namespace Datateal.Ui.Client.Services;
 
-internal class CatalogService(HttpClient httpClient) : ICatalogService
+internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor workspace) : ICatalogService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() },
     };
 
+    private string Ws => $"api/workspaces/{workspace.ActiveWorkspaceId!.Value}";
+    private string WithWorkspaceQuery(string path) =>
+        workspace.ActiveWorkspaceId is Guid workspaceId
+            ? $"{path}?workspaceId={workspaceId}"
+            : path;
+
     public async Task<IReadOnlyList<CatalogDto>> GetCatalogsAsync(CancellationToken ct = default) =>
-        await httpClient.GetFromJsonAsync<IReadOnlyList<CatalogDto>>("api/catalogs", JsonOptions, ct) ?? [];
+        await httpClient.GetFromJsonAsync<IReadOnlyList<CatalogDto>>(WithWorkspaceQuery("api/catalogs"), JsonOptions, ct) ?? [];
 
     public async Task<IReadOnlyList<CatalogDto>> GetAllCatalogsAsync(CancellationToken ct = default) =>
         await httpClient.GetFromJsonAsync<IReadOnlyList<CatalogDto>>("api/catalogs/all", JsonOptions, ct) ?? [];
@@ -67,17 +74,17 @@ internal class CatalogService(HttpClient httpClient) : ICatalogService
     }
 
     public async Task<CatalogMetadataDto> GetMetadataAsync(Guid catalogId, CancellationToken ct = default) =>
-        await httpClient.GetFromJsonAsync<CatalogMetadataDto>($"api/catalogs/{catalogId}/metadata", JsonOptions, ct)
+        await httpClient.GetFromJsonAsync<CatalogMetadataDto>(WithWorkspaceQuery($"api/catalogs/{catalogId}/metadata"), JsonOptions, ct)
         ?? new CatalogMetadataDto("", []);
 
     public async Task<CatalogInfoDto> GetCatalogInfoAsync(Guid catalogId, CancellationToken ct = default) =>
-        await httpClient.GetFromJsonAsync<CatalogInfoDto>($"api/catalogs/{catalogId}/info", JsonOptions, ct)
+        await httpClient.GetFromJsonAsync<CatalogInfoDto>(WithWorkspaceQuery($"api/catalogs/{catalogId}/info"), JsonOptions, ct)
         ?? new CatalogInfoDto([]);
 
     public async Task<ExecutionHandle> SetupCatalogsOnKernelAsync(string nodeName, string kernelId, List<string> catalogNames, CancellationToken ct = default)
     {
         var response = await httpClient.PostAsJsonAsync(
-            $"api/nodes/{nodeName}/kernels/{kernelId}/catalogs/setup",
+            $"{Ws}/nodes/{nodeName}/kernels/{kernelId}/catalogs/setup",
             new KernelCatalogSetupRequest(catalogNames), JsonOptions, ct);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, ct))!;
@@ -86,7 +93,7 @@ internal class CatalogService(HttpClient httpClient) : ICatalogService
     public async Task<ExecutionHandle> ConnectCatalogOnKernelAsync(string nodeName, string kernelId, string catalogName, CancellationToken ct = default)
     {
         var response = await httpClient.PostAsync(
-            $"api/nodes/{nodeName}/kernels/{kernelId}/catalogs/{Uri.EscapeDataString(catalogName)}/connect", null, ct);
+            $"{Ws}/nodes/{nodeName}/kernels/{kernelId}/catalogs/{Uri.EscapeDataString(catalogName)}/connect", null, ct);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, ct))!;
     }
@@ -94,17 +101,17 @@ internal class CatalogService(HttpClient httpClient) : ICatalogService
     public async Task<ExecutionHandle> DisconnectCatalogOnKernelAsync(string nodeName, string kernelId, string catalogName, CancellationToken ct = default)
     {
         var response = await httpClient.PostAsync(
-            $"api/nodes/{nodeName}/kernels/{kernelId}/catalogs/{Uri.EscapeDataString(catalogName)}/disconnect", null, ct);
+            $"{Ws}/nodes/{nodeName}/kernels/{kernelId}/catalogs/{Uri.EscapeDataString(catalogName)}/disconnect", null, ct);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, ct))!;
     }
 
     public async Task<List<string>> GetWorkspaceItemCatalogsAsync(Guid itemId, CancellationToken ct = default) =>
-        await httpClient.GetFromJsonAsync<List<string>>($"api/workspace/items/{itemId}/catalogs", JsonOptions, ct) ?? [];
+        await httpClient.GetFromJsonAsync<List<string>>($"{Ws}/items/{itemId}/catalogs", JsonOptions, ct) ?? [];
 
     public async Task UpdateWorkspaceItemCatalogsAsync(Guid itemId, List<string> catalogNames, CancellationToken ct = default)
     {
-        var response = await httpClient.PutAsJsonAsync($"api/workspace/items/{itemId}/catalogs",
+        var response = await httpClient.PutAsJsonAsync($"{Ws}/items/{itemId}/catalogs",
             new UpdateWorkspaceItemCatalogsRequest(catalogNames), JsonOptions, ct);
         response.EnsureSuccessStatusCode();
     }

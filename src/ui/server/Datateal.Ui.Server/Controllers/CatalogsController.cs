@@ -21,10 +21,10 @@ public class CatalogsController(
     ICatalogRepository catalogRepository) : ControllerBase
 {
     [HttpGet]
-    public async Task<IReadOnlyList<CatalogDto>> GetAll(CancellationToken ct)
+    public async Task<IReadOnlyList<CatalogDto>> GetAll([FromQuery] Guid? workspaceId = null, CancellationToken ct = default)
     {
         var catalogs = await mediator.SendAsync(new Qry.GetCatalogsRequest(), ct);
-        var accessibleIds = await catalogAccess.GetAccessibleCatalogIdsAsync(User, ct);
+        var accessibleIds = await catalogAccess.GetAccessibleCatalogIdsAsync(User, workspaceId, ct);
         if (accessibleIds is null)
             return catalogs;
         return catalogs.Where(c => accessibleIds.Contains(c.Id)).ToList();
@@ -37,9 +37,9 @@ public class CatalogsController(
         await mediator.SendAsync(new Qry.GetCatalogsRequest(), ct);
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetById(Guid id, [FromQuery] Guid? workspaceId = null, CancellationToken ct = default)
     {
-        if (!await catalogAccess.HasAccessAsync(User, id, ct))
+        if (!await catalogAccess.HasAccessAsync(User, workspaceId, id, ct))
             return Forbid();
         var catalogs = await mediator.SendAsync(new Qry.GetCatalogsRequest(), ct);
         var catalog = catalogs.FirstOrDefault(c => c.Id == id);
@@ -95,18 +95,18 @@ public class CatalogsController(
     }
 
     [HttpGet("{id:guid}/metadata")]
-    public async Task<IActionResult> GetMetadata(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetMetadata(Guid id, [FromQuery] Guid? workspaceId = null, CancellationToken ct = default)
     {
-        if (!await catalogAccess.HasAccessAsync(User, id, ct))
+        if (!await catalogAccess.HasAccessAsync(User, workspaceId, id, ct))
             return Forbid();
         var metadata = await mediator.SendAsync(new Qry.GetCatalogMetadataRequest(id), ct);
         return metadata is null ? NotFound() : Ok(metadata);
     }
 
     [HttpGet("{id:guid}/info")]
-    public async Task<IActionResult> GetInfo(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetInfo(Guid id, [FromQuery] Guid? workspaceId = null, CancellationToken ct = default)
     {
-        if (!await catalogAccess.HasAccessAsync(User, id, ct))
+        if (!await catalogAccess.HasAccessAsync(User, workspaceId, id, ct))
             return Forbid();
         var info = await mediator.SendAsync(new Qry.GetCatalogInfoRequest(id), ct);
         return info is null ? NotFound() : Ok(info);

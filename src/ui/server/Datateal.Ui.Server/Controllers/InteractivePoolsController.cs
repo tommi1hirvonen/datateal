@@ -10,17 +10,17 @@ namespace Datateal.Ui.Server.Controllers;
 
 [ApiController]
 [Authorize(Policy = AuthPolicy.NodePoolOperate)]
-[Route("api/interactive-pools")]
+[Route("api/workspaces/{workspaceId:guid}/interactive-pools")]
 public class InteractivePoolsController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
-    public async Task<IReadOnlyList<InteractivePoolDto>> GetInteractivePools(CancellationToken ct) =>
-        await mediator.SendAsync(new Qry.GetInteractivePoolsRequest(), ct);
+    public async Task<IReadOnlyList<InteractivePoolDto>> GetInteractivePools(Guid workspaceId, CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.GetInteractivePoolsRequest(workspaceId), ct);
 
     [HttpPost("{name}/ensure-node")]
-    public async Task<IActionResult> EnsureNode(string name, CancellationToken ct)
+    public async Task<IActionResult> EnsureNode(Guid workspaceId, string name, CancellationToken ct)
     {
-        var node = await mediator.SendAsync(new Cmd.EnsureInteractiveNodeRequest(name), ct);
+        var node = await mediator.SendAsync(new Cmd.EnsureInteractiveNodeRequest(workspaceId, name), ct);
         return node is null ? NotFound() : Ok(node);
     }
 }

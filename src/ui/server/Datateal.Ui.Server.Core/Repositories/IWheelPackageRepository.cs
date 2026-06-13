@@ -4,10 +4,10 @@ namespace Datateal.Ui.Server.Core.Repositories;
 
 public interface IWheelPackageRepository
 {
-    Task<IReadOnlyList<WheelPackage>> GetAllAsync(CancellationToken cancellationToken = default);
-    Task<WheelPackage?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<WheelPackage>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
-    Task<bool> ExistsByNameAsync(string name, CancellationToken cancellationToken = default);
-    Task<WheelPackage> AddAsync(WheelPackage package, CancellationToken cancellationToken = default);
-    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<WheelPackage>> GetAllAsync(Guid workspaceId, CancellationToken cancellationToken = default);
+    Task<WheelPackage?> GetByIdAsync(Guid workspaceId, Guid id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<WheelPackage>> GetByIdsAsync(Guid workspaceId, IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
+    Task<bool> ExistsByNameAsync(Guid workspaceId, string name, CancellationToken cancellationToken = default);
+    Task<WheelPackage> AddAsync(Guid workspaceId, WheelPackage package, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(Guid workspaceId, Guid id, CancellationToken cancellationToken = default);
 }

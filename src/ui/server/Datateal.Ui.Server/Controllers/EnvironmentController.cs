@@ -10,65 +10,65 @@ using SharedEnv = Datateal.Ui.Shared.Environment;
 namespace Datateal.Ui.Server.Controllers;
 
 [ApiController]
-[Route("api/environment")]
+[Route("api/workspaces/{workspaceId:guid}/environment")]
 [Authorize(Policy = AuthPolicy.EnvironmentManage)]
 public class EnvironmentController(IMediator mediator) : ControllerBase
 {
     // ── Variables ────────────────────────────────────────────────────────
 
     [HttpGet("variables")]
-    public async Task<IReadOnlyList<EnvironmentVariableDto>> GetVariables(CancellationToken ct) =>
-        await mediator.SendAsync(new Qry.GetEnvironmentVariablesRequest(), ct);
+    public async Task<IReadOnlyList<EnvironmentVariableDto>> GetVariables(Guid workspaceId, CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.GetEnvironmentVariablesRequest(workspaceId), ct);
 
     [HttpPost("variables")]
-    public async Task<IActionResult> CreateVariable(SharedEnv.CreateEnvironmentVariableRequest body, CancellationToken ct)
+    public async Task<IActionResult> CreateVariable(Guid workspaceId, SharedEnv.CreateEnvironmentVariableRequest body, CancellationToken ct)
     {
         var variable = await mediator.SendAsync(
-            new Cmd.CreateEnvironmentVariableRequest(body.Key, body.Value, body.Description), ct);
-        return Created($"api/environment/variables/{variable.Id}", variable);
+            new Cmd.CreateEnvironmentVariableRequest(workspaceId, body.Key, body.Value, body.Description), ct);
+        return Created($"api/workspaces/{workspaceId}/environment/variables/{variable.Id}", variable);
     }
 
     [HttpPut("variables/{id:guid}")]
-    public async Task<IActionResult> UpdateVariable(Guid id, SharedEnv.UpdateEnvironmentVariableRequest body, CancellationToken ct)
+    public async Task<IActionResult> UpdateVariable(Guid workspaceId, Guid id, SharedEnv.UpdateEnvironmentVariableRequest body, CancellationToken ct)
     {
         var variable = await mediator.SendAsync(
-            new Cmd.UpdateEnvironmentVariableRequest(id, body.Key, body.Value, body.Description), ct);
+            new Cmd.UpdateEnvironmentVariableRequest(workspaceId, id, body.Key, body.Value, body.Description), ct);
         return variable is null ? NotFound() : Ok(variable);
     }
 
     [HttpDelete("variables/{id:guid}")]
-    public async Task<IActionResult> DeleteVariable(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeleteVariable(Guid workspaceId, Guid id, CancellationToken ct)
     {
-        var deleted = await mediator.SendAsync(new Cmd.DeleteEnvironmentVariableRequest(id), ct);
+        var deleted = await mediator.SendAsync(new Cmd.DeleteEnvironmentVariableRequest(workspaceId, id), ct);
         return deleted ? NoContent() : NotFound();
     }
 
     // ── Secrets ──────────────────────────────────────────────────────────
 
     [HttpGet("secrets")]
-    public async Task<IReadOnlyList<SecretDto>> GetSecrets(CancellationToken ct) =>
-        await mediator.SendAsync(new Qry.GetSecretsRequest(), ct);
+    public async Task<IReadOnlyList<SecretDto>> GetSecrets(Guid workspaceId, CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.GetSecretsRequest(workspaceId), ct);
 
     [HttpPost("secrets")]
-    public async Task<IActionResult> CreateSecret(SharedEnv.CreateSecretRequest body, CancellationToken ct)
+    public async Task<IActionResult> CreateSecret(Guid workspaceId, SharedEnv.CreateSecretRequest body, CancellationToken ct)
     {
         var secret = await mediator.SendAsync(
-            new Cmd.CreateSecretRequest(body.Key, body.Value, body.Description), ct);
-        return Created($"api/environment/secrets/{secret.Id}", secret);
+            new Cmd.CreateSecretRequest(workspaceId, body.Key, body.Value, body.Description), ct);
+        return Created($"api/workspaces/{workspaceId}/environment/secrets/{secret.Id}", secret);
     }
 
     [HttpPut("secrets/{id:guid}")]
-    public async Task<IActionResult> UpdateSecret(Guid id, SharedEnv.UpdateSecretRequest body, CancellationToken ct)
+    public async Task<IActionResult> UpdateSecret(Guid workspaceId, Guid id, SharedEnv.UpdateSecretRequest body, CancellationToken ct)
     {
         var secret = await mediator.SendAsync(
-            new Cmd.UpdateSecretRequest(id, body.Key, body.Value, body.Description), ct);
+            new Cmd.UpdateSecretRequest(workspaceId, id, body.Key, body.Value, body.Description), ct);
         return secret is null ? NotFound() : Ok(secret);
     }
 
     [HttpDelete("secrets/{id:guid}")]
-    public async Task<IActionResult> DeleteSecret(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeleteSecret(Guid workspaceId, Guid id, CancellationToken ct)
     {
-        var deleted = await mediator.SendAsync(new Cmd.DeleteSecretRequest(id), ct);
+        var deleted = await mediator.SendAsync(new Cmd.DeleteSecretRequest(workspaceId, id), ct);
         return deleted ? NoContent() : NotFound();
     }
 

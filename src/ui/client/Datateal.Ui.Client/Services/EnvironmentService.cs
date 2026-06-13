@@ -3,32 +3,35 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Datateal.Ui.Shared.Environment;
+using Datateal.Ui.Shared.Workspaces;
 
 namespace Datateal.Ui.Client.Services;
 
-internal class EnvironmentService(HttpClient httpClient) : IEnvironmentService
+internal class EnvironmentService(HttpClient httpClient, IActiveWorkspaceAccessor workspace) : IEnvironmentService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() },
     };
 
+    private string Ws => $"api/workspaces/{workspace.ActiveWorkspaceId!.Value}/environment";
+
     // ── Variables ────────────────────────────────────────────────────────
 
     public async Task<IReadOnlyList<EnvironmentVariableDto>> GetVariablesAsync(CancellationToken ct) =>
         await httpClient.GetFromJsonAsync<IReadOnlyList<EnvironmentVariableDto>>(
-            "api/environment/variables", JsonOptions, ct) ?? [];
+            $"{Ws}/variables", JsonOptions, ct) ?? [];
 
     public async Task<EnvironmentVariableDto> CreateVariableAsync(CreateEnvironmentVariableRequest request, CancellationToken ct)
     {
-        var response = await httpClient.PostAsJsonAsync("api/environment/variables", request, JsonOptions, ct);
+        var response = await httpClient.PostAsJsonAsync($"{Ws}/variables", request, JsonOptions, ct);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<EnvironmentVariableDto>(JsonOptions, ct))!;
     }
 
     public async Task<EnvironmentVariableDto?> UpdateVariableAsync(Guid id, UpdateEnvironmentVariableRequest request, CancellationToken ct)
     {
-        var response = await httpClient.PutAsJsonAsync($"api/environment/variables/{id}", request, JsonOptions, ct);
+        var response = await httpClient.PutAsJsonAsync($"{Ws}/variables/{id}", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<EnvironmentVariableDto>(JsonOptions, ct);
@@ -36,7 +39,7 @@ internal class EnvironmentService(HttpClient httpClient) : IEnvironmentService
 
     public async Task DeleteVariableAsync(Guid id, CancellationToken ct)
     {
-        var response = await httpClient.DeleteAsync($"api/environment/variables/{id}", ct);
+        var response = await httpClient.DeleteAsync($"{Ws}/variables/{id}", ct);
         response.EnsureSuccessStatusCode();
     }
 
@@ -44,18 +47,18 @@ internal class EnvironmentService(HttpClient httpClient) : IEnvironmentService
 
     public async Task<IReadOnlyList<SecretDto>> GetSecretsAsync(CancellationToken ct) =>
         await httpClient.GetFromJsonAsync<IReadOnlyList<SecretDto>>(
-            "api/environment/secrets", JsonOptions, ct) ?? [];
+            $"{Ws}/secrets", JsonOptions, ct) ?? [];
 
     public async Task<SecretDto> CreateSecretAsync(CreateSecretRequest request, CancellationToken ct)
     {
-        var response = await httpClient.PostAsJsonAsync("api/environment/secrets", request, JsonOptions, ct);
+        var response = await httpClient.PostAsJsonAsync($"{Ws}/secrets", request, JsonOptions, ct);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<SecretDto>(JsonOptions, ct))!;
     }
 
     public async Task<SecretDto?> UpdateSecretAsync(Guid id, UpdateSecretRequest request, CancellationToken ct)
     {
-        var response = await httpClient.PutAsJsonAsync($"api/environment/secrets/{id}", request, JsonOptions, ct);
+        var response = await httpClient.PutAsJsonAsync($"{Ws}/secrets/{id}", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<SecretDto>(JsonOptions, ct);
@@ -63,7 +66,7 @@ internal class EnvironmentService(HttpClient httpClient) : IEnvironmentService
 
     public async Task DeleteSecretAsync(Guid id, CancellationToken ct)
     {
-        var response = await httpClient.DeleteAsync($"api/environment/secrets/{id}", ct);
+        var response = await httpClient.DeleteAsync($"{Ws}/secrets/{id}", ct);
         response.EnsureSuccessStatusCode();
     }
 }

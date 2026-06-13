@@ -80,6 +80,8 @@ public record AiChatRequest(
     /// Null for Notebook/NotebookCell context.
     /// </summary>
     string? QueryContent,
+    /// <summary>The active workspace ID, when the AI context is workspace-scoped.</summary>
+    Guid? WorkspaceId,
     /// <summary>IDs of catalogs attached to the current workspace item.</summary>
     IReadOnlyList<Guid> CatalogIds,
     /// <summary>The interaction mode. Defaults to Chat.</summary>

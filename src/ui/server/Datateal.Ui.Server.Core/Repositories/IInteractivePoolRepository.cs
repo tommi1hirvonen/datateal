@@ -18,6 +18,6 @@ public record InteractivePoolInfo(
 
 public interface IInteractivePoolRepository
 {
-    Task<InteractivePoolInfo?> GetByNameAsync(string name, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<InteractivePoolInfo>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<InteractivePoolInfo?> GetByNameAsync(Guid workspaceId, string name, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<InteractivePoolInfo>> GetAllAsync(Guid workspaceId, CancellationToken cancellationToken = default);
 }

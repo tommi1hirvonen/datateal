@@ -22,7 +22,7 @@ public class ContextAssembler(
         CancellationToken cancellationToken = default)
     {
         var catalogSchemaText = await BuildCatalogSchemaTextAsync(request.CatalogIds, cancellationToken);
-        var packageNames = await GetPackageNamesAsync(cancellationToken);
+        var packageNames = await GetPackageNamesAsync(request.WorkspaceId, cancellationToken);
         var systemPrompt = SystemPromptBuilder.Build(packageNames, catalogSchemaText);
 
         var messages = new List<ChatMessage>
@@ -93,9 +93,12 @@ public class ContextAssembler(
         return sb.Length > 0 ? sb.ToString() : null;
     }
 
-    private async Task<IEnumerable<string>> GetPackageNamesAsync(CancellationToken ct)
+    private async Task<IEnumerable<string>> GetPackageNamesAsync(Guid? workspaceId, CancellationToken ct)
     {
-        var packages = await wheelPackageRepository.GetAllAsync(ct);
+        if (workspaceId is null)
+            return [];
+
+        var packages = await wheelPackageRepository.GetAllAsync(workspaceId.Value, ct);
         return packages.Select(p => p.Name);
     }
 

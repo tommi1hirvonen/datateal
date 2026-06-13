@@ -4,11 +4,11 @@ using Datateal.Core.RuntimePackages;
 
 namespace Datateal.Ui.Server.Application.Mediator.Queries;
 
-public record GetWheelPackagesRequest : IRequest<IReadOnlyList<WheelPackage>>;
+public record GetWheelPackagesRequest(Guid WorkspaceId) : IRequest<IReadOnlyList<WheelPackage>>;
 
 internal class GetWheelPackagesHandler(IWheelPackageRepository repository)
     : IRequestHandler<GetWheelPackagesRequest, IReadOnlyList<WheelPackage>>
 {
     public Task<IReadOnlyList<WheelPackage>> Handle(GetWheelPackagesRequest request, CancellationToken cancellationToken) =>
-        repository.GetAllAsync(cancellationToken);
+        repository.GetAllAsync(request.WorkspaceId, cancellationToken);
 }

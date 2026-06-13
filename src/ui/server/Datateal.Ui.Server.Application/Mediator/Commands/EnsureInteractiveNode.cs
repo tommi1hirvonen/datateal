@@ -5,7 +5,7 @@ using Datateal.Ui.Shared.Environment;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
-public record EnsureInteractiveNodeRequest(string PoolName) : IRequest<NodeInfo?>;
+public record EnsureInteractiveNodeRequest(Guid WorkspaceId, string PoolName) : IRequest<NodeInfo?>;
 
 internal class EnsureInteractiveNodeHandler(
     IInteractivePoolRepository poolRepository,
@@ -16,7 +16,7 @@ internal class EnsureInteractiveNodeHandler(
 {
     public async Task<NodeInfo?> Handle(EnsureInteractiveNodeRequest request, CancellationToken cancellationToken)
     {
-        var pool = await poolRepository.GetByNameAsync(request.PoolName, cancellationToken);
+        var pool = await poolRepository.GetByNameAsync(request.WorkspaceId, request.PoolName, cancellationToken);
         if (pool is null) return null;
 
         var existing = await nodeRepository.GetNodeAsync(pool.NodeName, cancellationToken);
@@ -27,7 +27,7 @@ internal class EnsureInteractiveNodeHandler(
         IReadOnlyList<WheelContent>? wheelContents = null;
         if (pool.WheelPackageIds is { Count: > 0 })
         {
-            var packages = await wheelPackageRepository.GetByIdsAsync(pool.WheelPackageIds, cancellationToken);
+            var packages = await wheelPackageRepository.GetByIdsAsync(request.WorkspaceId, pool.WheelPackageIds, cancellationToken);
             wheelContents = packages
                 .Select(p => new WheelContent(p.FileName, p.Data))
                 .ToList();
@@ -37,7 +37,7 @@ internal class EnsureInteractiveNodeHandler(
         if (pool.EnvironmentVariableIds is { Count: > 0 } || pool.SecretIds is { Count: > 0 })
         {
             resolved = await mediator.SendAsync(
-                new Queries.ResolveEnvironmentRequest(pool.EnvironmentVariableIds, pool.SecretIds),
+                new Queries.ResolveEnvironmentRequest(request.WorkspaceId, pool.EnvironmentVariableIds, pool.SecretIds),
                 cancellationToken);
         }
 

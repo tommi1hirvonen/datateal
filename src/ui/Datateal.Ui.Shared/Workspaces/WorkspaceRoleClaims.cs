@@ -12,8 +12,6 @@ public static class WorkspaceRoleClaims
 {
     public const string ClaimType = "ws_role";
 
-    public const string HeaderName = "X-Datateal-Workspace";
-
     public static string FormatValue(Guid workspaceId, string role) => $"{workspaceId:N}:{role}";
 
     public static Claim CreateClaim(Guid workspaceId, string role) => new(ClaimType, FormatValue(workspaceId, role));

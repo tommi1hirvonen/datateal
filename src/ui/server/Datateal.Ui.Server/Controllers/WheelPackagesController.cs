@@ -10,16 +10,16 @@ using Microsoft.AspNetCore.Mvc;
 namespace Datateal.Ui.Server.Controllers;
 
 [ApiController]
-[Route("api/packages")]
+[Route("api/workspaces/{workspaceId:guid}/packages")]
 [Authorize(Policy = AuthPolicy.EnvironmentManage)]
 public class WheelPackagesController(IMediator mediator, IWheelPackageRepository repository) : ControllerBase
 {
     private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
 
     [HttpGet]
-    public async Task<IReadOnlyList<WheelPackageDto>> GetPackages(CancellationToken ct)
+    public async Task<IReadOnlyList<WheelPackageDto>> GetPackages(Guid workspaceId, CancellationToken ct)
     {
-        var packages = await mediator.SendAsync(new GetWheelPackagesRequest(), ct);
+        var packages = await mediator.SendAsync(new GetWheelPackagesRequest(workspaceId), ct);
         return packages
             .Select(p => new WheelPackageDto(p.Id, p.Name, p.FileName, p.Size, p.UploadedAt))
             .ToList();
@@ -27,7 +27,7 @@ public class WheelPackagesController(IMediator mediator, IWheelPackageRepository
 
     [HttpPost]
     [RequestSizeLimit(MaxFileSizeBytes + 1024)]
-    public async Task<IActionResult> UploadPackage(IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> UploadPackage(Guid workspaceId, IFormFile file, CancellationToken ct)
     {
         if (file.Length > MaxFileSizeBytes)
             return BadRequest($"File exceeds maximum size of {MaxFileSizeBytes / 1024 / 1024} MB.");
@@ -44,9 +44,9 @@ public class WheelPackagesController(IMediator mediator, IWheelPackageRepository
 
         try
         {
-            var package = await mediator.SendAsync(new UploadWheelPackageRequest(name, file.FileName, data), ct);
+            var package = await mediator.SendAsync(new UploadWheelPackageRequest(workspaceId, name, file.FileName, data), ct);
             var dto = new WheelPackageDto(package.Id, package.Name, package.FileName, package.Size, package.UploadedAt);
-            return CreatedAtAction(nameof(GetPackages), new { }, dto);
+            return CreatedAtAction(nameof(GetPackages), new { workspaceId }, dto);
         }
         catch (InvalidOperationException ex)
         {
@@ -55,16 +55,16 @@ public class WheelPackagesController(IMediator mediator, IWheelPackageRepository
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> DeletePackage(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeletePackage(Guid workspaceId, Guid id, CancellationToken ct)
     {
-        var deleted = await mediator.SendAsync(new DeleteWheelPackageRequest(id), ct);
+        var deleted = await mediator.SendAsync(new DeleteWheelPackageRequest(workspaceId, id), ct);
         return deleted ? NoContent() : NotFound();
     }
 
     [HttpGet("{id:guid}/{fileName}")]
-    public async Task<IActionResult> DownloadPackage(Guid id, string fileName, CancellationToken ct)
+    public async Task<IActionResult> DownloadPackage(Guid workspaceId, Guid id, string fileName, CancellationToken ct)
     {
-        var package = await repository.GetByIdAsync(id, ct);
+        var package = await repository.GetByIdAsync(workspaceId, id, ct);
         if (package is null) return NotFound();
         return File(package.Data, "application/octet-stream", package.FileName);
     }

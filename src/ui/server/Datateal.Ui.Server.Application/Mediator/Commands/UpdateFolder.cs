@@ -5,7 +5,7 @@ using Datateal.Ui.Shared.Workspace;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
-public record UpdateFolderRequest(Guid Id, string Name, Guid? ParentId) : IRequest<FolderSummary?>;
+public record UpdateFolderRequest(Guid WorkspaceId, Guid Id, string Name, Guid? ParentId) : IRequest<FolderSummary?>;
 
 internal class UpdateFolderHandler(IWorkspaceRepository repository) : IRequestHandler<UpdateFolderRequest, FolderSummary?>
 {
@@ -22,7 +22,7 @@ internal class UpdateFolderHandler(IWorkspaceRepository repository) : IRequestHa
             var cursor = request.ParentId;
             while (cursor.HasValue)
             {
-                var ancestor = await repository.GetFolderAsync(cursor.Value, cancellationToken);
+                var ancestor = await repository.GetFolderAsync(request.WorkspaceId, cursor.Value, cancellationToken);
                 if (ancestor is null) break;
                 if (ancestor.ParentId == request.Id)
                     throw new InvalidOperationException("Cannot move a folder into one of its own descendants.");
@@ -30,7 +30,7 @@ internal class UpdateFolderHandler(IWorkspaceRepository repository) : IRequestHa
             }
         }
 
-        var folder = await repository.UpdateFolderAsync(request.Id, request.Name, request.ParentId, cancellationToken);
+        var folder = await repository.UpdateFolderAsync(request.WorkspaceId, request.Id, request.Name, request.ParentId, cancellationToken);
         return folder is null ? null : new FolderSummary(folder.Id, folder.Name, folder.ParentId, folder.CreatedAt);
     }
 }

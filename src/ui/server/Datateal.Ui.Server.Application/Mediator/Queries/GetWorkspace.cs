@@ -4,14 +4,14 @@ using Datateal.Ui.Shared.Workspace;
 
 namespace Datateal.Ui.Server.Application.Mediator.Queries;
 
-public record GetWorkspaceRequest(Guid? FolderId = null) : IRequest<WorkspaceListing>;
+public record GetWorkspaceRequest(Guid WorkspaceId, Guid? FolderId = null) : IRequest<WorkspaceListing>;
 
 internal class GetWorkspaceHandler(IWorkspaceRepository repository) : IRequestHandler<GetWorkspaceRequest, WorkspaceListing>
 {
     public async Task<WorkspaceListing> Handle(GetWorkspaceRequest request, CancellationToken cancellationToken)
     {
-        var folders = await repository.GetFoldersInAsync(request.FolderId, cancellationToken);
-        var items = await repository.GetItemsInAsync(request.FolderId, cancellationToken);
+        var folders = await repository.GetFoldersInAsync(request.WorkspaceId, request.FolderId, cancellationToken);
+        var items = await repository.GetItemsInAsync(request.WorkspaceId, request.FolderId, cancellationToken);
 
         var folderSummaries = folders
             .Select(f => new FolderSummary(f.Id, f.Name, f.ParentId, f.CreatedAt))

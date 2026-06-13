@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.DataProtection;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
-public record CreateSecretRequest(string Key, string Value, string? Description)
+public record CreateSecretRequest(Guid WorkspaceId, string Key, string Value, string? Description)
     : IRequest<SecretDto>;
 
 internal class CreateSecretHandler(IEnvironmentRepository repository, IDataProtectionProvider dataProtection)
@@ -16,7 +16,7 @@ internal class CreateSecretHandler(IEnvironmentRepository repository, IDataProte
     public async Task<SecretDto> Handle(CreateSecretRequest request, CancellationToken cancellationToken)
     {
         var encryptedValue = _protector.Protect(request.Value);
-        var secret = await repository.CreateSecretAsync(request.Key, encryptedValue, request.Description, cancellationToken);
+        var secret = await repository.CreateSecretAsync(request.WorkspaceId, request.Key, encryptedValue, request.Description, cancellationToken);
         return new SecretDto(secret.Id, secret.Key, secret.Description, secret.CreatedAt, secret.UpdatedAt);
     }
 }

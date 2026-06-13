@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.DataProtection;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
-public record UpdateSecretRequest(Guid Id, string Key, string? Value, string? Description)
+public record UpdateSecretRequest(Guid WorkspaceId, Guid Id, string Key, string? Value, string? Description)
     : IRequest<SecretDto?>;
 
 internal class UpdateSecretHandler(IEnvironmentRepository repository, IDataProtectionProvider dataProtection)
@@ -23,12 +23,12 @@ internal class UpdateSecretHandler(IEnvironmentRepository repository, IDataProte
         }
         else
         {
-            var existing = await repository.GetSecretAsync(request.Id, cancellationToken);
+            var existing = await repository.GetSecretAsync(request.WorkspaceId, request.Id, cancellationToken);
             if (existing is null) return null;
             encryptedValue = existing.EncryptedValue;
         }
 
-        var secret = await repository.UpdateSecretAsync(request.Id, request.Key, encryptedValue, request.Description, cancellationToken);
+        var secret = await repository.UpdateSecretAsync(request.WorkspaceId, request.Id, request.Key, encryptedValue, request.Description, cancellationToken);
         if (secret is null) return null;
         return new SecretDto(secret.Id, secret.Key, secret.Description, secret.CreatedAt, secret.UpdatedAt);
     }

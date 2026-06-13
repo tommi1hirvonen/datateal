@@ -7,6 +7,7 @@ using Datateal.Ui.Shared.Workspace;
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
 public record UpdateQueryRequest(
+    Guid WorkspaceId,
     Guid Id,
     string Title,
     string Content,
@@ -20,6 +21,7 @@ internal class UpdateQueryHandler(IWorkspaceRepository repository)
     {
         WorkspaceNameValidationException.ValidateNoSlash(request.Title);
         if (await repository.WorkspaceItemTitleExistsAsync(
+            request.WorkspaceId,
             request.Title, 
             request.FolderId,
             excludeId: request.Id,
@@ -30,6 +32,7 @@ internal class UpdateQueryHandler(IWorkspaceRepository repository)
 
         var (status, durationMs, executedAt, resultJson) = CreateQueryHandler.SerializeResult(request.LastResult);
         var query = await repository.UpdateQueryAsync(
+            request.WorkspaceId,
             request.Id,
             request.Title,
             request.Content,

@@ -10,6 +10,7 @@ namespace Datateal.Ui.Server.Application.Mediator.Queries;
 /// Used internally during node creation.
 /// </summary>
 public record ResolveEnvironmentRequest(
+    Guid WorkspaceId,
     IReadOnlyList<Guid>? EnvironmentVariableIds,
     IReadOnlyList<Guid>? SecretIds) : IRequest<ResolvedEnvironment>;
 
@@ -25,14 +26,14 @@ internal class ResolveEnvironmentHandler(IEnvironmentRepository repository, IDat
 
         if (request.EnvironmentVariableIds is { Count: > 0 } varIds)
         {
-            var envVars = await repository.GetVariablesByIdsAsync(varIds, cancellationToken);
+            var envVars = await repository.GetVariablesByIdsAsync(request.WorkspaceId, varIds, cancellationToken);
             foreach (var v in envVars)
                 variables[v.Key] = v.Value;
         }
 
         if (request.SecretIds is { Count: > 0 } secretIds)
         {
-            var secretEntities = await repository.GetSecretsByIdsAsync(secretIds, cancellationToken);
+            var secretEntities = await repository.GetSecretsByIdsAsync(request.WorkspaceId, secretIds, cancellationToken);
             foreach (var s in secretEntities)
                 secrets[s.Key] = _protector.Unprotect(s.EncryptedValue);
         }
