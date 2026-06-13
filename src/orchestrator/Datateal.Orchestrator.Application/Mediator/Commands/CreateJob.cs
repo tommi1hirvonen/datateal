@@ -8,6 +8,7 @@ using Datateal.Orchestrator.Core.Repositories;
 namespace Datateal.Orchestrator.Application.Mediator.Commands;
 
 public record CreateJobRequest(
+    Guid WorkspaceId,
     string Name,
     string? Description,
     Guid? FolderId,
@@ -32,7 +33,7 @@ public record CreateTaskDependencyRequest(string DependsOnTaskName, DependencyCo
 
 public record CreateJobParameterRequest(string Name, string? DefaultValue, bool IsRequired, string? Description);
 
-internal class CreateJobHandler(IJobRepository jobRepository, Datateal.Orchestrator.Core.IWorkspaceContext workspace) : IRequestHandler<CreateJobRequest, Job>
+internal class CreateJobHandler(IJobRepository jobRepository) : IRequestHandler<CreateJobRequest, Job>
 {
     public async Task<Job> Handle(CreateJobRequest request, CancellationToken cancellationToken)
     {
@@ -45,14 +46,14 @@ internal class CreateJobHandler(IJobRepository jobRepository, Datateal.Orchestra
         }
 
         // Validate unique job name within the workspace.
-        var existing = await jobRepository.GetJobByNameAsync(request.Name, workspace.RequireWorkspaceId(), cancellationToken);
+        var existing = await jobRepository.GetJobByNameAsync(request.Name, request.WorkspaceId, cancellationToken);
         if (existing is not null)
             throw new JobNameConflictException(request.Name);
 
         var job = new Job
         {
             Id = Guid.NewGuid(),
-            WorkspaceId = workspace.RequireWorkspaceId(),
+            WorkspaceId = request.WorkspaceId,
             Name = request.Name,
             Description = request.Description,
             FolderId = request.FolderId,

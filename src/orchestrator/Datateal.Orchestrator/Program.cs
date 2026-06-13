@@ -26,9 +26,6 @@ if (string.IsNullOrEmpty(expectedApiKey))
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<Datateal.Orchestrator.Core.IWorkspaceContext, Datateal.Orchestrator.HttpWorkspaceContext>();
-
 builder.AddNpgsqlDbContext<DatatealDbContext>("datateal-ui");
 
 builder.Services.AddDataProtection()

@@ -7,6 +7,7 @@ using Datateal.Orchestrator.Core.Repositories;
 namespace Datateal.Orchestrator.Application.Mediator.Commands;
 
 public record CreateNodePoolConfigRequest(
+    Guid WorkspaceId,
     string Name,
     NodePoolType PoolType,
     string VmSize,
@@ -21,7 +22,7 @@ public record CreateNodePoolConfigRequest(
     int? MaxNodes = null,
     TimeSpan? NodeAcquireTimeout = null) : IRequest<NodePoolConfig>;
 
-internal class CreateNodePoolConfigHandler(INodePoolConfigRepository repository, Datateal.Orchestrator.Core.IWorkspaceContext workspace)
+internal class CreateNodePoolConfigHandler(INodePoolConfigRepository repository)
     : IRequestHandler<CreateNodePoolConfigRequest, NodePoolConfig>
 {
     public async Task<NodePoolConfig> Handle(CreateNodePoolConfigRequest request, CancellationToken cancellationToken)
@@ -33,11 +34,10 @@ internal class CreateNodePoolConfigHandler(INodePoolConfigRepository repository,
         if (request.PoolType == NodePoolType.Job)
             ValidateWarmPoolFields(request.WarmNodes, request.MaxNodes);
 
-        var workspaceId = workspace.RequireWorkspaceId();
         NodePoolConfig config = request.PoolType == NodePoolType.Interactive
             ? new InteractiveNodePoolConfig
             {
-                WorkspaceId = workspaceId,
+                WorkspaceId = request.WorkspaceId,
                 Name = request.Name,
                 VmSize = request.VmSize,
                 KernelIdleTimeout = request.KernelIdleTimeout,
@@ -50,7 +50,7 @@ internal class CreateNodePoolConfigHandler(INodePoolConfigRepository repository,
             }
             : new JobNodePoolConfig
             {
-                WorkspaceId = workspaceId,
+                WorkspaceId = request.WorkspaceId,
                 Name = request.Name,
                 VmSize = request.VmSize,
                 KernelIdleTimeout = request.KernelIdleTimeout,

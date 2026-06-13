@@ -15,23 +15,20 @@ namespace Datateal.Orchestrator.Application.Yaml;
 public class YamlJobImporter(
     IWorkspaceReader workspaceReader,
     IJobRepository jobRepository,
-    INodePoolConfigRepository nodePoolConfigRepository,
-    Datateal.Orchestrator.Core.IWorkspaceContext workspaceContext)
+    INodePoolConfigRepository nodePoolConfigRepository)
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
 
-    public async Task<Job> ImportAsync(string yaml, CancellationToken ct = default)
+    public async Task<Job> ImportAsync(Guid workspaceId, string yaml, CancellationToken ct = default)
     {
         var model = Deserializer.Deserialize<YamlJobModel>(yaml)
             ?? throw new InvalidOperationException("Failed to parse YAML: the document is empty.");
 
         if (string.IsNullOrWhiteSpace(model.Name))
             throw new InvalidOperationException("Job name is required.");
-
-        var workspaceId = workspaceContext.RequireWorkspaceId();
 
         // Validate unique job name within the workspace.
         var nameConflict = await jobRepository.GetJobByNameAsync(model.Name, workspaceId, ct);
@@ -135,7 +132,7 @@ public class YamlJobImporter(
                     MaxRetries = t.MaxRetries,
                     RetryInterval = ParseTimeSpan(t.RetryInterval, TimeSpan.FromSeconds(30)),
                     Timeout = ParseNullableTimeSpan(t.Timeout),
-                    SubJobId = await ResolveSubJobAsync(t.JobName, ct),
+                    SubJobId = await ResolveSubJobAsync(workspaceId, t.JobName, ct),
                     Parameters = t.Parameters,
                 },
                 _ => throw new InvalidOperationException($"Unknown task type: '{t.Type}'."),
@@ -209,12 +206,12 @@ public class YamlJobImporter(
         return id;
     }
 
-    private async Task<Guid> ResolveSubJobAsync(string? jobName, CancellationToken ct)
+    private async Task<Guid> ResolveSubJobAsync(Guid workspaceId, string? jobName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(jobName))
             throw new InvalidOperationException("Job name is required for sub-job tasks.");
 
-        var subJob = await jobRepository.GetJobByNameAsync(jobName, workspaceContext.RequireWorkspaceId(), ct)
+        var subJob = await jobRepository.GetJobByNameAsync(jobName, workspaceId, ct)
             ?? throw new InvalidOperationException($"Sub-job not found with name: '{jobName}'.");
         return subJob.Id;
     }

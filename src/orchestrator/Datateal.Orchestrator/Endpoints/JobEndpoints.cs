@@ -9,25 +9,26 @@ public static class JobEndpoints
 {
     public static IEndpointRouteBuilder MapJobEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/jobs").WithTags("Jobs");
+        var group = endpoints.MapGroup("/api/workspaces/{workspaceId:guid}/jobs").WithTags("Jobs");
 
-        group.MapGet("/", async (IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.SendAsync(new GetJobsRequest(), ct)))
+        group.MapGet("/", async (Guid workspaceId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.SendAsync(new GetJobsRequest(workspaceId), ct)))
             .WithName("ListJobs");
 
-        group.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        group.MapGet("/{id:guid}", async (Guid workspaceId, Guid id, IMediator mediator, CancellationToken ct) =>
         {
             var job = await mediator.SendAsync(new GetJobRequest(id), ct);
             return job is null ? Results.NotFound() : Results.Ok(job);
         })
         .WithName("GetJob");
 
-        group.MapPost("/", async (CreateJobRequest request, IMediator mediator, CancellationToken ct) =>
+        group.MapPost("/", async (Guid workspaceId, CreateJobRequest request, IMediator mediator, CancellationToken ct) =>
         {
             try
             {
-                var job = await mediator.SendAsync(request, ct);
-                return Results.Created($"/api/jobs/{job.Id}", job);
+                var withWorkspace = request with { WorkspaceId = workspaceId };
+                var job = await mediator.SendAsync(withWorkspace, ct);
+                return Results.Created($"/api/workspaces/{workspaceId}/jobs/{job.Id}", job);
             }
             catch (JobNameConflictException ex)
             {
@@ -40,7 +41,7 @@ public static class JobEndpoints
         })
         .WithName("CreateJob");
 
-        group.MapPut("/{id:guid}", async (Guid id, UpdateJobRequest request, IMediator mediator, CancellationToken ct) =>
+        group.MapPut("/{id:guid}", async (Guid workspaceId, Guid id, UpdateJobRequest request, IMediator mediator, CancellationToken ct) =>
         {
             try
             {
@@ -59,19 +60,19 @@ public static class JobEndpoints
         })
         .WithName("UpdateJob");
 
-        group.MapDelete("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        group.MapDelete("/{id:guid}", async (Guid workspaceId, Guid id, IMediator mediator, CancellationToken ct) =>
         {
             await mediator.SendAsync(new DeleteJobRequest(id), ct);
             return Results.NoContent();
         })
         .WithName("DeleteJob");
 
-        group.MapPost("/{id:guid}/trigger", async (Guid id, TriggerJobBody? body, IMediator mediator, CancellationToken ct) =>
+        group.MapPost("/{id:guid}/trigger", async (Guid workspaceId, Guid id, TriggerJobBody? body, IMediator mediator, CancellationToken ct) =>
         {
             try
             {
                 var run = await mediator.SendAsync(new TriggerJobRequest(id, body?.Parameters), ct);
-                return Results.Accepted($"/api/runs/{run.Id}", run);
+                return Results.Accepted($"/api/workspaces/{workspaceId}/runs/{run.Id}", run);
             }
             catch (InvalidOperationException ex)
             {
@@ -80,23 +81,23 @@ public static class JobEndpoints
         })
         .WithName("TriggerJob");
 
-        group.MapGet("/{id:guid}/runs", async (Guid id, int? limit, int? offset, IMediator mediator, CancellationToken ct) =>
+        group.MapGet("/{id:guid}/runs", async (Guid workspaceId, Guid id, int? limit, int? offset, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.SendAsync(new GetJobRunsRequest(id, limit ?? 20, offset ?? 0), ct)))
             .WithName("GetJobRuns");
 
-        group.MapGet("/{id:guid}/schedules", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        group.MapGet("/{id:guid}/schedules", async (Guid workspaceId, Guid id, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.SendAsync(new GetSchedulesRequest(id), ct)))
             .WithName("GetSchedules");
 
-        group.MapPost("/{id:guid}/schedules", async (Guid id, CreateScheduleRequest request, IMediator mediator, CancellationToken ct) =>
+        group.MapPost("/{id:guid}/schedules", async (Guid workspaceId, Guid id, CreateScheduleRequest request, IMediator mediator, CancellationToken ct) =>
         {
             var withJobId = request with { JobId = id };
             var schedule = await mediator.SendAsync(withJobId, ct);
-            return Results.Created($"/api/jobs/{id}/schedules/{schedule.Id}", schedule);
+            return Results.Created($"/api/workspaces/{workspaceId}/jobs/{id}/schedules/{schedule.Id}", schedule);
         })
         .WithName("CreateSchedule");
 
-        group.MapPut("/{id:guid}/schedules/{sid:guid}", async (Guid id, Guid sid, UpdateScheduleRequest request, IMediator mediator, CancellationToken ct) =>
+        group.MapPut("/{id:guid}/schedules/{sid:guid}", async (Guid workspaceId, Guid id, Guid sid, UpdateScheduleRequest request, IMediator mediator, CancellationToken ct) =>
         {
             var updated = request with { Id = sid };
             var schedule = await mediator.SendAsync(updated, ct);
@@ -104,7 +105,7 @@ public static class JobEndpoints
         })
         .WithName("UpdateSchedule");
 
-        group.MapDelete("/{id:guid}/schedules/{sid:guid}", async (Guid id, Guid sid, IMediator mediator, CancellationToken ct) =>
+        group.MapDelete("/{id:guid}/schedules/{sid:guid}", async (Guid workspaceId, Guid id, Guid sid, IMediator mediator, CancellationToken ct) =>
         {
             await mediator.SendAsync(new DeleteScheduleRequest(sid), ct);
             return Results.NoContent();
@@ -112,12 +113,12 @@ public static class JobEndpoints
         .WithName("DeleteSchedule");
 
         // Import job from YAML
-        group.MapPost("/import", async (ImportJobBody body, IMediator mediator, CancellationToken ct) =>
+        group.MapPost("/import", async (Guid workspaceId, ImportJobBody body, IMediator mediator, CancellationToken ct) =>
         {
             try
             {
-                var job = await mediator.SendAsync(new ImportJobRequest(body.Yaml), ct);
-                return Results.Created($"/api/jobs/{job.Id}", job);
+                var job = await mediator.SendAsync(new ImportJobRequest(workspaceId, body.Yaml), ct);
+                return Results.Created($"/api/workspaces/{workspaceId}/jobs/{job.Id}", job);
             }
             catch (JobNameConflictException ex)
             {
@@ -131,7 +132,7 @@ public static class JobEndpoints
         .WithName("ImportJob");
 
         // Export job as YAML
-        group.MapGet("/{id:guid}/export", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        group.MapGet("/{id:guid}/export", async (Guid workspaceId, Guid id, IMediator mediator, CancellationToken ct) =>
         {
             var yaml = await mediator.SendAsync(new ExportJobRequest(id), ct);
             return yaml is null ? Results.NotFound() : Results.Content(yaml, "application/yaml");

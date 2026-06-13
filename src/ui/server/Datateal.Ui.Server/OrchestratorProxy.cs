@@ -46,7 +46,14 @@ public static class OrchestratorProxy
 
             var client = clientFactory.CreateClient("Orchestrator");
 
-            var targetUri = new Uri(client.BaseAddress!, $"/api/{path}{context.Request.QueryString}");
+            // Admin paths are tenant-level; all others are workspace-scoped and forwarded
+            // with the workspaceId injected into the target URL path.
+            var workspaceIdStr = context.Request.RouteValues["workspaceId"]?.ToString() ?? "";
+            var forwardPath = path.StartsWith("admin", StringComparison.OrdinalIgnoreCase)
+                ? $"/api/{path}"
+                : $"/api/workspaces/{workspaceIdStr}/{path}";
+
+            var targetUri = new Uri(client.BaseAddress!, $"{forwardPath}{context.Request.QueryString}");
 
             using var requestMessage = new HttpRequestMessage
             {
@@ -61,12 +68,6 @@ public static class OrchestratorProxy
                     requestMessage.Content.Headers.ContentType =
                         System.Net.Http.Headers.MediaTypeHeaderValue.Parse(context.Request.ContentType);
             }
-
-            // Forward the active workspace so the orchestrator can scope and stamp entities.
-            const string workspaceHeader = "X-Datateal-Workspace";
-            if (context.Request.RouteValues.TryGetValue("workspaceId", out var workspaceId)
-                && workspaceId is string workspaceIdStr)
-                requestMessage.Headers.TryAddWithoutValidation(workspaceHeader, workspaceIdStr);
 
             using var responseMessage = await client.SendAsync(requestMessage, context.RequestAborted);
 

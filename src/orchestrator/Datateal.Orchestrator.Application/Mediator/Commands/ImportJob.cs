@@ -5,7 +5,7 @@ using Datateal.Orchestrator.Core.Repositories;
 
 namespace Datateal.Orchestrator.Application.Mediator.Commands;
 
-public record ImportJobRequest(string Yaml) : IRequest<Job>;
+public record ImportJobRequest(Guid WorkspaceId, string Yaml) : IRequest<Job>;
 
 internal class ImportJobHandler(
     YamlJobImporter importer,
@@ -13,7 +13,7 @@ internal class ImportJobHandler(
 {
     public async Task<Job> Handle(ImportJobRequest request, CancellationToken cancellationToken)
     {
-        var job = await importer.ImportAsync(request.Yaml, cancellationToken);
+        var job = await importer.ImportAsync(request.WorkspaceId, request.Yaml, cancellationToken);
         return await jobRepository.CreateJobAsync(job, cancellationToken);
     }
 }
