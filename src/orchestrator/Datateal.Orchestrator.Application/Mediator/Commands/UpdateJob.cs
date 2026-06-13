@@ -15,6 +15,7 @@ public record UpdateJobRequest(
     Guid? FolderId,
     int MaxConcurrentRuns,
     bool IsEnabled,
+    Guid? OwnerUserId,
     List<UpdateJobTaskRequest>? Tasks = null,
     List<UpdateJobParameterRequest>? Parameters = null) : IRequest<Job?>;
 
@@ -39,6 +40,9 @@ internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<
 {
     public async Task<Job?> Handle(UpdateJobRequest request, CancellationToken cancellationToken)
     {
+        if (request.OwnerUserId is null)
+            throw new InvalidOperationException(JobOwner.MissingOwnerMessage);
+
         var existing = await jobRepository.GetJobAsync(request.Id, cancellationToken);
         if (existing is null) return null;
         if (existing.WorkspaceId != request.WorkspaceId) return null;
@@ -65,6 +69,9 @@ internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<
         existing.FolderId = request.FolderId;
         existing.MaxConcurrentRuns = request.MaxConcurrentRuns;
         existing.IsEnabled = request.IsEnabled;
+
+        // The effective owner follows the last modifier. CreatedByUserId is preserved for audit.
+        existing.OwnerUserId = request.OwnerUserId;
 
         // Replace parameters if provided
         // NOTE: New entities must NOT have pre-set IDs (leave as Guid.Empty) so that

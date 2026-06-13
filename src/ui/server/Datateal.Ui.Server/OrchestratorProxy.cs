@@ -69,6 +69,13 @@ public static class OrchestratorProxy
                         System.Net.Http.Headers.MediaTypeHeaderValue.Parse(context.Request.ContentType);
             }
 
+            // Convey the authenticated acting user's application id so the orchestrator can record a
+            // server-stamped effective owner on jobs. Stamped here from the validated principal — never
+            // accepted from the inbound client request — so it cannot be spoofed.
+            var actingUserId = context.User.FindFirst(DatatealClaimTypes.UserId)?.Value;
+            if (actingUserId is not null)
+                requestMessage.Headers.TryAddWithoutValidation(DatatealHeaders.ActingUser, actingUserId);
+
             using var responseMessage = await client.SendAsync(requestMessage, context.RequestAborted);
 
             context.Response.StatusCode = (int)responseMessage.StatusCode;

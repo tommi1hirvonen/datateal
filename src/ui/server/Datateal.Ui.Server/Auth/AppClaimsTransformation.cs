@@ -87,6 +87,13 @@ public class AppClaimsTransformation(
                 AddRoleClaim(identity, role);
             }
 
+            // Emit a stable application user id claim so downstream components (e.g. the
+            // orchestrator proxy) can identify the acting user without an extra database lookup.
+            if (!identity.HasClaim(DatatealClaimTypes.UserId, appUser.Id.ToString()))
+            {
+                identity.AddClaim(new Claim(DatatealClaimTypes.UserId, appUser.Id.ToString()));
+            }
+
             // Per-workspace roles are emitted as custom claims so a single principal
             // carries roles for every workspace it belongs to, evaluated against the
             // active workspace at authorization time.

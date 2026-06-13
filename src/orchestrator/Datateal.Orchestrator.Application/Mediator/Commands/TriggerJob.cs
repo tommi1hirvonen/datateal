@@ -5,6 +5,7 @@ using Datateal.Core.Orchestration;
 using Datateal.Orchestrator.Application.Engine;
 using Datateal.Orchestrator.Core.Entities;
 using Datateal.Orchestrator.Core.Enums;
+using Datateal.Orchestrator.Core.Interfaces;
 using Datateal.Orchestrator.Core.Repositories;
 
 namespace Datateal.Orchestrator.Application.Mediator.Commands;
@@ -18,6 +19,8 @@ public record TriggerJobRequest(
 internal class TriggerJobHandler(
     IJobRepository jobRepository,
     IJobRunRepository jobRunRepository,
+    IWorkspaceReader workspaceReader,
+    ICatalogAccessAuthorizer catalogAuthorizer,
     RunDispatcher runDispatcher) : IRequestHandler<TriggerJobRequest, JobRun?>
 {
     private static readonly JsonSerializerOptions SnapshotOptions = new(JsonSerializerDefaults.Web)
@@ -47,6 +50,48 @@ internal class TriggerJobHandler(
         return result;
     }
 
+    /// <summary>
+    /// Validates that the job's effective owner is authorized to access every catalog referenced by the
+    /// job's notebook/SQL tasks. Throws (rejecting the trigger) when no owner is set or any catalog is
+    /// inaccessible. Sub-job tasks are validated when their own child run is triggered.
+    /// </summary>
+    private async Task EnsureOwnerCatalogAccessAsync(Job job, CancellationToken ct)
+    {
+        var itemIds = job.Tasks
+            .Select(t => t switch
+            {
+                NotebookTask n => (Guid?)n.NotebookId,
+                SqlQueryTask q => (Guid?)q.QueryId,
+                _ => null,
+            })
+            .Where(id => id is not null)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        var catalogNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var itemId in itemIds)
+        {
+            foreach (var name in await workspaceReader.GetWorkspaceItemCatalogNamesAsync(itemId, ct))
+                catalogNames.Add(name);
+        }
+
+        if (catalogNames.Count == 0)
+            return;
+
+        if (job.OwnerUserId is null)
+            throw new InvalidOperationException(
+                $"Job '{job.Name}' has no effective owner; cannot authorize catalog access. Re-save the " +
+                "job as a provisioned user to set an owner before running it.");
+
+        var inaccessible = await catalogAuthorizer.GetInaccessibleAsync(
+            job.OwnerUserId.Value, job.WorkspaceId, catalogNames.ToList(), ct);
+        if (inaccessible.Count > 0)
+            throw new InvalidOperationException(
+                $"The owner of job '{job.Name}' is not authorized to access catalog(s): " +
+                $"{string.Join(", ", inaccessible)}.");
+    }
+
     public async Task<JobRun?> Handle(TriggerJobRequest request, CancellationToken cancellationToken)
     {
         var job = await jobRepository.GetJobAsync(request.JobId, cancellationToken);
@@ -67,11 +112,16 @@ internal class TriggerJobHandler(
             throw new InvalidOperationException(
                 $"Job '{job.Name}' is missing required parameter(s): {string.Join(", ", missing)}.");
 
+        // Authorize catalog access for the job's effective owner before creating the run, so a job
+        // referencing catalogs the owner cannot access is rejected up front rather than failing mid-DAG.
+        await EnsureOwnerCatalogAccessAsync(job, cancellationToken);
+
         var run = new JobRun
         {
             Id = Guid.NewGuid(),
             JobId = job.Id,
             WorkspaceId = job.WorkspaceId,
+            OwnerUserId = job.OwnerUserId,
             JobName = job.Name,
             Status = JobRunStatus.Pending,
             Trigger = request.Trigger,

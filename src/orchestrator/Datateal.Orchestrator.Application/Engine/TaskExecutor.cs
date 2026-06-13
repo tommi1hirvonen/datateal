@@ -32,10 +32,13 @@ public class TaskExecutor(
     private record TaskScopeContext(
         IJobRunRepository Repo,
         IWorkspaceReader Workspace,
-        ICatalogResolver Catalogs);
+        ICatalogResolver Catalogs,
+        ICatalogAccessAuthorizer CatalogAuthorizer,
+        Guid WorkspaceId,
+        Guid? OwnerUserId);
 
     public async Task ExecuteAsync(TaskRun taskRun, JobTask task, NodeManager nodeManager,
-        Dictionary<string, string>? jobRunParameters, CancellationToken ct)
+        Dictionary<string, string>? jobRunParameters, Guid workspaceId, Guid? ownerUserId, CancellationToken ct)
     {
         // Each concurrent task execution gets its own scope (and DbContext) to avoid
         // EF Core threading issues when tasks run in parallel within the same job run.
@@ -43,7 +46,10 @@ public class TaskExecutor(
         var ctx = new TaskScopeContext(
             scope.ServiceProvider.GetRequiredService<IJobRunRepository>(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceReader>(),
-            scope.ServiceProvider.GetRequiredService<ICatalogResolver>());
+            scope.ServiceProvider.GetRequiredService<ICatalogResolver>(),
+            scope.ServiceProvider.GetRequiredService<ICatalogAccessAuthorizer>(),
+            workspaceId,
+            ownerUserId);
 
         switch ((taskRun, task))
         {
@@ -605,6 +611,20 @@ public class TaskExecutor(
     {
         var catalogNames = await ctx.Workspace.GetWorkspaceItemCatalogNamesAsync(workspaceItemId, ct);
         if (catalogNames.Count == 0) return;
+
+        // Authorize against the job's effective owner. The owner's catalog permissions — not the
+        // workspace's full reach — bound what a job may attach, closing the confused-deputy gap where
+        // a restricted user could run code against catalogs they cannot reach interactively.
+        if (ctx.OwnerUserId is null)
+            throw new InvalidOperationException(
+                "Job has no effective owner; cannot authorize catalog access. Re-save the job as a " +
+                "provisioned user to set an owner before running it.");
+
+        var inaccessible = await ctx.CatalogAuthorizer.GetInaccessibleAsync(
+            ctx.OwnerUserId.Value, ctx.WorkspaceId, catalogNames, ct);
+        if (inaccessible.Count > 0)
+            throw new InvalidOperationException(
+                $"The job owner is not authorized to access catalog(s): {string.Join(", ", inaccessible)}.");
 
         var resolved = await ctx.Catalogs.ResolveAsync(catalogNames, ct);
         if (resolved.Count == 0) return;

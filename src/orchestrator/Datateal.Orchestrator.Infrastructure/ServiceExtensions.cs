@@ -1,4 +1,5 @@
 using Datateal.Auth.ApiKey;
+using Datateal.Data.Catalogs;
 using Datateal.Orchestrator.Core.Configuration;
 using Datateal.Orchestrator.Core.Interfaces;
 using Datateal.Orchestrator.Core.Repositories;
@@ -34,6 +35,8 @@ public static class ServiceExtensions
         services.AddSingleton<IWheelPackageReader, WheelPackageReader>();
         services.AddSingleton<IEnvironmentResolver, EnvironmentResolver>();
         services.AddScoped<ICatalogResolver, CatalogResolver>();
+        services.AddScoped<ICatalogAccessResolver, CatalogAccessResolver>();
+        services.AddScoped<ICatalogAccessAuthorizer, CatalogAccessAuthorizer>();
 
         services.Configure<CatalogSettings>(configuration.GetSection("Catalogs"));
 

@@ -20,6 +20,13 @@ public class JobRun
 
     public string JobName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Effective owner identity captured from the source job at trigger time. Carried onto the run so
+    /// catalog access can be authorized during execution even after the source job is edited or deleted.
+    /// References <see cref="Datateal.Core.Users.AppUser.Id"/>.
+    /// </summary>
+    public Guid? OwnerUserId { get; set; }
+
     public JobRunStatus Status { get; set; }
     public JobRunTrigger Trigger { get; set; }
     public Guid? ScheduleId { get; set; }

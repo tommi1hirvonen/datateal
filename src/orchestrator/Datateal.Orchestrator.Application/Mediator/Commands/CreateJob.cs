@@ -13,6 +13,7 @@ public record CreateJobRequest(
     string? Description,
     Guid? FolderId,
     int MaxConcurrentRuns,
+    Guid? OwnerUserId,
     List<CreateJobTaskRequest>? Tasks = null,
     List<CreateJobParameterRequest>? Parameters = null) : IRequest<Job>;
 
@@ -37,6 +38,9 @@ internal class CreateJobHandler(IJobRepository jobRepository) : IRequestHandler<
 {
     public async Task<Job> Handle(CreateJobRequest request, CancellationToken cancellationToken)
     {
+        if (request.OwnerUserId is null)
+            throw new InvalidOperationException(JobOwner.MissingOwnerMessage);
+
         // Validate unique task names in the submitted task list.
         var taskNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var t in request.Tasks ?? [])
@@ -58,6 +62,8 @@ internal class CreateJobHandler(IJobRepository jobRepository) : IRequestHandler<
             Description = request.Description,
             FolderId = request.FolderId,
             MaxConcurrentRuns = request.MaxConcurrentRuns,
+            OwnerUserId = request.OwnerUserId,
+            CreatedByUserId = request.OwnerUserId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };

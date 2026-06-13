@@ -143,7 +143,7 @@ public class RunCoordinator(
                 {
                     try
                     {
-                        await taskExecutor.ExecuteAsync(capturedTaskRun, capturedTask, nodeManager, run.Parameters, ct);
+                        await taskExecutor.ExecuteAsync(capturedTaskRun, capturedTask, nodeManager, run.Parameters, run.WorkspaceId, run.OwnerUserId, ct);
                         capturedTaskRun.Status = TaskRunStatus.Succeeded;
                     }
                     catch (OperationCanceledException)

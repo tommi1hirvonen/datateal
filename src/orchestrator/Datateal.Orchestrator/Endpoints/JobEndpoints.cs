@@ -1,3 +1,4 @@
+using Datateal.Auth;
 using Datateal.Core.Mediator;
 using Datateal.Orchestrator.Application.Mediator.Commands;
 using Datateal.Orchestrator.Application.Mediator.Queries;
@@ -22,11 +23,11 @@ public static class JobEndpoints
         })
         .WithName("GetJob");
 
-        group.MapPost("/", async (Guid workspaceId, CreateJobRequest request, IMediator mediator, CancellationToken ct) =>
+        group.MapPost("/", async (Guid workspaceId, CreateJobRequest request, HttpContext http, IMediator mediator, CancellationToken ct) =>
         {
             try
             {
-                var withWorkspace = request with { WorkspaceId = workspaceId };
+                var withWorkspace = request with { WorkspaceId = workspaceId, OwnerUserId = GetActingUser(http) };
                 var job = await mediator.SendAsync(withWorkspace, ct);
                 return Results.Created($"/api/workspaces/{workspaceId}/jobs/{job.Id}", job);
             }
@@ -41,11 +42,11 @@ public static class JobEndpoints
         })
         .WithName("CreateJob");
 
-        group.MapPut("/{id:guid}", async (Guid workspaceId, Guid id, UpdateJobRequest request, IMediator mediator, CancellationToken ct) =>
+        group.MapPut("/{id:guid}", async (Guid workspaceId, Guid id, UpdateJobRequest request, HttpContext http, IMediator mediator, CancellationToken ct) =>
         {
             try
             {
-                var updated = request with { WorkspaceId = workspaceId, Id = id };
+                var updated = request with { WorkspaceId = workspaceId, Id = id, OwnerUserId = GetActingUser(http) };
                 var job = await mediator.SendAsync(updated, ct);
                 return job is null ? Results.NotFound() : Results.Ok(job);
             }
@@ -125,11 +126,11 @@ public static class JobEndpoints
         .WithName("DeleteSchedule");
 
         // Import job from YAML
-        group.MapPost("/import", async (Guid workspaceId, ImportJobBody body, IMediator mediator, CancellationToken ct) =>
+        group.MapPost("/import", async (Guid workspaceId, ImportJobBody body, HttpContext http, IMediator mediator, CancellationToken ct) =>
         {
             try
             {
-                var job = await mediator.SendAsync(new ImportJobRequest(workspaceId, body.Yaml), ct);
+                var job = await mediator.SendAsync(new ImportJobRequest(workspaceId, body.Yaml, GetActingUser(http)), ct);
                 return Results.Created($"/api/workspaces/{workspaceId}/jobs/{job.Id}", job);
             }
             catch (JobNameConflictException ex)
@@ -153,6 +154,13 @@ public static class JobEndpoints
 
         return endpoints;
     }
+
+    /// <summary>
+    /// Reads the server-stamped acting-user id forwarded by the UI proxy. Returns <c>null</c> when
+    /// absent or unparsable; callers treat a null owner as fail-closed at run time.
+    /// </summary>
+    private static Guid? GetActingUser(HttpContext http) =>
+        Guid.TryParse((string?)http.Request.Headers[DatatealHeaders.ActingUser], out var id) ? id : null;
 }
 
 public record TriggerJobBody(Dictionary<string, string>? Parameters);

@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Datateal.Core\Datateal.Core.csproj" />
+    <ProjectReference Include="..\Datateal.Auth.Abstractions\Datateal.Auth.Abstractions.csproj" />
     <ProjectReference Include="..\..\orchestrator\Datateal.Orchestrator.Core\Datateal.Orchestrator.Core.csproj" />
   </ItemGroup>
 

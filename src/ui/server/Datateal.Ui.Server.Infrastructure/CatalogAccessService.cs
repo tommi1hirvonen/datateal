@@ -1,138 +1,83 @@
 using System.Security.Claims;
 using Datateal.Auth;
 using Datateal.Data;
+using Datateal.Data.Catalogs;
 using Datateal.Ui.Server.Core.Catalogs;
 using Microsoft.EntityFrameworkCore;
 
 namespace Datateal.Ui.Server.Infrastructure;
 
-internal class CatalogAccessService(DatatealDbContext db) : ICatalogAccessService
+/// <summary>
+/// Adapts the <see cref="ClaimsPrincipal"/>-based interactive API surface onto the shared
+/// <see cref="ICatalogAccessResolver"/> so the UI and the orchestrator share one catalog-access
+/// implementation. The principal is resolved to an <see cref="Core.Users.AppUser.Id"/> (or treated as
+/// unrestricted when it carries an Admin/CatalogContributor role) and the rest is delegated.
+/// </summary>
+internal class CatalogAccessService(DatatealDbContext db, ICatalogAccessResolver resolver) : ICatalogAccessService
 {
     public async Task<IReadOnlySet<Guid>?> GetAccessibleCatalogIdsAsync(ClaimsPrincipal user, Guid? workspaceId, CancellationToken ct = default)
     {
-        var userSet = await GetUserAccessibleIdsAsync(user, ct);
-        var workspaceSet = await GetWorkspaceAccessibleIdsAsync(workspaceId, ct);
-        return Combine(userSet, workspaceSet);
+        var userId = await ResolveEffectiveUserIdAsync(user, ct);
+        return await resolver.GetAccessibleCatalogIdsAsync(userId, workspaceId, ct);
     }
 
     public async Task<bool> HasAccessAsync(ClaimsPrincipal user, Guid? workspaceId, Guid catalogId, CancellationToken ct = default)
     {
-        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, workspaceId, ct);
-        return accessibleIds is null || accessibleIds.Contains(catalogId);
+        var userId = await ResolveEffectiveUserIdAsync(user, ct);
+        return await resolver.HasAccessByIdAsync(userId, workspaceId, catalogId, ct);
     }
 
     public async Task<bool> HasAccessByNameAsync(ClaimsPrincipal user, Guid? workspaceId, string catalogName, CancellationToken ct = default)
     {
-        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, workspaceId, ct);
-        if (accessibleIds is null)
-            return true;
-
-        var catalog = await db.Catalogs
-            .Where(c => c.Name == catalogName)
-            .Select(c => new { c.Id })
-            .FirstOrDefaultAsync(ct);
-
-        return catalog is not null && accessibleIds.Contains(catalog.Id);
+        var userId = await ResolveEffectiveUserIdAsync(user, ct);
+        return await resolver.HasAccessByNameAsync(userId, workspaceId, catalogName, ct);
     }
 
     public async Task<IReadOnlyList<string>> FilterAccessibleNamesAsync(
         ClaimsPrincipal user, Guid? workspaceId, IReadOnlyList<string> catalogNames, CancellationToken ct = default)
     {
-        if (catalogNames.Count == 0)
-            return catalogNames;
-
-        var accessibleIds = await GetAccessibleCatalogIdsAsync(user, workspaceId, ct);
-        if (accessibleIds is null)
-            return catalogNames;
-
-        return await db.Catalogs
-            .Where(c => catalogNames.Contains(c.Name) && accessibleIds.Contains(c.Id))
-            .Select(c => c.Name)
-            .ToListAsync(ct);
+        var userId = await ResolveEffectiveUserIdAsync(user, ct);
+        return await resolver.FilterAccessibleNamesAsync(userId, workspaceId, catalogNames, ct);
     }
 
     /// <summary>
-    /// User-level access: <c>null</c> means unrestricted (Admin, CatalogContributor, or the
-    /// <see cref="Core.Users.AppUser.HasAllCatalogAccess"/> flag); otherwise the explicit grants.
+    /// Maps the principal to the user id the shared resolver expects. Returns <c>null</c> when the
+    /// principal holds an unrestricted role (no user-level restriction) or cannot be matched to a
+    /// stored user (preserving the prior "unknown principal is unrestricted at the user tier" behavior;
+    /// access is still bounded by the workspace tier).
     /// </summary>
-    private async Task<IReadOnlySet<Guid>?> GetUserAccessibleIdsAsync(ClaimsPrincipal user, CancellationToken ct)
+    private async Task<Guid?> ResolveEffectiveUserIdAsync(ClaimsPrincipal user, CancellationToken ct)
     {
         if (HasUnrestrictedRoles(user))
             return null;
 
-        var appUser = await ResolveUserAsync(user, ct);
-        if (appUser is null || appUser.HasAllCatalogAccess)
-            return null;
-
-        return appUser.CatalogAccessList.Select(a => a.CatalogId).ToHashSet();
-    }
-
-    /// <summary>
-    /// Workspace-level access: catalogs flagged accessible from all workspaces plus those
-    /// explicitly granted to <paramref name="workspaceId"/>. <c>null</c> when no workspace is
-    /// in scope (no restriction applied).
-    /// </summary>
-    private async Task<IReadOnlySet<Guid>?> GetWorkspaceAccessibleIdsAsync(Guid? workspaceId, CancellationToken ct)
-    {
-        if (workspaceId is null)
-            return null;
-
-        var openIds = await db.Catalogs
-            .Where(c => c.AccessibleFromAllWorkspaces)
-            .Select(c => c.Id)
-            .ToListAsync(ct);
-
-        var grantedIds = await db.CatalogWorkspaceAccess
-            .Where(a => a.WorkspaceId == workspaceId)
-            .Select(a => a.CatalogId)
-            .ToListAsync(ct);
-
-        return openIds.Concat(grantedIds).ToHashSet();
-    }
-
-    private static IReadOnlySet<Guid>? Combine(IReadOnlySet<Guid>? a, IReadOnlySet<Guid>? b)
-    {
-        if (a is null) return b;
-        if (b is null) return a;
-        return a.Where(b.Contains).ToHashSet();
-    }
-
-    private static bool HasUnrestrictedRoles(ClaimsPrincipal user) =>
-        user.IsInRole(DatatealRole.Admin) || user.IsInRole(DatatealRole.CatalogContributor);
-
-    private async Task<UserWithCatalogAccess?> ResolveUserAsync(ClaimsPrincipal user, CancellationToken ct)
-    {
         var externalId = user.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
             ?? user.FindFirstValue("oid");
         var email = user.FindFirstValue("preferred_username")
             ?? user.FindFirstValue(ClaimTypes.Email)
             ?? user.FindFirstValue("email");
 
-        UserWithCatalogAccess? appUser = null;
+        Guid? id = null;
 
         if (externalId is not null)
         {
-            appUser = await db.AppUsers
+            id = await db.AppUsers
                 .Where(u => u.ExternalId == externalId)
-                .Select(u => new UserWithCatalogAccess(
-                    u.HasAllCatalogAccess,
-                    u.CatalogAccessList.Select(a => new CatalogAccessEntry(a.CatalogId)).ToList()))
+                .Select(u => (Guid?)u.Id)
                 .FirstOrDefaultAsync(ct);
         }
 
-        if (appUser is null && email is not null)
+        if (id is null && email is not null)
         {
-            appUser = await db.AppUsers
+            id = await db.AppUsers
                 .Where(u => u.Email == email)
-                .Select(u => new UserWithCatalogAccess(
-                    u.HasAllCatalogAccess,
-                    u.CatalogAccessList.Select(a => new CatalogAccessEntry(a.CatalogId)).ToList()))
+                .Select(u => (Guid?)u.Id)
                 .FirstOrDefaultAsync(ct);
         }
 
-        return appUser;
+        return id;
     }
 
-    private record UserWithCatalogAccess(bool HasAllCatalogAccess, List<CatalogAccessEntry> CatalogAccessList);
-    private record CatalogAccessEntry(Guid CatalogId);
+    private static bool HasUnrestrictedRoles(ClaimsPrincipal user) =>
+        user.IsInRole(DatatealRole.Admin) || user.IsInRole(DatatealRole.CatalogContributor);
 }
