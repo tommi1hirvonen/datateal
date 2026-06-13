@@ -52,6 +52,10 @@
         if (id == Workspaces.ActiveWorkspaceId)
             return;
 
+        // Persist the selection first so it survives the full reload, then hard-navigate so
+        // every page re-fetches its data under the new workspace.
+        await Workspaces.SetActiveAsync(id);
+
         var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
         if (WorkspaceRoute.TryParse("/" + relative, out _, out var remainder))
         {
@@ -62,12 +66,12 @@
             var target = section is "jobs" or "node-pools" or "environment" or "workspace"
                 ? section
                 : "workspace";
-            Navigation.NavigateTo(WorkspaceRoute.Build(id, target));
+            Navigation.NavigateTo(WorkspaceRoute.Build(id, target), forceLoad: true);
         }
         else
         {
-            // On a tenant-global page: just switch the active workspace.
-            await Workspaces.SetActiveAsync(id);
+            // On a tenant-global page (e.g. home, settings): reload in place under the new workspace.
+            Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
         }
     }
 
