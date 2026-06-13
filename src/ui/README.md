@@ -146,18 +146,21 @@ Roles are coarse-grained capability buckets. Policies are the named groups check
 
 #### Roles (`DatatealRole`)
 
-| Role                   | What it grants                                                                                                               |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `Admin`                | Full access to everything                                                                                                    |
-| `NodePoolContributor`  | Create/edit/delete node pool configs; start/stop nodes; create kernel sessions and execute code                              |
-| `NodePoolOperator`     | Start/stop interactive node pools; create kernel sessions and execute code (no config changes)                               |
-| `JobContributor`       | Create/edit/delete jobs, tasks, params, schedules; trigger runs                                                              |
-| `JobOperator`          | Trigger and cancel job runs; monitor all jobs/runs (no config changes)                                                       |
-| `JobReader`            | Read and monitor jobs and runs; no trigger or cancel                                                                         |
-| `WorkspaceContributor` | Create/edit/delete workspace folders, notebooks, queries. Needs `NodePoolOperator` to connect to kernels and execute code    |
-| `WorkspaceReader`      | Read workspace notebooks and queries; no create/edit/delete. Needs `NodePoolOperator` to connect to kernels and execute code |
-| `CatalogContributor`   | Manage all catalog definitions; implicit access to all catalog data                                                          |
-| `EnvironmentManager`   | Manage environment variables and secrets                                                                                     |
+Roles are either **tenant-global** (stored on `AppUser.Roles`, assigned on the Users page, effective across the whole instance) or **per-workspace** (stored on `WorkspaceMembership.Roles`, assigned from a workspace's members list, effective only within that workspace).
+
+| Role                   | Scope         | What it grants                                                                                                               |
+| ---------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `Admin`                | Tenant-global | Full access across the instance: manage users and every workspace, and access all catalogs. Implicitly has every role in every workspace |
+| `CatalogContributor`   | Tenant-global | Create/edit/delete catalogs and schemas across the tenant; implicit access to all catalog data                              |
+| `WorkspaceAdmin`       | Per-workspace | Administer a single workspace: manage its members/roles and do everything the other per-workspace roles allow within it. No tenant-level admin |
+| `WorkspaceContributor` | Per-workspace | Create/edit/delete folders, notebooks, queries in the workspace. Needs `NodePoolOperator` to connect to kernels and execute code |
+| `WorkspaceReader`      | Per-workspace | Read notebooks and queries in the workspace; no create/edit/delete. Needs `NodePoolOperator` to connect to kernels and execute code |
+| `NodePoolContributor`  | Per-workspace | Create/edit/delete node pool configs in the workspace; start/stop nodes; create kernel sessions and execute code             |
+| `NodePoolOperator`     | Per-workspace | Start/stop interactive node pools in the workspace; create kernel sessions and execute code (no config changes)              |
+| `JobContributor`       | Per-workspace | Create/edit/delete jobs, tasks, params, schedules in the workspace                                                          |
+| `JobOperator`          | Per-workspace | Run, monitor, and cancel jobs in the workspace (no config changes)                                                          |
+| `JobReader`            | Per-workspace | Read and monitor jobs and runs in the workspace; no run or cancel                                                          |
+| `EnvironmentManager`   | Per-workspace | Manage the workspace's environment variables, secrets, and packages                                                        |
 
 #### Policies (`AuthPolicy`)
 

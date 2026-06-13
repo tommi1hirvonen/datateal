@@ -182,7 +182,13 @@
                 @foreach (var role in DatatealRole.PerWorkspace)
                 {
                     <GridCol Span="12">
-                        <Checkbox Label="@role">@role</Checkbox>
+                        <Checkbox Label="@role">
+                            @role
+                            <Popover ContentTemplate="@RoleInfoContent(role)" Title="@role">
+                                <Icon Type="info-circle"
+                                      Style="margin-left: 4px; color: #8c8c8c; cursor: default; font-size: 12px; vertical-align: middle;" />
+                            </Popover>
+                        </Checkbox>
                     </GridCol>
                 }
             </GridRow>
@@ -230,6 +236,9 @@
 
     private bool CanSaveMember =>
         _memberRoles.Length > 0 && (_editMemberUserId is not null || _memberUserId != Guid.Empty);
+
+    private RenderFragment RoleInfoContent(string role) =>
+        @<span style="max-width: 260px; display: block;">@RoleCatalog.Describe(role)</span>;
 
     private string? NameDisplayError =>
         (_submitAttempted || !string.IsNullOrEmpty(_form.Name)) ? GetNameError() : null;

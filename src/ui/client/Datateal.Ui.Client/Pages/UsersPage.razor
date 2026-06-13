@@ -139,9 +139,14 @@
             }
 
             <FormItem Label="Roles">
+                <div style="color: #8c8c8c; font-size: 12px; margin-bottom: 8px;">
+                    Tenant-wide roles that apply across the whole instance. Workspace-specific
+                    roles (e.g. WorkspaceAdmin, contributors, operators) are granted per workspace
+                    from that workspace's <b>Members</b> list on the Workspaces page.
+                </div>
                 <CheckboxGroup @bind-Value="_selectedRoles" TValue="string" Style="width:100%">
                     <GridRow Gutter="(0, 8)">
-                        @foreach (var role in DatatealRole.All)
+                        @foreach (var role in DatatealRole.TenantGlobal)
                         {
                             <GridCol Span="12">
                                 <Checkbox Label="@role">
@@ -210,22 +215,8 @@
     private string[] _selectedRoles = [];
     private IEnumerable<Guid> _selectedCatalogIds = [];
 
-    private static readonly Dictionary<string, string> RoleDescriptions = new()
-    {
-        [DatatealRole.Admin]                = "Full access to all features, user management, and all catalogs.",
-        [DatatealRole.NodePoolContributor]  = "Create, edit, and delete node pool configurations. Also allows starting/stopping pools, creating kernel sessions, and executing code in notebooks and queries.",
-        [DatatealRole.NodePoolOperator]     = "Start and stop interactive node pools. Also allows creating kernel sessions and executing code in notebooks and queries.",
-        [DatatealRole.JobContributor]       = "Create, edit, and delete job definitions.",
-        [DatatealRole.JobOperator]          = "Run, monitor, and cancel jobs.",
-        [DatatealRole.JobReader]            = "View and monitor jobs. Cannot cancel or modify jobs.",
-        [DatatealRole.WorkspaceContributor] = "Create, edit, and delete notebooks and queries. Does not grant kernel or code execution access — also requires NodePoolOperator for that.",
-        [DatatealRole.WorkspaceReader]      = "Browse and read workspace content. Cannot make changes or execute code. Also requires NodePoolOperator to connect to kernels.",
-        [DatatealRole.CatalogContributor]   = "Manage all catalogs and schemas. Has implicit access to all catalog data.",
-        [DatatealRole.EnvironmentManager]   = "Manage environment variables, secrets, and packages.",
-    };
-
     private RenderFragment RoleInfoContent(string role) =>
-        @<span style="max-width: 260px; display: block;">@RoleDescriptions.GetValueOrDefault(role, role)</span>;
+        @<span style="max-width: 260px; display: block;">@RoleCatalog.Describe(role)</span>;
 
     private string? EmailDisplayError =>
         (_submitAttempted || !string.IsNullOrEmpty(_form.Email)) ? GetEmailError() : null;
