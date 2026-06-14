@@ -9,7 +9,7 @@ insert_final_newline = true
 indent_style = space
 
 # ── C# (.NET) ─────────────────────────────────────
-[*.{cs,razor,csproj,sln,props}]
+[*.{cs,razor,csproj,sln,slnx,props}]
 indent_size = 4
 
 # Style preferences (guidance, not enforced by dotnet-format in this phase)

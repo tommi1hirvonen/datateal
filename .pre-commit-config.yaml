@@ -41,6 +41,6 @@ repos:
     hooks:
       - id: commit-msg
         name: commit message (Conventional Commits)
-        entry: python3 .githooks/commit-msg
-        language: system
+        entry: python .githooks/commit-msg
+        language: python
         stages: [commit-msg]
