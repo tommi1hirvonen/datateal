@@ -1,0 +1,6 @@
+# Ignore minified JS/CSS files
+**/*.min.js
+**/*.min.css
+
+# Ignore third-party libraries
+src/ui/server/Datateal.Ui.Server/wwwroot/js/cytoscape-dagre.js

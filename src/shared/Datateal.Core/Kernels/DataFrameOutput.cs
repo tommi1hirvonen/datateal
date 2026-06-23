@@ -39,16 +39,16 @@ public record DataFrameOutput(
                 .Select(row => (IReadOnlyList<object?>)row.EnumerateArray()
                     .Select(cell => cell.ValueKind switch
                     {
-                        JsonValueKind.Null      => (object?)null,
-                        JsonValueKind.True      => true,
-                        JsonValueKind.False     => false,
-                        JsonValueKind.Number    => cell.TryGetInt64(out var l) ? l : cell.GetDouble(),
-                        _                       => cell.GetString(),
+                        JsonValueKind.Null => (object?)null,
+                        JsonValueKind.True => true,
+                        JsonValueKind.False => false,
+                        JsonValueKind.Number => cell.TryGetInt64(out var l) ? l : cell.GetDouble(),
+                        _ => cell.GetString(),
                     })
                     .ToList())
                 .ToList();
 
-            int totalRows    = je.GetProperty("total_rows").GetInt32();
+            int totalRows = je.GetProperty("total_rows").GetInt32();
             int displayedRows = je.GetProperty("displayed_rows").GetInt32();
 
             return new DataFrameOutput(columns, rows, totalRows, displayedRows);

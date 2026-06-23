@@ -81,12 +81,12 @@ def poll_execution(kernel_id: str, execution_id: str):
         raise HTTPException(status_code=404, detail="Kernel not found")
     try:
         poll = conn.get_execution(execution_id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Execution not found")
-    except TimeoutError:
-        raise HTTPException(status_code=408, detail="Execution timed out")
+    except KeyError as err:
+        raise HTTPException(status_code=404, detail="Execution not found") from err
+    except TimeoutError as err:
+        raise HTTPException(status_code=408, detail="Execution timed out") from err
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     if not poll["is_complete"]:
         return PollExecutionResponse(is_complete=False)
@@ -154,5 +154,11 @@ async def hover(kernel_id: str, body: HoverRequest):
     if not conn:
         raise HTTPException(status_code=404, detail="Kernel not found")
     contents = await conn.hover(body.code, body.line, body.column, body.context)
-    logger.debug("hover kernel=%s line=%d col=%d → %d content items", kernel_id, body.line, body.column, len(contents))
+    logger.debug(
+        "hover kernel=%s line=%d col=%d → %d content items",
+        kernel_id,
+        body.line,
+        body.column,
+        len(contents),
+    )
     return HoverResponse(contents=contents)

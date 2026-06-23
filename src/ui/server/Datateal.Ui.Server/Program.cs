@@ -22,12 +22,12 @@ builder.AddServiceDefaults();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-	.AddInteractiveWebAssemblyComponents()
-	.AddAuthenticationStateSerialization(options => options.SerializeAllClaims = true);
+    .AddInteractiveWebAssemblyComponents()
+    .AddAuthenticationStateSerialization(options => options.SerializeAllClaims = true);
 
 builder.Services.AddControllers()
-	.AddJsonOptions(options =>
-		options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddExceptionHandler<UpstreamExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -74,14 +74,14 @@ using (var scope = app.Services.CreateScope())
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-	app.UseWebAssemblyDebugging();
-	app.UseExceptionHandler(); // picks up UpstreamExceptionHandler
+    app.UseWebAssemblyDebugging();
+    app.UseExceptionHandler(); // picks up UpstreamExceptionHandler
 }
 else
 {
-	app.UseExceptionHandler("/Error", createScopeForErrors: true); // picks up UpstreamExceptionHandler, then falls back to /Error
-	// The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-	app.UseHsts();
+    app.UseExceptionHandler("/Error", createScopeForErrors: true); // picks up UpstreamExceptionHandler, then falls back to /Error
+                                                                   // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
@@ -97,8 +97,8 @@ app.MapControllers().RequireAuthorization();
 app.MapOrchestratorProxy();
 app.MapLoginAndLogout();
 app.MapRazorComponents<App>()
-	.AddInteractiveWebAssemblyRenderMode()
-	.AddAdditionalAssemblies(typeof(Datateal.Ui.Client._Imports).Assembly);
+    .AddInteractiveWebAssemblyRenderMode()
+    .AddAdditionalAssemblies(typeof(Datateal.Ui.Client._Imports).Assembly);
 
 app.MapDefaultEndpoints();
 app.MapHub<Datateal.Ui.Server.Hubs.AiAssistantHub>("/ai/hub");

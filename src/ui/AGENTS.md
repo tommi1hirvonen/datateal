@@ -4,15 +4,15 @@ Blazor Web App: ASP.NET Core server host (`Datateal.Ui.Server`) with a WebAssemb
 
 ## Projects
 
-| Project | Role |
-|---|---|
-| `Datateal.Ui.Shared` | DTOs shared between server and WASM client (`Nodes/`, `Kernels/`, `Workspace/` subfolders) |
-| `Datateal.Ui.Server` | ASP.NET Core host; REST API controllers, Blazor/WASM bootstrap, EF Core migrations |
-| `Datateal.Ui.Server.Core` | Domain layer: entity classes, repository interfaces |
-| `Datateal.Ui.Server.Application` | Use-case layer: custom mediator pattern (commands + queries) |
-| `Datateal.Ui.Server.Infrastructure` | EF Core + SQLite; concrete repositories, `AddInfrastructureServices()` |
-| `Datateal.Ui.Client` | WASM client: pages, layouts, typed `HttpClient` services |
-| `Datateal.Ui.Client.Components` | Razor Class Library: `CodeCell` (Monaco wrapper), `ExecutionTimer` |
+| Project                             | Role                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| `Datateal.Ui.Shared`                | DTOs shared between server and WASM client (`Nodes/`, `Kernels/`, `Workspace/` subfolders) |
+| `Datateal.Ui.Server`                | ASP.NET Core host; REST API controllers, Blazor/WASM bootstrap, EF Core migrations         |
+| `Datateal.Ui.Server.Core`           | Domain layer: entity classes, repository interfaces                                        |
+| `Datateal.Ui.Server.Application`    | Use-case layer: custom mediator pattern (commands + queries)                               |
+| `Datateal.Ui.Server.Infrastructure` | EF Core + SQLite; concrete repositories, `AddInfrastructureServices()`                     |
+| `Datateal.Ui.Client`                | WASM client: pages, layouts, typed `HttpClient` services                                   |
+| `Datateal.Ui.Client.Components`     | Razor Class Library: `CodeCell` (Monaco wrapper), `ExecutionTimer`                         |
 
 ## Architecture
 
@@ -60,24 +60,24 @@ Interactive node pools are a class of `NodePoolConfig` with `PoolType = "Interac
 
 All workspace-specific pages are rooted at `/w/{WorkspaceId:guid}/`. Cross-workspace or admin pages sit at the top level.
 
-| Page | Route | Description |
-|---|---|---|
-| `Home.razor` | `/` or `/w/{WorkspaceId:guid}` | Welcome / workspace landing page |
-| `WorkspacesPage.razor` | `/workspaces` | Tenant-level workspace list and administration |
-| `WorkspacePage.razor` | `/w/{WorkspaceId:guid}/workspace` | Workspace browser |
-| `NotebookPage.razor` | `/w/{WorkspaceId:guid}/notebook[/{Id:guid}]` | Polyglot notebook editor |
-| `QueryPage.razor` | `/w/{WorkspaceId:guid}/query[/{Id:guid}]` | SQL query editor with results panel |
-| `NodePoolsPage.razor` | `/w/{WorkspaceId:guid}/node-pools` | Node pool config management; tabs for Interactive, Job, and Active nodes |
-| `Kernels.razor` | `/w/{WorkspaceId:guid}/nodes/{Name}/kernels` | Kernel management per node |
-| `JobsPage.razor` | `/w/{WorkspaceId:guid}/jobs` | Job list and run history |
-| `JobEditorPage.razor` | `/w/{WorkspaceId:guid}/jobs/{Id:guid}` | Job definition editor |
-| `JobRunPage.razor` | `/w/{WorkspaceId:guid}/runs/{Id:guid}` | Job run detail and DAG progress |
-| `TaskRunNotebookPage.razor` | `/w/{WorkspaceId:guid}/runs/{RunId:guid}/tasks/{TaskRunId:guid}/notebook` | Task run notebook viewer |
-| `TaskRunQueryPage.razor` | `/w/{WorkspaceId:guid}/runs/{RunId:guid}/tasks/{TaskRunId:guid}/query` | Task run query viewer |
-| `EnvironmentPage.razor` | `/w/{WorkspaceId:guid}/environment` | Secrets, variables, and wheel packages |
-| `CatalogsPage.razor` | `/catalogs` | Tenant-level catalog management |
-| `UsersPage.razor` | `/users` | User administration (Admin only) |
-| `Settings.razor` | `/settings` | Theme settings |
+| Page                        | Route                                                                     | Description                                                              |
+| --------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `Home.razor`                | `/` or `/w/{WorkspaceId:guid}`                                            | Welcome / workspace landing page                                         |
+| `WorkspacesPage.razor`      | `/workspaces`                                                             | Tenant-level workspace list and administration                           |
+| `WorkspacePage.razor`       | `/w/{WorkspaceId:guid}/workspace`                                         | Workspace browser                                                        |
+| `NotebookPage.razor`        | `/w/{WorkspaceId:guid}/notebook[/{Id:guid}]`                              | Polyglot notebook editor                                                 |
+| `QueryPage.razor`           | `/w/{WorkspaceId:guid}/query[/{Id:guid}]`                                 | SQL query editor with results panel                                      |
+| `NodePoolsPage.razor`       | `/w/{WorkspaceId:guid}/node-pools`                                        | Node pool config management; tabs for Interactive, Job, and Active nodes |
+| `Kernels.razor`             | `/w/{WorkspaceId:guid}/nodes/{Name}/kernels`                              | Kernel management per node                                               |
+| `JobsPage.razor`            | `/w/{WorkspaceId:guid}/jobs`                                              | Job list and run history                                                 |
+| `JobEditorPage.razor`       | `/w/{WorkspaceId:guid}/jobs/{Id:guid}`                                    | Job definition editor                                                    |
+| `JobRunPage.razor`          | `/w/{WorkspaceId:guid}/runs/{Id:guid}`                                    | Job run detail and DAG progress                                          |
+| `TaskRunNotebookPage.razor` | `/w/{WorkspaceId:guid}/runs/{RunId:guid}/tasks/{TaskRunId:guid}/notebook` | Task run notebook viewer                                                 |
+| `TaskRunQueryPage.razor`    | `/w/{WorkspaceId:guid}/runs/{RunId:guid}/tasks/{TaskRunId:guid}/query`    | Task run query viewer                                                    |
+| `EnvironmentPage.razor`     | `/w/{WorkspaceId:guid}/environment`                                       | Secrets, variables, and wheel packages                                   |
+| `CatalogsPage.razor`        | `/catalogs`                                                               | Tenant-level catalog management                                          |
+| `UsersPage.razor`           | `/users`                                                                  | User administration (Admin only)                                         |
+| `Settings.razor`            | `/settings`                                                               | Theme settings                                                           |
 
 ## Styling
 
@@ -95,7 +95,9 @@ Global CSS in `server/Datateal.Ui.Server/wwwroot/css/app.css` — layout skeleto
 ## Authentication and authorization caveats
 
 ### `AuthorizeView` context shadowing in table `ActionColumn`
+
 AntBlazor table `ActionColumn` templates bind the row item to a parameter called `context`. `AuthorizeView` also defaults to `context` for its auth state. Nesting `<AuthorizeView>` inside `<ActionColumn>` produces a compile error. Fix: always add `Context="auth"` to `<AuthorizeView>` inside any `ActionColumn`:
+
 ```razor
 <ActionColumn>
     <AuthorizeView Policy="@AuthPolicy.WorkspaceManage" Context="auth">
@@ -105,7 +107,9 @@ AntBlazor table `ActionColumn` templates bind the row item to a parameter called
 ```
 
 ### `ItemTemplate` inside `AuthorizeView`
+
 If a `<Select>` with an `<ItemTemplate>` is a descendant of an `<AuthorizeView>`, the same `context` conflict arises. Add `Context="poolItem"` (or any other name) to `<ItemTemplate>`:
+
 ```razor
 <AuthorizeView Policy="@AuthPolicy.NodePoolOperate">
     <Select ...>
@@ -117,7 +121,9 @@ If a `<Select>` with an `<ItemTemplate>` is a descendant of an `<AuthorizeView>`
 ```
 
 ### `AuthorizeView` only gates rendering, not code execution
+
 `AuthorizeView` hides UI elements but does not prevent `OnInitializedAsync` or other lifecycle code from running. If a page loads data that requires a specific policy (e.g., fetching interactive pools), gate the code-behind as well:
+
 ```csharp
 [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 [Inject] private IAuthorizationService AuthorizationService { get; set; } = default!;
@@ -134,27 +140,34 @@ protected override async Task OnInitializedAsync()
 ```
 
 ### Always serialize all claims for WASM
+
 `AddAuthenticationStateSerialization(options => options.SerializeAllClaims = true)` must be set on the server. Without it, custom `ClaimTypes.Role` claims added by `AppClaimsTransformation` are stripped before the auth state is handed to the WASM client, making all `AuthorizeView` and `[Authorize(Policy = ...)]` directives evaluate as unauthenticated.
 
 ### `AppClaimsTransformation` — use `AsNoTracking()`
+
 `AppClaimsTransformation` runs inside the same scoped `DatatealDbContext` as the rest of the request. Always query with `.AsNoTracking()` here. If the user entity is tracked, subsequent repository operations in the same request may find a stale cached instance in the EF identity map, causing silent data corruption or `DbUpdateConcurrencyException`.
 
 `AppClaimsTransformation` also emits a `datateal:user_id` claim (see `DatatealClaimTypes.UserId`) containing the user's `AppUser.Id` as a GUID. This is the stable application identity used to stamp job ownership and is injected as `X-Datateal-Acting-User` by `OrchestratorProxy` on every orchestrator call.
 
 ### Per-workspace roles and claims
+
 Roles are two-tier:
+
 - **Tenant-global** (`Admin`, `CatalogContributor`): stored on `AppUser.Roles`; emitted as standard role claims.
 - **Per-workspace** (all other roles): stored on `WorkspaceMembership.Roles`; emitted as `datateal:workspace_role:{workspaceId}:{role}` claims by `AppClaimsTransformation`. Policy evaluation reads these via `WorkspaceRoleClaims`.
 
 The `WorkspaceMembershipManage` policy is satisfied by a tenant Admin **or** a `WorkspaceAdmin` of the target workspace.
 
 ### Updating `UserCatalogAccess` — bypass the change tracker
+
 Replacing a user's catalog access list must use `ExecuteDeleteAsync` (bulk SQL) rather than `Clear()` + `AddRange()` on the navigation collection. The EF change tracker cannot reliably reconcile the collection when the entity was previously loaded (even as `AsNoTracking`) in the same DI scope. The transaction must also be wrapped in `db.Database.CreateExecutionStrategy().ExecuteAsync(...)` because Npgsql's `NpgsqlRetryingExecutionStrategy` forbids user-initiated transactions outside a retriable unit.
 
 ### Policy names vs role names
+
 `[Authorize(Policy = AuthPolicy.WorkspaceRead)]` and `AuthorizeView Policy="@AuthPolicy.WorkspaceRead"` check **policies** (which map multiple roles). Do not pass a role name where a policy name is expected — the authorization system will look for a policy named `"WorkspaceContributor"` and throw `InvalidOperationException: The AuthorizationPolicy named '...' was not found.`
 
 ### OrchestratorProxy — no silent fallthrough
+
 `GetRequiredPolicy` in `OrchestratorProxy.cs` throws `InvalidOperationException` for any path it does not recognize. When adding a new orchestrator endpoint that the client will call via `/api/orchestrator/`, add a matching branch to `GetRequiredPolicy` first. There is no default fallback policy.
 
 `OrchestratorProxy` also stamps the `X-Datateal-Acting-User` header on every proxied request using the `datateal:user_id` claim from the current user. This header is read by orchestrator endpoints to attribute job create/update/import operations to the correct owner. Never trust this header from external clients — it is always written server-side by the proxy.
@@ -167,14 +180,14 @@ Replacing a user's catalog access list must use `ExecuteDeleteAsync` (bulk SQL) 
 
 JS is split across focused files in `Datateal.Ui.Server/wwwroot/js/`, all loaded as global scripts in `App.razor`:
 
-| File | Contents | Primary consumers |
-|---|---|---|
-| `theme.js` | `datatealMonacoReady` promise, `setDatatealTheme`, `getStoredDatatealTheme`, `getDatatealMonacoTheme` | `ThemeService` |
-| `monaco-interop.js` | `applyDatatealMonacoTheme`, `setMonacoEditorLanguage`, `getMonacoEditorSelection`, `registerMonacoExecuteCommand`, `relayoutMonacoEditor` | `CodeCell.razor` |
-| `semantic-tokens.js` | `registerSemanticTokensCell`, `unregisterSemanticTokensCell`, token registry | `KernelCodeCell.razor` |
-| `splitter.js` | `initQueryPageSplitter`, `initCatalogPanelSplitter` | `QueryPage.razor`, `CatalogSidePanel.razor`, `CatalogsPage.razor` |
-| `file-helpers.js` | `openFileAsText`, `downloadFile`, `downloadFileBytes`, `clickElement` | `NotebookPage.razor`, `WorkspacePage.razor`, `DataFrameView.razor` |
-| `notebook-interop.js` | `scrollNotebookToCell`, `getItemNodePref`, `setItemNodePref` | `NotebookProgressGutter.razor`, `NotebookPage.razor`, `QueryPage.razor` |
+| File                  | Contents                                                                                                                                  | Primary consumers                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `theme.js`            | `datatealMonacoReady` promise, `setDatatealTheme`, `getStoredDatatealTheme`, `getDatatealMonacoTheme`                                     | `ThemeService`                                                          |
+| `monaco-interop.js`   | `applyDatatealMonacoTheme`, `setMonacoEditorLanguage`, `getMonacoEditorSelection`, `registerMonacoExecuteCommand`, `relayoutMonacoEditor` | `CodeCell.razor`                                                        |
+| `semantic-tokens.js`  | `registerSemanticTokensCell`, `unregisterSemanticTokensCell`, token registry                                                              | `KernelCodeCell.razor`                                                  |
+| `splitter.js`         | `initQueryPageSplitter`, `initCatalogPanelSplitter`                                                                                       | `QueryPage.razor`, `CatalogSidePanel.razor`, `CatalogsPage.razor`       |
+| `file-helpers.js`     | `openFileAsText`, `downloadFile`, `downloadFileBytes`, `clickElement`                                                                     | `NotebookPage.razor`, `WorkspacePage.razor`, `DataFrameView.razor`      |
+| `notebook-interop.js` | `scrollNotebookToCell`, `getItemNodePref`, `setItemNodePref`                                                                              | `NotebookProgressGutter.razor`, `NotebookPage.razor`, `QueryPage.razor` |
 
 **Script load order matters**: `theme.js` must load before `monaco-interop.js` because `applyDatatealMonacoTheme` awaits `window.datatealMonacoReady` which is defined in `theme.js`.
 

@@ -1,50 +1,70 @@
 .nb-gutter-container {
-    width: 14px;
-    flex-shrink: 0;
-    position: relative;
-    overflow: visible;
+  width: 14px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: visible;
 }
 
 /* The clickable trigger that holds the tick marks */
 .nb-gutter-ticks {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 4px 2px;
-    cursor: pointer;
-    height: 100%;
-    box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 2px;
+  cursor: pointer;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 /* Individual tick line for one cell */
 .nb-gutter-tick {
-    height: 3px;
-    width: 10px;
-    border-radius: 2px;
-    flex-shrink: 0;
+  height: 3px;
+  width: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
-.nb-tick-pending { background: #bfbfbf; }
-.nb-tick-running { background: #1890ff; }
-.nb-tick-success { background: #52c41a; }
-.nb-tick-failed  { background: #ff4d4f; }
+.nb-tick-pending {
+  background: #bfbfbf;
+}
+.nb-tick-running {
+  background: #1890ff;
+}
+.nb-tick-success {
+  background: #52c41a;
+}
+.nb-tick-failed {
+  background: #ff4d4f;
+}
 
-html.ant-dark .nb-tick-pending { background: #595959; }
+html.ant-dark .nb-tick-pending {
+  background: #595959;
+}
 
 /* Colored dot shown in the navigation dropdown next to each cell label */
 .nb-gutter-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    margin-right: 2px;
-    vertical-align: middle;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 2px;
+  vertical-align: middle;
 }
 
-.nb-dot-pending { background: #bfbfbf; }
-.nb-dot-running { background: #1890ff; }
-.nb-dot-success { background: #52c41a; }
-.nb-dot-failed  { background: #ff4d4f; }
+.nb-dot-pending {
+  background: #bfbfbf;
+}
+.nb-dot-running {
+  background: #1890ff;
+}
+.nb-dot-success {
+  background: #52c41a;
+}
+.nb-dot-failed {
+  background: #ff4d4f;
+}
 
-html.ant-dark .nb-dot-pending { background: #595959; }
+html.ant-dark .nb-dot-pending {
+  background: #595959;
+}

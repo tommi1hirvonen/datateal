@@ -6,10 +6,10 @@ FastAPI service (`datateal_runtime` package) that runs on each Kubernetes node a
 
 Two isolated Python environments live in the Docker image:
 
-| Environment | Path | Contents |
-|---|---|---|
-| API | `/opt/venvs/api` | FastAPI, uvicorn, pydantic, jupyter-client, ipykernel, jedi, pyflakes |
-| Kernel | `/opt/venvs/kernel` | ipykernel, duckdb (+ optional extras) |
+| Environment | Path                | Contents                                                              |
+| ----------- | ------------------- | --------------------------------------------------------------------- |
+| API         | `/opt/venvs/api`    | FastAPI, uvicorn, pydantic, jupyter-client, ipykernel, jedi, pyflakes |
+| Kernel      | `/opt/venvs/kernel` | ipykernel, duckdb (+ optional extras)                                 |
 
 `DATATEAL_KERNEL_PYTHON=/opt/venvs/kernel/bin/python` points the kernel manager at the kernel venv. This separation means API dependency changes never affect the kernel environment and vice versa.
 
@@ -22,6 +22,7 @@ Two isolated Python environments live in the Docker image:
 ## API
 
 All endpoints are under `/kernels`. Key patterns:
+
 - **Async execution**: `POST /kernels/{id}/execute` → HTTP 202 + `{"execution_id": "..."}`. Poll `GET /kernels/{id}/executions/{execution_id}` until `is_complete: true`.
 - **Error codes**: 404 = kernel/execution not found, 408 = timeout, 409 = kernel dead.
 - Standard CRUD on `/kernels`: create, list, get, delete.
@@ -29,10 +30,10 @@ All endpoints are under `/kernels`. Key patterns:
 
 ## Configuration
 
-| Variable | Default | Description |
-|---|---|---|
-| `DATATEAL_KERNEL_PYTHON` | `sys.executable` | Python executable for kernel subprocesses |
-| `KERNEL_PACKAGES` | _(none)_ | Space-separated packages installed into kernel venv at startup |
+| Variable                 | Default          | Description                                                    |
+| ------------------------ | ---------------- | -------------------------------------------------------------- |
+| `DATATEAL_KERNEL_PYTHON` | `sys.executable` | Python executable for kernel subprocesses                      |
+| `KERNEL_PACKAGES`        | _(none)_         | Space-separated packages installed into kernel venv at startup |
 
 A requirements file at `/etc/datateal/kernel-requirements.txt` is also installed into the kernel venv at startup (processed before `KERNEL_PACKAGES`).
 

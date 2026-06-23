@@ -1,3 +1,5 @@
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using Azure.Core;
 using Azure.Identity;
 using Azure.ResourceManager;
@@ -14,8 +16,6 @@ using k8s.KubeConfigModels;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
 
 namespace Datateal.ControlPlane.Infrastructure;
 

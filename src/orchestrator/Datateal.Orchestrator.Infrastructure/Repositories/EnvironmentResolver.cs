@@ -54,4 +54,3 @@ internal class EnvironmentResolver(
         return new ResolvedEnvironmentEntries(variables, secrets);
     }
 }
-

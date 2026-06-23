@@ -11,9 +11,9 @@ public sealed class ThemeService(IJSRuntime js) : IThemeService
         var stored = await js.InvokeAsync<string>("getStoredDatatealTheme");
         return stored switch
         {
-            "dark"  => AppTheme.Dark,
+            "dark" => AppTheme.Dark,
             "light" => AppTheme.Light,
-            _       => AppTheme.Auto,
+            _ => AppTheme.Auto,
         };
     }
 
@@ -21,9 +21,9 @@ public sealed class ThemeService(IJSRuntime js) : IThemeService
     {
         var value = theme switch
         {
-            AppTheme.Dark  => "dark",
+            AppTheme.Dark => "dark",
             AppTheme.Light => "light",
-            _              => "auto",
+            _ => "auto",
         };
         await js.InvokeVoidAsync("setDatatealTheme", value);
         ThemeChanged?.Invoke();

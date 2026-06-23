@@ -25,7 +25,7 @@ public static class MediatorExtensions
                 .Single(i => i.IsGenericType && i.GetGenericTypeDefinition() == commandHandlerType);
             services.AddTransient(@interface, type);
         }
-        
+
         var requestHandlerType = typeof(IRequestHandler<,>);
         var requestHandlers = typeof(TScanEntryPoint).Assembly
             .GetTypes()

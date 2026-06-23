@@ -1,6 +1,6 @@
+using System.Text.RegularExpressions;
 using CronExpressionDescriptor;
 using Quartz;
-using System.Text.RegularExpressions;
 
 namespace Datateal.Ui.Client.Validation;
 

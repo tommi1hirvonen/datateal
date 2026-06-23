@@ -34,8 +34,8 @@ ASP.NET Core Web API that provisions and manages compute nodes and Jupyter kerne
 
 ## Project Structure
 
-| Project                                 | Layer          | Role                                                            |
-| --------------------------------------- | -------------- | --------------------------------------------------------------- |
+| Project                                | Layer          | Role                                                            |
+| -------------------------------------- | -------------- | --------------------------------------------------------------- |
 | `Datateal.ControlPlane`                | Host           | ASP.NET Core entry point; minimal API endpoints; Aspire wiring  |
 | `Datateal.ControlPlane.Application`    | Application    | Mediator handlers; `InactivityEvictionService`                  |
 | `Datateal.ControlPlane.Core`           | Domain         | `INodeService`, `INodeRuntimeClient` interfaces                 |
@@ -138,23 +138,23 @@ Eviction can be disabled entirely by setting `InactivityEviction:Enabled` to `fa
 
 All routes are under `/nodes`. Kernel routes are nested under `/nodes/{name}/kernels`.
 
-| Method   | Path                                                        | Description                                          |
-| -------- | ----------------------------------------------------------- | ---------------------------------------------------- |
-| `GET`    | `/nodes`                                                    | List all managed nodes                               |
-| `GET`    | `/nodes/{name}`                                             | Get a node                                           |
-| `POST`   | `/nodes`                                                    | Create a node (provisions a pod or AKS agent pool)   |
-| `DELETE` | `/nodes/{name}`                                             | Remove a node                                        |
+| Method   | Path                                                        | Description                                                                                      |
+| -------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET`    | `/nodes`                                                    | List all managed nodes                                                                           |
+| `GET`    | `/nodes/{name}`                                             | Get a node                                                                                       |
+| `POST`   | `/nodes`                                                    | Create a node (provisions a pod or AKS agent pool)                                               |
+| `DELETE` | `/nodes/{name}`                                             | Remove a node                                                                                    |
 | `PUT`    | `/nodes/{name}/config`                                      | Update per-node eviction timeouts (used by UI server when an interactive pool's config is saved) |
-| `GET`    | `/nodes/{name}/kernels`                                     | List kernels on a node                               |
-| `POST`   | `/nodes/{name}/kernels`                                     | Create a kernel                                      |
-| `GET`    | `/nodes/{name}/kernels/{kernelId}`                          | Get a kernel                                         |
-| `DELETE` | `/nodes/{name}/kernels/{kernelId}`                          | Delete a kernel                                      |
-| `POST`   | `/nodes/{name}/kernels/{kernelId}/execute`                  | Start code execution → HTTP 202 + `executionId`      |
-| `GET`    | `/nodes/{name}/kernels/{kernelId}/executions/{executionId}` | Poll execution until `isComplete`                    |
-| `POST`   | `/nodes/{name}/kernels/{kernelId}/restart`                  | Restart a kernel                                     |
-| `POST`   | `/nodes/{name}/kernels/{kernelId}/interrupt`                | Interrupt a running execution                        |
-| `POST`   | `/nodes/{name}/kernels/{kernelId}/completions`              | Code completions (Jedi-backed)                       |
-| `POST`   | `/nodes/{name}/kernels/{kernelId}/diagnostics`              | Syntax and lint diagnostics (pyflakes-backed)        |
+| `GET`    | `/nodes/{name}/kernels`                                     | List kernels on a node                                                                           |
+| `POST`   | `/nodes/{name}/kernels`                                     | Create a kernel                                                                                  |
+| `GET`    | `/nodes/{name}/kernels/{kernelId}`                          | Get a kernel                                                                                     |
+| `DELETE` | `/nodes/{name}/kernels/{kernelId}`                          | Delete a kernel                                                                                  |
+| `POST`   | `/nodes/{name}/kernels/{kernelId}/execute`                  | Start code execution → HTTP 202 + `executionId`                                                  |
+| `GET`    | `/nodes/{name}/kernels/{kernelId}/executions/{executionId}` | Poll execution until `isComplete`                                                                |
+| `POST`   | `/nodes/{name}/kernels/{kernelId}/restart`                  | Restart a kernel                                                                                 |
+| `POST`   | `/nodes/{name}/kernels/{kernelId}/interrupt`                | Interrupt a running execution                                                                    |
+| `POST`   | `/nodes/{name}/kernels/{kernelId}/completions`              | Code completions (Jedi-backed)                                                                   |
+| `POST`   | `/nodes/{name}/kernels/{kernelId}/diagnostics`              | Syntax and lint diagnostics (pyflakes-backed)                                                    |
 
 Execution is **async/poll**: `POST .../execute` returns HTTP 202 with an `{ executionId }` body; poll the executions endpoint until `isComplete: true`.
 
@@ -178,26 +178,26 @@ Execution is **async/poll**: `POST .../execute` returns HTTP 202 with an `{ exec
 
 ### `NodeService:Aks`
 
-| Key                                 | Default            | Description                                                                 |
-| ----------------------------------- | ------------------ | --------------------------------------------------------------------------- |
-| `NodeService:Aks:SubscriptionId`    | —                  | Azure subscription ID                                                       |
-| `NodeService:Aks:ResourceGroupName` | —                  | Resource group containing the AKS cluster                                   |
-| `NodeService:Aks:ClusterName`       | —                  | AKS cluster name                                                            |
-| `NodeService:Aks:DefaultVmSize`     | `Standard_D4as_v5` | VM size for new agent pools                                                 |
+| Key                                 | Default            | Description                                                                |
+| ----------------------------------- | ------------------ | -------------------------------------------------------------------------- |
+| `NodeService:Aks:SubscriptionId`    | —                  | Azure subscription ID                                                      |
+| `NodeService:Aks:ResourceGroupName` | —                  | Resource group containing the AKS cluster                                  |
+| `NodeService:Aks:ClusterName`       | —                  | AKS cluster name                                                           |
+| `NodeService:Aks:DefaultVmSize`     | `Standard_D4as_v5` | VM size for new agent pools                                                |
 | `NodeService:Aks:RuntimeImage`      | —                  | Full image reference, e.g. `myregistry.azurecr.io/datateal-runtime:latest` |
-| `NodeService:Aks:NodeSubnetId`      | —                  | Subnet resource ID for new agent pools                                      |
-| `NodeService:Aks:TenantId`          | _(none)_           | Entra ID tenant (service principal auth)                                    |
-| `NodeService:Aks:ClientId`          | _(none)_           | App registration client ID (service principal auth)                         |
-| `NodeService:Aks:ClientSecret`      | _(none)_           | Client secret — use secrets manager, not appsettings                        |
+| `NodeService:Aks:NodeSubnetId`      | —                  | Subnet resource ID for new agent pools                                     |
+| `NodeService:Aks:TenantId`          | _(none)_           | Entra ID tenant (service principal auth)                                   |
+| `NodeService:Aks:ClientId`          | _(none)_           | App registration client ID (service principal auth)                        |
+| `NodeService:Aks:ClientSecret`      | _(none)_           | Client secret — use secrets manager, not appsettings                       |
 
 ### `InactivityEviction`
 
-| Key                                    | Default    | Description                                         |
-| -------------------------------------- | ---------- | --------------------------------------------------- |
-| `InactivityEviction:Enabled`           | `true`     | Set to `false` to disable eviction entirely         |
-| `InactivityEviction:KernelIdleTimeout` | `00:10:00` | Delete kernels idle longer than this                |
+| Key                                    | Default    | Description                                           |
+| -------------------------------------- | ---------- | ----------------------------------------------------- |
+| `InactivityEviction:Enabled`           | `true`     | Set to `false` to disable eviction entirely           |
+| `InactivityEviction:KernelIdleTimeout` | `00:10:00` | Delete kernels idle longer than this                  |
 | `InactivityEviction:NodeIdleTimeout`   | `00:20:00` | Delete nodes with no kernel activity longer than this |
-| `InactivityEviction:CheckInterval`     | `00:01:00` | How often the eviction sweep runs                   |
+| `InactivityEviction:CheckInterval`     | `00:01:00` | How often the eviction sweep runs                     |
 
 ---
 

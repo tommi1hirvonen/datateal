@@ -54,12 +54,12 @@ public static class NodeStateExtensions
     /// </summary>
     public static InteractivePoolStatus ToInteractivePoolStatus(this NodeState state) => state switch
     {
-        NodeState.Running  => InteractivePoolStatus.Running,
+        NodeState.Running => InteractivePoolStatus.Running,
         NodeState.Creating => InteractivePoolStatus.Starting,
         NodeState.Deleting => InteractivePoolStatus.Stopping,
-        NodeState.Failure  => InteractivePoolStatus.Error,
-        NodeState.Unknown  => InteractivePoolStatus.Unknown,
-        _                  => InteractivePoolStatus.Unknown,
+        NodeState.Failure => InteractivePoolStatus.Error,
+        NodeState.Unknown => InteractivePoolStatus.Unknown,
+        _ => InteractivePoolStatus.Unknown,
     };
 
     /// <summary>

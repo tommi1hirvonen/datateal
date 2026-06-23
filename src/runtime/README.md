@@ -19,11 +19,13 @@ Create a virtual environment and install the runtime package with all dependenci
 This creates `.venv/` and installs all dependencies from the lockfile. Activate the virtual environment when needed:
 
 Windows:
+
 ```
 > .\.venv\Scripts\activate
 ```
 
 macOS / Linux:
+
 ```
 > source .venv/bin/activate
 ```

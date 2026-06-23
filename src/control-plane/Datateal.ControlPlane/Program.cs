@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Datateal.Auth;
 using Datateal.ControlPlane;
 using Datateal.ControlPlane.Application;
@@ -6,7 +7,6 @@ using Datateal.ControlPlane.Endpoints;
 using Datateal.ControlPlane.Infrastructure;
 using Datateal.ControlPlane.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 

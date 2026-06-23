@@ -17,10 +17,11 @@ been larger.
 """
 
 from __future__ import annotations
-from IPython.core.getipython import get_ipython
-from IPython.core.formatters import BaseFormatter
-import pandas as pd
+
 import duckdb
+import pandas as pd
+from IPython.core.formatters import BaseFormatter
+from IPython.core.getipython import get_ipython
 
 _ROW_CAP = 10_000
 MIME_TYPE = "application/vnd.datateal.dataframe+json"

@@ -1,30 +1,30 @@
 .job-dag-container {
-    width: 100%;
-    height: 400px;
-    border: 1px solid #d9d9d9;
-    border-radius: 4px;
-    background: #fafafa;
-    overflow: hidden;
-    margin-bottom: 16px;
-    position: relative;
+  width: 100%;
+  height: 400px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fafafa;
+  overflow: hidden;
+  margin-bottom: 16px;
+  position: relative;
 }
 
 html.ant-dark .job-dag-container {
-    border-color: #434343;
-    background: #141414;
+  border-color: #434343;
+  background: #141414;
 }
 
 .job-dag-empty {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: rgba(0, 0, 0, 0.25);
-    font-size: 13px;
-    pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  pointer-events: none;
 }
 
 html.ant-dark .job-dag-empty {
-    color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.25);
 }

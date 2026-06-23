@@ -113,9 +113,9 @@ public static class NotebookSerializer
                     {
                         data[prop.Name] = prop.Value.ValueKind switch
                         {
-                            JsonValueKind.Array  => string.Join("", prop.Value.EnumerateArray().Select(l => l.GetString() ?? "")),
+                            JsonValueKind.Array => string.Join("", prop.Value.EnumerateArray().Select(l => l.GetString() ?? "")),
                             JsonValueKind.Object => prop.Value.Clone(),
-                            _                    => (object)(prop.Value.GetString() ?? ""),
+                            _ => (object)(prop.Value.GetString() ?? ""),
                         };
                     }
                 }
@@ -133,8 +133,8 @@ public static class NotebookSerializer
         return prop.ValueKind switch
         {
             JsonValueKind.String => prop.GetString() ?? "",
-            JsonValueKind.Array  => string.Join("", prop.EnumerateArray().Select(l => l.GetString() ?? "")),
-            _                    => "",
+            JsonValueKind.Array => string.Join("", prop.EnumerateArray().Select(l => l.GetString() ?? "")),
+            _ => "",
         };
     }
 

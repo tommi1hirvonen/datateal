@@ -1,5 +1,5 @@
-using Datateal.Core.Mediator;
 using Datateal.ControlPlane.Application.InactivityEviction;
+using Datateal.Core.Mediator;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Datateal.ControlPlane.Application;

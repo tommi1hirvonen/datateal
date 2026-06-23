@@ -138,5 +138,5 @@ public static partial class RunMagicHelper
         }
         return string.Join("\n", codeParts);
     }
-        
+
 }

@@ -9,24 +9,29 @@ This repository contains the source code for **Datateal**, an open-source lakeho
 Datateal is composed of several architectural modules:
 
 1. **UI (`src/ui`)**
+
    - **Role**: Blazor Web App (ASP.NET Core host `Datateal.Ui.Server` + WebAssembly client `Datateal.Ui.Client`).
    - **Key Features**: Multi-workspace support (workspace switcher in the header, per-workspace memberships), workspace browser (notebooks/SQL queries), polyglot notebook editor (Python, SQL, Markdown cells), standalone SQL editor, node pool management (interactive & job pools), workspace and user administration.
    - **Tech Stack**: Ant Design Blazor, BlazorMonaco (Monaco Editor), Markdig.
 
 2. **Control Plane (`src/control-plane`)**
+
    - **Role**: ASP.NET Core 10 Web API (`Datateal.ControlPlane`) that dynamically provisions compute nodes and manages Jupyter kernels running on them.
    - **Key Features**: Local node backend (Kubernetes pod in Docker Desktop) and AKS node backend (ARM AKS agent pools).
    - **Proxy**: Tunnels kernel execution traffic through the Kubernetes API server HTTP proxy.
 
 3. **Orchestrator (`src/orchestrator`)**
+
    - **Role**: ASP.NET Core Web API that schedules and executes multi-task jobs (notebook tasks, SQL query tasks, sub-job tasks) against compute nodes managed by the Control Plane.
    - **Key Features**: Eager skip propagation DAG engine, Quartz.NET cron scheduler, warm standby job node pools, crash recovery.
 
 4. **Runtime (`src/runtime`)**
+
    - **Role**: FastAPI service (`datateal_runtime` package) running inside compute pods that manages Jupyter Python kernels.
    - **Key Features**: Separate API/Kernel virtual environments, custom DataFrame formatting for DuckDB/Pandas, Jedi-powered code completions, and pyflakes-powered code diagnostics.
 
 5. **Shared (`src/shared`)**
+
    - Contains domain model definitions (e.g., `NodeInfo`, `KernelInfo`), the primary database context (`DatatealDbContext` for SQLite/PostgreSQL), EF Core migrations, and auth abstractions (`DatatealRole`, `AuthPolicy`, `DatatealClaimTypes`, `DatatealHeaders`).
 
 6. **Infrastructure (`src/infra`)**

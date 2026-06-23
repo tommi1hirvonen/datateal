@@ -6,8 +6,8 @@ Blazor Web App: an ASP.NET Core server host (`Datateal.Ui.Server`) with a WebAss
 
 ## Project Structure
 
-| Project                              | Role                                                               |
-| ------------------------------------ | ------------------------------------------------------------------ |
+| Project                             | Role                                                               |
+| ----------------------------------- | ------------------------------------------------------------------ |
 | `Datateal.Ui.Shared`                | DTOs shared between server and WASM client                         |
 | `Datateal.Ui.Server`                | ASP.NET Core host; REST API controllers; EF Core migrations        |
 | `Datateal.Ui.Server.Core`           | Domain entities and repository interfaces                          |
@@ -105,10 +105,10 @@ Every request is automatically authenticated as the user configured in `Authenti
 
 The OIDC/auth setup is isolated behind `IIdentityProviderSetup` (`Datateal.Auth.Abstractions`). The active provider is selected at startup by reading `Authentication:Provider` from configuration. Each identity provider ships its own implementation:
 
-| Package                   | Implementation                 | Extension method              | `Authentication:Provider` value |
-| ------------------------- | ------------------------------ | ----------------------------- | ------------------------------- |
-| `Datateal.Auth.EntraId`   | `EntraIdIdentityProviderSetup` | `AddEntraIdAuthentication()`  | `"EntraId"` (default)           |
-| `Datateal.Auth.Dev`       | `DevIdentityProviderSetup`     | `AddDevAuthentication()`      | `"Dev"`                         |
+| Package                 | Implementation                 | Extension method             | `Authentication:Provider` value |
+| ----------------------- | ------------------------------ | ---------------------------- | ------------------------------- |
+| `Datateal.Auth.EntraId` | `EntraIdIdentityProviderSetup` | `AddEntraIdAuthentication()` | `"EntraId"` (default)           |
+| `Datateal.Auth.Dev`     | `DevIdentityProviderSetup`     | `AddDevAuthentication()`     | `"Dev"`                         |
 
 Set `Authentication:Provider` in `appsettings.Development.json` to switch providers. Only one provider is active at a time.
 
@@ -134,7 +134,7 @@ Users are stored in `AppUser` (Postgres via EF Core). Key fields:
 | `Email`               | Primary identifier used for admin seed matching and first-login lookup                                                           |
 | `ExternalId`          | Entra OID — captured on first login for stable future lookups. Once set it becomes the primary key for `AppClaimsTransformation` |
 | `IsEnabled`           | Disabled users are authenticated but receive no role claims                                                                      |
-| `Roles`               | `List<string>` stored as a JSON array column; use `DatatealRole.*` constants                                                    |
+| `Roles`               | `List<string>` stored as a JSON array column; use `DatatealRole.*` constants                                                     |
 | `HasAllCatalogAccess` | `true` = user can access all catalogs (present and future)                                                                       |
 | `CatalogAccessList`   | `UserCatalogAccess` rows granting access to specific catalogs when `HasAllCatalogAccess` is `false`                              |
 
@@ -148,19 +148,19 @@ Roles are coarse-grained capability buckets. Policies are the named groups check
 
 Roles are either **tenant-global** (stored on `AppUser.Roles`, assigned on the Users page, effective across the whole instance) or **per-workspace** (stored on `WorkspaceMembership.Roles`, assigned from a workspace's members list, effective only within that workspace).
 
-| Role                   | Scope         | What it grants                                                                                                               |
-| ---------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `Admin`                | Tenant-global | Full access across the instance: manage users and every workspace, and access all catalogs. Implicitly has every role in every workspace |
-| `CatalogContributor`   | Tenant-global | Create/edit/delete catalogs and schemas across the tenant; implicit access to all catalog data                              |
+| Role                   | Scope         | What it grants                                                                                                                                 |
+| ---------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Admin`                | Tenant-global | Full access across the instance: manage users and every workspace, and access all catalogs. Implicitly has every role in every workspace       |
+| `CatalogContributor`   | Tenant-global | Create/edit/delete catalogs and schemas across the tenant; implicit access to all catalog data                                                 |
 | `WorkspaceAdmin`       | Per-workspace | Administer a single workspace: manage its members/roles and do everything the other per-workspace roles allow within it. No tenant-level admin |
-| `WorkspaceContributor` | Per-workspace | Create/edit/delete folders, notebooks, queries in the workspace. Needs `NodePoolOperator` to connect to kernels and execute code |
-| `WorkspaceReader`      | Per-workspace | Read notebooks and queries in the workspace; no create/edit/delete. Needs `NodePoolOperator` to connect to kernels and execute code |
-| `NodePoolContributor`  | Per-workspace | Create/edit/delete node pool configs in the workspace; start/stop nodes; create kernel sessions and execute code             |
-| `NodePoolOperator`     | Per-workspace | Start/stop interactive node pools in the workspace; create kernel sessions and execute code (no config changes)              |
-| `JobContributor`       | Per-workspace | Create/edit/delete jobs, tasks, params, schedules in the workspace                                                          |
-| `JobOperator`          | Per-workspace | Run, monitor, and cancel jobs in the workspace (no config changes)                                                          |
-| `JobReader`            | Per-workspace | Read and monitor jobs and runs in the workspace; no run or cancel                                                          |
-| `EnvironmentManager`   | Per-workspace | Manage the workspace's environment variables, secrets, and packages                                                        |
+| `WorkspaceContributor` | Per-workspace | Create/edit/delete folders, notebooks, queries in the workspace. Needs `NodePoolOperator` to connect to kernels and execute code               |
+| `WorkspaceReader`      | Per-workspace | Read notebooks and queries in the workspace; no create/edit/delete. Needs `NodePoolOperator` to connect to kernels and execute code            |
+| `NodePoolContributor`  | Per-workspace | Create/edit/delete node pool configs in the workspace; start/stop nodes; create kernel sessions and execute code                               |
+| `NodePoolOperator`     | Per-workspace | Start/stop interactive node pools in the workspace; create kernel sessions and execute code (no config changes)                                |
+| `JobContributor`       | Per-workspace | Create/edit/delete jobs, tasks, params, schedules in the workspace                                                                             |
+| `JobOperator`          | Per-workspace | Run, monitor, and cancel jobs in the workspace (no config changes)                                                                             |
+| `JobReader`            | Per-workspace | Read and monitor jobs and runs in the workspace; no run or cancel                                                                              |
+| `EnvironmentManager`   | Per-workspace | Manage the workspace's environment variables, secrets, and packages                                                                            |
 
 #### Policies (`AuthPolicy`)
 
@@ -216,36 +216,36 @@ Backend services authenticate each other with API keys, not user tokens:
 
 ### Configuration reference
 
-| Key                               | Provider    | Description                                                   |
-| --------------------------------- | ----------- | ------------------------------------------------------------- |
-| `Authentication:Provider`         | both        | `"EntraId"` (default) or `"Dev"`                              |
-| `Authorization:AdminUsers`        | both        | Email list of bootstrap admin users (Entra ID: matched against `preferred_username`; Dev: matched against `Authentication:Dev:User:Email`) |
-| `Authentication:EntraId:TenantId` | `EntraId`   | Entra ID tenant                                               |
-| `Authentication:EntraId:ClientId` | `EntraId`   | Entra ID app registration client ID                           |
-| `Authentication:EntraId:ClientSecret` | `EntraId` | Entra ID client secret (use secrets / env var in production) |
-| `Authentication:Dev:User:Email`   | `Dev`       | Email of the auto-authenticated dummy user (`dev@local` default) |
-| `Authentication:Dev:User:DisplayName` | `Dev`   | Display name of the dummy user                                |
-| `Authentication:Dev:Roles`        | `Dev`       | JSON array of role names granted to every request. Use `DatatealRole` constants. Example: `["Admin"]`. **When omitted**, roles are looked up from the database by `User:Email` instead (same as real OIDC login). |
-| `ServiceAuth:Orchestrator:ApiKey` | both        | API key the UI uses when calling the orchestrator             |
+| Key                                   | Provider  | Description                                                                                                                                                                                                       |
+| ------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Authentication:Provider`             | both      | `"EntraId"` (default) or `"Dev"`                                                                                                                                                                                  |
+| `Authorization:AdminUsers`            | both      | Email list of bootstrap admin users (Entra ID: matched against `preferred_username`; Dev: matched against `Authentication:Dev:User:Email`)                                                                        |
+| `Authentication:EntraId:TenantId`     | `EntraId` | Entra ID tenant                                                                                                                                                                                                   |
+| `Authentication:EntraId:ClientId`     | `EntraId` | Entra ID app registration client ID                                                                                                                                                                               |
+| `Authentication:EntraId:ClientSecret` | `EntraId` | Entra ID client secret (use secrets / env var in production)                                                                                                                                                      |
+| `Authentication:Dev:User:Email`       | `Dev`     | Email of the auto-authenticated dummy user (`dev@local` default)                                                                                                                                                  |
+| `Authentication:Dev:User:DisplayName` | `Dev`     | Display name of the dummy user                                                                                                                                                                                    |
+| `Authentication:Dev:Roles`            | `Dev`     | JSON array of role names granted to every request. Use `DatatealRole` constants. Example: `["Admin"]`. **When omitted**, roles are looked up from the database by `User:Email` instead (same as real OIDC login). |
+| `ServiceAuth:Orchestrator:ApiKey`     | both      | API key the UI uses when calling the orchestrator                                                                                                                                                                 |
 
 ---
 
 ## Pages
 
-| Page                  | Route                         | Policy            | Description                                                                               |
-| --------------------- | ----------------------------- | ----------------- | ----------------------------------------------------------------------------------------- |
-| `Home.razor`          | `/`                           | —                 | Welcome page                                                                              |
-| `WorkspacePage.razor` | `/workspace`                  | `WorkspaceRead`   | Workspace browser: create, rename, move, clone, delete notebooks and queries              |
-| `NotebookPage.razor`  | `/notebook`, `/notebook/{id}` | `WorkspaceRead`   | Polyglot notebook editor; kernel toolbar requires `NodePoolOperate`                       |
-| `QueryPage.razor`     | `/query`, `/query/{id}`       | `WorkspaceRead`   | SQL editor with results panel; kernel toolbar requires `NodePoolOperate`                  |
+| Page                  | Route                         | Policy            | Description                                                                                                        |
+| --------------------- | ----------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `Home.razor`          | `/`                           | —                 | Welcome page                                                                                                       |
+| `WorkspacePage.razor` | `/workspace`                  | `WorkspaceRead`   | Workspace browser: create, rename, move, clone, delete notebooks and queries                                       |
+| `NotebookPage.razor`  | `/notebook`, `/notebook/{id}` | `WorkspaceRead`   | Polyglot notebook editor; kernel toolbar requires `NodePoolOperate`                                                |
+| `QueryPage.razor`     | `/query`, `/query/{id}`       | `WorkspaceRead`   | SQL editor with results panel; kernel toolbar requires `NodePoolOperate`                                           |
 | `NodePoolsPage.razor` | `/node-pools`                 | `NodePoolOperate` | Node pool config management; Interactive and Job pool tabs; Active nodes tab; edit/delete require `NodePoolManage` |
-| `Kernels.razor`       | `/nodes/{name}/kernels`       | `NodePoolOperate` | Kernel management per node                                                                |
-| `CatalogsPage.razor`  | `/catalogs`                   | Authenticated     | DuckLake catalog management; create/edit/delete require `CatalogManage`                   |
-| `JobsPage.razor`      | `/jobs`                       | `JobRead`         | Job list; create/delete require `JobManage`, run requires `JobOperate`                    |
-| `JobEditorPage.razor` | `/jobs/{id}`                  | `JobRead`         | Job editor; save/task/param/schedule edits require `JobManage`, run requires `JobOperate` |
-| `JobRunPage.razor`    | `/runs/{id}`                  | `JobRead`         | Job run detail; cancel requires `JobOperate`                                              |
-| `UsersPage.razor`     | `/users`                      | `Admin`           | User management (create, edit roles, catalog access)                                      |
-| `Settings.razor`      | `/settings`                   | —                 | Theme settings                                                                            |
+| `Kernels.razor`       | `/nodes/{name}/kernels`       | `NodePoolOperate` | Kernel management per node                                                                                         |
+| `CatalogsPage.razor`  | `/catalogs`                   | Authenticated     | DuckLake catalog management; create/edit/delete require `CatalogManage`                                            |
+| `JobsPage.razor`      | `/jobs`                       | `JobRead`         | Job list; create/delete require `JobManage`, run requires `JobOperate`                                             |
+| `JobEditorPage.razor` | `/jobs/{id}`                  | `JobRead`         | Job editor; save/task/param/schedule edits require `JobManage`, run requires `JobOperate`                          |
+| `JobRunPage.razor`    | `/runs/{id}`                  | `JobRead`         | Job run detail; cancel requires `JobOperate`                                                                       |
+| `UsersPage.razor`     | `/users`                      | `Admin`           | User management (create, edit roles, catalog access)                                                               |
+| `Settings.razor`      | `/settings`                   | —                 | Theme settings                                                                                                     |
 
 ---
 

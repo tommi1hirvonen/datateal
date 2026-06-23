@@ -1,11 +1,14 @@
-from contextlib import asynccontextmanager
 import logging
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
 import uvicorn
+from fastapi import FastAPI
+
 from datateal_runtime.api import health, kernels
 from datateal_runtime.kernels.manager import registry
 
 logging.basicConfig(level=logging.INFO)
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):

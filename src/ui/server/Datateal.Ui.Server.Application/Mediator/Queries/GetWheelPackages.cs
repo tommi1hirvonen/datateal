@@ -1,6 +1,6 @@
 using Datateal.Core.Mediator;
-using Datateal.Ui.Server.Core.Repositories;
 using Datateal.Core.RuntimePackages;
+using Datateal.Ui.Server.Core.Repositories;
 
 namespace Datateal.Ui.Server.Application.Mediator.Queries;
 

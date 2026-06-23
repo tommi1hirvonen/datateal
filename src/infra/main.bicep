@@ -5,9 +5,9 @@
 //                             hold the underlying VMs, NICs, disks, etc.
 //
 // IMPORTANT!!! The managed node resource group must not exist before deployment.
-// When AKS creates its own node resource group, it automatically applies necessary 
+// When AKS creates its own node resource group, it automatically applies necessary
 // permissions and grants its own service principal the Contributor role on it.
-// If the resource group already exists, AKS will not be able to set up the permissions 
+// If the resource group already exists, AKS will not be able to set up the permissions
 // correctly and the deployment will fail.
 //
 // Deploy with:
@@ -45,7 +45,7 @@ param firewallWhitelistIp string = ''
 @description('Admin password for the PostgreSQL Flexible Server')
 @secure()
 param postgresAdminPassword string
-  
+
 @description('''
 Object ID of the service principal or managed identity that will call the AKS ARM API
 to manage node pools (i.e. the identity the Control Plane API runs under).

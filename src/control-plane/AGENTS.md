@@ -4,11 +4,11 @@ ASP.NET Core 10 Web API (.NET Aspire, `Datateal.ControlPlane.slnx`) that dynamic
 
 ## Projects (Clean Architecture)
 
-| Project | Role |
-|---|---|
-| `Datateal.ControlPlane` | ASP.NET Core host; minimal API endpoints, Aspire wiring |
-| `Datateal.ControlPlane.Application` | Use-case layer: mediator handlers, `InactivityEvictionService` |
-| `Datateal.ControlPlane.Core` | Domain interfaces: `INodeService`, `INodeRuntimeClient` |
+| Project                                | Role                                                                             |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| `Datateal.ControlPlane`                | ASP.NET Core host; minimal API endpoints, Aspire wiring                          |
+| `Datateal.ControlPlane.Application`    | Use-case layer: mediator handlers, `InactivityEvictionService`                   |
+| `Datateal.ControlPlane.Core`           | Domain interfaces: `INodeService`, `INodeRuntimeClient`                          |
 | `Datateal.ControlPlane.Infrastructure` | Implementations: `LocalNodeService`, `AksNodeService`, `KubernetesRuntimeClient` |
 
 Domain types (`NodeInfo`, `NodeState`, `KernelInfo`, `KernelStatus`, kernel request/response models, mediator interfaces) live in `src/shared/Datateal.Core`, which is also referenced by the UI server.
@@ -17,10 +17,10 @@ Domain types (`NodeInfo`, `NodeState`, `KernelInfo`, `KernelStatus`, kernel requ
 
 `INodeService` has two implementations selected by `NodeService:Backend` in config:
 
-| Backend | Class | "Node" concept |
-|---|---|---|
+| Backend | Class              | "Node" concept                   |
+| ------- | ------------------ | -------------------------------- |
 | `Local` | `LocalNodeService` | Kubernetes pod in Docker Desktop |
-| `Aks` | `AksNodeService` | AKS agent pool (one VM, one pod) |
+| `Aks`   | `AksNodeService`   | AKS agent pool (one VM, one pod) |
 
 **Local**: creates pods from `datateal-runtime:latest` with `ImagePullPolicy: Never`. Uses `~/.kube/config` with context from `NodeService:Local:KubeContext` (default `"docker-desktop"`). Stop/Start are not supported (removed).
 
@@ -35,6 +35,7 @@ Domain types (`NodeInfo`, `NodeState`, `KernelInfo`, `KernelStatus`, kernel requ
 ## Inactivity Eviction
 
 `InactivityEvictionService` (a `BackgroundService`) runs on a configurable interval and:
+
 1. Deletes idle kernels whose `LastActivity` exceeds `KernelIdleTimeout` (default 10 min)
 2. **Deletes** nodes with no remaining kernels whose last kernel activity exceeds `NodeIdleTimeout` (default 20 min) — this applies to both interactive nodes left idle and job nodes leaked by orchestrator failures
 
@@ -51,6 +52,7 @@ Kernel execution is **async/poll**: `POST .../execute` returns HTTP 202 + `Execu
 ## Infrastructure (src/infra)
 
 Bicep deploys AKS cluster, VNet, and ACR:
+
 - Two user-assigned managed identities: cluster control plane + kubelet identity (shared by all node pools)
 - Kubelet identity has `AcrPull` on ACR — no image pull secrets needed
 - `disableLocalAccounts: true` + Azure RBAC on the cluster

@@ -49,4 +49,3 @@ public record UpdateNodePoolRequest(
     int? MaxNodes = null,
     TimeSpan? NodeAcquireTimeout = null,
     bool RestartNodes = false);
-
