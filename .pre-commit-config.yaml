@@ -1,0 +1,46 @@
+default_install_hook_types: [pre-commit, commit-msg]
+
+repos:
+  # ── Built-in file checks ─────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+
+  # ── dotnet format (C# whitespace) ────────────
+  - repo: local
+    hooks:
+      - id: dotnet-format
+        name: dotnet format whitespace
+        entry: dotnet format whitespace src/Datateal.slnx --verify-no-changes --include
+        language: system
+        files: \.cs$
+        pass_filenames: true
+
+  # ── ruff (Python lint + format) ──────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.0
+    hooks:
+      - id: ruff # lint, check-only (no --fix: don't silently rewrite logic)
+      - id: ruff-format # auto-formats; commit fails if it changed files, re-stage & retry
+
+  # ── prettier (JS/CSS/MD/JSON/YAML) ───────────
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        types_or: [javascript, css, markdown, json, yaml]
+
+  # ── Commit message validation ────────────────
+  - repo: local
+    hooks:
+      - id: commit-msg
+        name: commit message (Conventional Commits)
+        entry: python .githooks/commit-msg
+        language: python
+        stages: [commit-msg]

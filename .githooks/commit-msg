@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""Commit message validator for pre-commit commit-msg stage.
+
+Enforces: type(scope): description
+- type: feat, fix, docs, refactor, test, chore
+- scope: mandatory, any non-empty string
+- subject: <= 72 characters
+- body: must be separated from subject by a blank line (if present)
+"""
+
+import re
+import sys
+
+VALID_TYPES = {"feat", "fix", "docs", "refactor", "test", "chore"}
+
+# Pattern: type(scope): description
+# type must be one of the valid types
+# scope must be non-empty (any characters except parens)
+# description must be non-empty
+SUBJECT_PATTERN = re.compile(
+    r"^(?P<type>" + "|".join(VALID_TYPES) + r")"
+    r"\((?P<scope>[^)]+)\): "
+    r"(?P<description>.+)$"
+)
+
+
+def validate_commit_message(filepath: str) -> int:
+    with open(filepath, encoding="utf-8") as f:
+        lines = f.readlines()
+
+    if not lines:
+        print("ERROR: Commit message is empty.")
+        return 1
+
+    subject = lines[0].rstrip("\n")
+
+    # Allow merge/revert and fixup/squash autosquash commits through unchanged.
+    if re.match(r"^(Merge |Revert |fixup! |squash! |amend! )", subject):
+        return 0
+
+    # 1. Check format: type(scope): description
+    match = SUBJECT_PATTERN.match(subject)
+    if not match:
+        print("ERROR: Subject must match: type(scope): description")
+        print(f"  Valid types: {', '.join(sorted(VALID_TYPES))}")
+        print(f"  Got: {subject}")
+        return 1
+
+    # 2. Check subject line length
+    if len(subject) > 72:
+        print(f"ERROR: Subject line is {len(subject)} characters (max 72).")
+        return 1
+
+    # 3. If there are more lines, line 2 MUST be blank
+    if len(lines) > 1 and lines[1].strip() != "":
+        print("ERROR: Body must be separated from subject by a blank line.")
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print(f"Usage: {sys.argv[0]} <commit-msg-file>")
+        sys.exit(1)
+
+    sys.exit(validate_commit_message(sys.argv[1]))

@@ -1,3 +1,50 @@
+# Contributing to Datateal
+
+## Contribution Guidelines
+
+### Branch Naming
+
+| Pattern                          | Purpose                    | Example                          |
+| -------------------------------- | -------------------------- | -------------------------------- |
+| `feature/<author>/<kebab-case>`  | New capabilities           | `feature/user/cost-monitoring`   |
+| `fix/<author>/<kebab-case>`      | Bug fixes                  | `fix/user/null-ref-in-kernel`    |
+| `docs/<kebab-case>`              | Docs-only changes          | `docs/api-auth-guide`            |
+| `refactor/<author>/<kebab-case>` | No-behavior-change cleanup | `refactor/user/extract-mediator` |
+
+`<author>` is your GitHub username. `<kebab-case>` is a short (3–5 word) description. These are conventions, not enforced by hooks.
+
+### Commit Messages
+
+Enforced format: `type(scope): description`
+
+- **type** — one of: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+- **scope** — mandatory, any value accepted. Common ones: `ui`, `orchestrator`, `control-plane`, `runtime`, `shared`, `infra`
+- **description** — free-form, lowercased preferred
+- **Subject line** — 72 characters max
+- **Body** — separated from subject by a blank line, wrapped at 72 characters (recommended)
+
+Examples: `feat(runtime): add polars dataframe formatting`, `fix(ui): handle null ref in kernel lifecycle`
+
+### Pre-commit Hooks
+
+Pre-commit hooks run automatically on `git commit` and block commits that don't pass.
+
+**Hooks enforced at commit time:**
+
+- Trailing whitespace removal, EOF newline, large file blocking, merge conflict detection
+- **C#**: `dotnet format whitespace` (requires .NET 10 SDK, already needed to build)
+- **Python**: `ruff` for linting and formatting
+- **JS/CSS/Markdown/JSON/YAML**: `prettier` for formatting
+- **Commit messages**: `type(scope): description` format with 72-char subject limit
+
+See [Install pre-commit hooks](#install-pre-commit-hooks) in Local Development Setup for installation.
+
+### Pull Requests
+
+A PR template is provided — fill in What, Why, How Tested, and the checklist.
+
+---
+
 # Local Development Setup
 
 This guide covers everything you need to get Datateal running on your local machine using Docker Desktop Kubernetes and .NET Aspire.
@@ -6,13 +53,13 @@ This guide covers everything you need to get Datateal running on your local mach
 
 ## Prerequisites
 
-| Tool                                                              | Version    | Purpose                                                                  |
-| ----------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------ |
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | v4+        | Runs runtime pods locally via the built-in Kubernetes cluster            |
-| [.NET 10 SDK](https://dotnet.microsoft.com/download)              | 10         | All ASP.NET Core services and the Aspire app host                        |
-| [Python](https://www.python.org/downloads/)                       | 3.11+      | Building and packaging the runtime service                               |
-| [uv](https://docs.astral.sh/uv/)                                   | latest     | Python package and dependency management for the runtime component       |
-| [PostgreSQL](https://www.postgresql.org/download/)                | any recent | DuckLake catalog metadata storage                                        |
+| Tool                                                              | Version    | Purpose                                                                                                                                                      |
+| ----------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | v4+        | Runs runtime pods locally via the built-in Kubernetes cluster                                                                                                |
+| [.NET 10 SDK](https://dotnet.microsoft.com/download)              | 10         | All ASP.NET Core services and the Aspire app host                                                                                                            |
+| [Python](https://www.python.org/downloads/)                       | 3.11+      | Building and packaging the runtime service                                                                                                                   |
+| [uv](https://docs.astral.sh/uv/)                                  | latest     | Python package and dependency management for the runtime component                                                                                           |
+| [PostgreSQL](https://www.postgresql.org/download/)                | any recent | DuckLake catalog metadata storage                                                                                                                            |
 | Microsoft Entra ID _(optional)_                                   | —          | OIDC authentication for the UI server. Only required when using the `EntraId` auth provider (see [Authentication provider](#authentication-provider) below). |
 
 **Docker Desktop Kubernetes** must be enabled in Docker Desktop → Settings → Kubernetes → Enable Kubernetes. The control plane uses the `docker-desktop` kubeconfig context and creates pods with `ImagePullPolicy: Never`, so the runtime image must be built locally (see [Build and deploy the runtime](#4-build-and-deploy-the-runtime)).
@@ -25,27 +72,39 @@ docker run -d --name postgres-local -e POSTGRES_PASSWORD=yourpassword -p 5432:54
 
 ---
 
+## Install pre-commit hooks
+
+Pre-commit hooks enforce formatting and commit message conventions on every `git commit`.
+
+```sh
+uv tool install pre-commit && pre-commit install
+```
+
+---
+
 ## 1. Create the data directory
 
 Runtime pods mount a host directory for DuckLake Parquet files. Create the directory before starting the stack — Kubernetes `hostPath` volumes do not create missing directories.
 
 **Windows:**
+
 ```powershell
 mkdir C:\Users\<you>\data\ducklake
 ```
 
 **macOS / Linux:**
+
 ```sh
 mkdir -p ~/data/ducklake
 ```
 
 The control plane configuration references this path in a format that the Docker Desktop VM can resolve. The exact format differs by OS:
 
-| OS | Host path | `DataVolumeHostPath` in config |
-| -- | --------- | ------------------------------ |
+| OS      | Host path                      | `DataVolumeHostPath` in config                      |
+| ------- | ------------------------------ | --------------------------------------------------- |
 | Windows | `C:\Users\<you>\data\ducklake` | `/run/desktop/mnt/host/c/Users/<you>/data/ducklake` |
-| macOS | `/Users/<you>/data/ducklake` | `/Users/<you>/data/ducklake` |
-| Linux | `/home/<you>/data/ducklake` | `/home/<you>/data/ducklake` |
+| macOS   | `/Users/<you>/data/ducklake`   | `/Users/<you>/data/ducklake`                        |
+| Linux   | `/home/<you>/data/ducklake`    | `/home/<you>/data/ducklake`                         |
 
 Keep this in mind when filling in the `DataVolumeHostPath` setting below.
 
@@ -150,6 +209,7 @@ With the `Dev` provider every request is automatically authenticated as the conf
 — no browser redirect or credential prompt occurs.
 
 **`Roles` behaviour:**
+
 - **Set** (e.g. `["Admin"]`): those exact roles are used. The database is not consulted for roles. Use this to get full admin access on a fresh install.
 - **Omitted**: roles and catalog permissions are looked up from the application database by `User:Email`, the same way a real login would. This lets you impersonate any database user — useful for testing specific role combinations after you've set them up via the admin UI. Example:
 
@@ -255,11 +315,13 @@ uv sync
 This creates `.venv/` and installs all dependencies from the lockfile. Activate the virtual environment when needed:
 
 Windows:
+
 ```powershell
 .\.venv\Scripts\activate
 ```
 
 macOS / Linux:
+
 ```sh
 source .venv/bin/activate
 ```
