@@ -29,10 +29,10 @@ public sealed partial class NaturalSortComparer : IComparer<string?>
 
             int result = (long.TryParse(cx, out var nx), long.TryParse(cy, out var ny)) switch
             {
-                (true, true)   => nx.CompareTo(ny),
+                (true, true) => nx.CompareTo(ny),
                 (false, false) => string.Compare(cx, cy, StringComparison.OrdinalIgnoreCase),
-                (true, false)  => -1,
-                (false, true)  => 1,
+                (true, false) => -1,
+                (false, true) => 1,
             };
 
             if (result != 0) return result;

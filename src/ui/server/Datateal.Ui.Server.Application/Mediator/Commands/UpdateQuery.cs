@@ -22,7 +22,7 @@ internal class UpdateQueryHandler(IWorkspaceRepository repository)
         WorkspaceNameValidationException.ValidateNoSlash(request.Title);
         if (await repository.WorkspaceItemTitleExistsAsync(
             request.WorkspaceId,
-            request.Title, 
+            request.Title,
             request.FolderId,
             excludeId: request.Id,
             cancellationToken: cancellationToken))

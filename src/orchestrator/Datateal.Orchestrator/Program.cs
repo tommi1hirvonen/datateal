@@ -64,4 +64,3 @@ api.MapNodePoolEndpoints();
 api.MapAdminEndpoints();
 
 app.Run();
-

@@ -46,7 +46,7 @@ The orchestrator never executes code directly. It translates job tasks into kern
 | **Task timeout**               | Optional per-task `Timeout` field (passed to kernel execution)                                                                                                                                                                                                                                                   |
 | **Three task types**           | `NotebookTask`, `SqlQueryTask`, `SubJobTask`                                                                                                                                                                                                                                                                     |
 | **Sub-jobs**                   | A task can trigger another job and wait for its completion                                                                                                                                                                                                                                                       |
-| **Scheduled execution**        | Quartz-backed cron triggers (6-field Quartz format) with per-schedule timezone and automatic DST handling; schedule changes take effect immediately without restart                                                                                                                                               |
+| **Scheduled execution**        | Quartz-backed cron triggers (6-field Quartz format) with per-schedule timezone and automatic DST handling; schedule changes take effect immediately without restart                                                                                                                                              |
 | **Manual trigger**             | `POST /api/jobs/{id}/trigger` with optional parameter overrides                                                                                                                                                                                                                                                  |
 | **Parameterised jobs**         | Named parameters with defaults; resolved into `${{ param_name }}` placeholders in task configs                                                                                                                                                                                                                   |
 | **Notebook parameterisation**  | Injects a parameter cell after a cell tagged `parameters` before execution                                                                                                                                                                                                                                       |
@@ -68,8 +68,8 @@ The orchestrator never executes code directly. It translates job tasks into kern
 
 ## Project Structure
 
-| Project                                 | Layer          | Role                                                                    |
-| --------------------------------------- | -------------- | ----------------------------------------------------------------------- |
+| Project                                | Layer          | Role                                                                    |
+| -------------------------------------- | -------------- | ----------------------------------------------------------------------- |
 | `Datateal.Orchestrator`                | Host           | ASP.NET Core entry point; minimal API endpoints; Aspire wiring          |
 | `Datateal.Orchestrator.Application`    | Application    | Engine services, mediator handlers, YAML import/export, DAG validation  |
 | `Datateal.Orchestrator.Core`           | Domain         | Entity classes, enums, repository interfaces, infrastructure interfaces |
@@ -289,6 +289,7 @@ Runs as a `BackgroundService`. On startup it calls `WarmPoolManager.InitialiseAs
 Singleton `BackgroundService` that wraps a Quartz in-memory scheduler. On startup it loads all `JobSchedule` rows from the database and registers a Quartz cron trigger for each one; disabled schedules are registered but paused.
 
 `ScheduledJobExecutor` (Quartz `IJob`) fires when a trigger is due:
+
 1. Loads the job and verifies it is enabled.
 2. Finds the matching `JobSchedule` on `job.Schedules` to obtain parameter overrides.
 3. Calls `TriggerJobRequest` with those overrides — `TriggerJobHandler` then merges them with job-schema defaults and validates required parameters.
@@ -371,7 +372,7 @@ maxConcurrentRuns: 1
 
 parameters:
   - name: run_date
-    defaultValue: "2024-01-01"
+    defaultValue: '2024-01-01'
     required: false
     description: The date to process
 
@@ -388,8 +389,8 @@ tasks:
     notebookPath: /pipelines/prepare.ipynb
     nodePoolRef: standard
     maxRetries: 1
-    retryInterval: "00:01:00"
-    timeout: "01:00:00"
+    retryInterval: '00:01:00'
+    timeout: '01:00:00'
     parameters:
       run_date: ${{ run_date }}
 
@@ -411,10 +412,10 @@ tasks:
         condition: onCompletion
 
 schedules:
-  - cron: "0 0 2 * * ?"
-    timeZone: "Europe/Helsinki"
+  - cron: '0 0 2 * * ?'
+    timeZone: 'Europe/Helsinki'
     parameters:
-      run_date: "auto"
+      run_date: 'auto'
 ```
 
 Valid dependency conditions: `onSuccess`, `onFailure`, `onCompletion`, `onSkip`.
@@ -423,11 +424,11 @@ Valid dependency conditions: `onSuccess`, `onFailure`, `onCompletion`, `onSkip`.
 
 ## Configuration
 
-| Key                                    | Default                | Description                                                      |
-| -------------------------------------- | ---------------------- | ---------------------------------------------------------------- |
-| `ControlPlane:BaseAddress`             | `http://control-plane` | Base URL of the Control Plane service                            |
-| `History:RetentionDays`                | `30`                   | Age (in days) at which completed runs are purged; `≤ 0` disables |
-| `History:PurgeIntervalHours`           | `1`                    | How often `HistoryRetentionService` runs the purge               |
+| Key                          | Default                | Description                                                      |
+| ---------------------------- | ---------------------- | ---------------------------------------------------------------- |
+| `ControlPlane:BaseAddress`   | `http://control-plane` | Base URL of the Control Plane service                            |
+| `History:RetentionDays`      | `30`                   | Age (in days) at which completed runs are purged; `≤ 0` disables |
+| `History:PurgeIntervalHours` | `1`                    | How often `HistoryRetentionService` runs the purge               |
 
 The shared PostgreSQL connection is registered under the Aspire resource name `datateal-ui` (same database used by the UI server).
 

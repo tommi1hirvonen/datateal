@@ -26,6 +26,7 @@ Every `Job` carries two owner fields:
 **Acting-user header transport**: the UI server's `OrchestratorProxy` reads the `datateal:user_id` claim from the authenticated user and injects it as `X-Datateal-Acting-User`. Orchestrator endpoints read this via `GetActingUser(HttpContext)` (defined at the end of `JobEndpoints`). This header is only set server-side and must never be trusted from external clients.
 
 **Catalog access enforcement** runs at two points:
+
 1. **Trigger time** (`TriggerJobHandler.EnsureOwnerCatalogAccessAsync`): pre-checks that all catalog references in the job snapshot are accessible to the owner. Returns a descriptive error before any run record is created.
 2. **Execution time** (`TaskExecutor.SetupCatalogsForWorkspaceItemAsync`): authoritative enforcement at the moment each catalog is being attached to a kernel. Throws on any inaccessible catalog. Fail-closed: a null owner (legacy job with no stored identity) blocks all catalog access.
 
@@ -45,7 +46,7 @@ Every `Job` carries two owner fields:
 
 **Interactive vs Job pool behaviour in `NodeManager`:**
 
-- **`JobNodePoolConfig`** — see *Warm node pools* below for full routing logic.
+- **`JobNodePoolConfig`** — see _Warm node pools_ below for full routing logic.
 - **`InteractiveNodePoolConfig`** — uses the stable pool node name from `GetNodeName()`. Marked `Provisioned = false` so `CleanupAllAsync` **does not delete it** — the inactivity eviction service handles teardown. When a job task references an interactive pool, the node is joined but never stopped when the job completes.
 
 **One kernel per task.** Kernels are not shared between tasks — this ensures no Python state leaks.

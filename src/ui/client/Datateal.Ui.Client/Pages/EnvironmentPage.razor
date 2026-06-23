@@ -19,7 +19,7 @@
         <h2>Environment</h2>
     </SpaceItem>
 </Space>
-  
+
 @if (!string.IsNullOrEmpty(_error))
 {
     <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"

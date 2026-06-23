@@ -246,7 +246,7 @@ Jobs declare named parameters with optional defaults and a required flag. Parame
 name: daily-sales-pipeline
 parameters:
   - name: run_date
-    defaultValue: "2024-01-01"
+    defaultValue: '2024-01-01'
     isRequired: true
 
 tasks:
@@ -355,20 +355,20 @@ Roles are split into two tiers:
 
 **Tenant-level roles** — assigned globally to a user, not tied to any particular workspace:
 
-| Role | Capability |
-| ---- | ---------- |
-| `Admin` | Full access to all workspaces and tenant administration |
-| `CatalogContributor` | Create and manage DuckLake catalog definitions |
+| Role                 | Capability                                              |
+| -------------------- | ------------------------------------------------------- |
+| `Admin`              | Full access to all workspaces and tenant administration |
+| `CatalogContributor` | Create and manage DuckLake catalog definitions          |
 
 **Per-workspace roles** — assigned per workspace through workspace memberships. A user can hold different roles in different workspaces:
 
-| Role | Capability |
-| ---- | ---------- |
-| `WorkspaceAdmin` | Manage workspace membership and settings |
-| `WorkspaceContributor` / `WorkspaceReader` | Edit or read notebooks and queries |
-| `NodePoolContributor` / `NodePoolOperator` | Manage or operate compute nodes |
-| `JobContributor` / `JobOperator` / `JobReader` | Manage, trigger, or monitor jobs |
-| `EnvironmentManager` | Manage secrets, variables, and wheel packages |
+| Role                                           | Capability                                    |
+| ---------------------------------------------- | --------------------------------------------- |
+| `WorkspaceAdmin`                               | Manage workspace membership and settings      |
+| `WorkspaceContributor` / `WorkspaceReader`     | Edit or read notebooks and queries            |
+| `NodePoolContributor` / `NodePoolOperator`     | Manage or operate compute nodes               |
+| `JobContributor` / `JobOperator` / `JobReader` | Manage, trigger, or monitor jobs              |
+| `EnvironmentManager`                           | Manage secrets, variables, and wheel packages |
 
 A bootstrap `AdminUsers` list in `appsettings` lets the first admin log in before any users have been configured in the database.
 

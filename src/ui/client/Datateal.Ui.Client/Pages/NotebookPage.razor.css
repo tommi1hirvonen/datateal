@@ -1,20 +1,20 @@
 /* Notebook page layout — header stays pinned, cells scroll independently */
 .nb-header {
-    flex-shrink: 0;
-    padding-right: 24px;
+  flex-shrink: 0;
+  padding-right: 24px;
 }
 
 /* Flex row containing the scrollable cell list + the fixed gutter column */
 .nb-cells-wrapper {
-    display: flex;
-    flex-direction: row;
-    flex: 1 1 0%;
-    min-height: 0;
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .nb-cells {
-    flex: 1 1 0%;
-    min-height: 0;
-    overflow-y: auto;
-    padding-right: 8px;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 8px;
 }

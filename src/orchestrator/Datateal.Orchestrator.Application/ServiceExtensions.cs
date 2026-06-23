@@ -40,4 +40,3 @@ public static class ServiceExtensions
 }
 
 file class ScanEntryPoint;
-
