@@ -1,22 +1,22 @@
-import asyncio
 import ast as _ast
+import asyncio
+import contextlib
 import logging
 import os
+import pathlib
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
-import pathlib
-import pyflakes.checker
+from datetime import UTC, datetime
+
 import jedi
+import pyflakes.checker
 from jedi.api.environment import Environment as JediEnvironment
-
-logger = logging.getLogger(__name__)
-
-from jupyter_client.manager import AsyncKernelManager
 from jupyter_client.asynchronous.client import AsyncKernelClient
 from jupyter_client.kernelspec import KernelSpec
+from jupyter_client.manager import AsyncKernelManager
+
+logger = logging.getLogger(__name__)
 
 
 class _DatatealKernelManager(AsyncKernelManager):
@@ -44,10 +44,10 @@ class KernelConnection:
     def __init__(self, kernel_id: str) -> None:
         self.kernel_id = kernel_id
         self.km: _DatatealKernelManager = _DatatealKernelManager()
-        self.kc: Optional[AsyncKernelClient] = None
+        self.kc: AsyncKernelClient | None = None
         self.status = "starting"
-        self.created_at = datetime.now(timezone.utc)
-        self.last_activity = datetime.now(timezone.utc)
+        self.created_at = datetime.now(UTC)
+        self.last_activity = datetime.now(UTC)
         self._lock = asyncio.Lock()
         # Async execution registry: execution_id → Task
         self._execution_tasks: dict[str, asyncio.Task] = {}
@@ -74,11 +74,13 @@ class KernelConnection:
                 return
             try:
                 msg = await asyncio.wait_for(self.kc.get_iopub_msg(), timeout=remaining)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return
-            if (msg.get("parent_header", {}).get("msg_id") == msg_id
-                    and msg["msg_type"] == "status"
-                    and msg["content"]["execution_state"] == "idle"):
+            if (
+                msg.get("parent_header", {}).get("msg_id") == msg_id
+                and msg["msg_type"] == "status"
+                and msg["content"]["execution_state"] == "idle"
+            ):
                 return
 
     async def _setup_formatters(self) -> None:
@@ -95,7 +97,7 @@ class KernelConnection:
         msg_id = self.kc.execute(setup_code, silent=True, store_history=False)
         await self._wait_for_idle(msg_id)
 
-    def start_execute(self, code: str, timeout: Optional[float] = None) -> str:
+    def start_execute(self, code: str, timeout: float | None = None) -> str:
         """Queue a kernel execution and return an execution_id immediately.
 
         The actual execution runs in a background asyncio Task.  The kernel
@@ -107,10 +109,12 @@ class KernelConnection:
         async def _run() -> None:
             async with self._lock:
                 if self.kc is None:
-                    self._execution_results[execution_id] = RuntimeError("Kernel client is not initialized")
+                    self._execution_results[execution_id] = RuntimeError(
+                        "Kernel client is not initialized"
+                    )
                     return
                 self.status = "busy"
-                self.last_activity = datetime.now(timezone.utc)
+                self.last_activity = datetime.now(UTC)
                 try:
                     start = time.monotonic()
                     msg_id = self.kc.execute(code)
@@ -121,7 +125,7 @@ class KernelConnection:
                     self._execution_results[execution_id] = exc
                 finally:
                     self.status = "idle"
-                    self.last_activity = datetime.now(timezone.utc)
+                    self.last_activity = datetime.now(UTC)
 
         task = asyncio.create_task(_run())
         self._execution_tasks[execution_id] = task
@@ -158,7 +162,7 @@ class KernelConnection:
         self._execution_tasks.clear()
         self._execution_results.clear()
 
-    async def _collect_output(self, msg_id: str, timeout: Optional[float]) -> dict:
+    async def _collect_output(self, msg_id: str, timeout: float | None) -> dict:
         if self.kc is None:
             raise RuntimeError("Kernel client is not initialized")
         outputs = []
@@ -174,8 +178,8 @@ class KernelConnection:
                     raise TimeoutError("Execution timed out")
                 try:
                     msg = await asyncio.wait_for(self.kc.get_iopub_msg(), timeout=remaining)
-                except asyncio.TimeoutError:
-                    raise TimeoutError("Execution timed out")
+                except TimeoutError as err:
+                    raise TimeoutError("Execution timed out") from err
             else:
                 msg = await self.kc.get_iopub_msg()
 
@@ -189,11 +193,21 @@ class KernelConnection:
                 outputs.append({"type": "stream", "name": content["name"], "text": content["text"]})
             elif msg_type == "execute_result":
                 execution_count = content.get("execution_count")
-                outputs.append({"type": "execute_result", "data": content["data"], "execution_count": execution_count})
+                outputs.append(
+                    {
+                        "type": "execute_result",
+                        "data": content["data"],
+                        "execution_count": execution_count,
+                    }
+                )
             elif msg_type == "display_data":
                 outputs.append({"type": "display_data", "data": content["data"]})
             elif msg_type == "error":
-                error = {"ename": content["ename"], "evalue": content["evalue"], "traceback": content["traceback"]}
+                error = {
+                    "ename": content["ename"],
+                    "evalue": content["evalue"],
+                    "traceback": content["traceback"],
+                }
             elif msg_type == "status" and content.get("execution_state") == "idle":
                 break
 
@@ -216,7 +230,7 @@ class KernelConnection:
         await self.kc.wait_for_ready(timeout=30)
         await self._setup_formatters()
         self.status = "idle"
-        self.last_activity = datetime.now(timezone.utc)
+        self.last_activity = datetime.now(UTC)
 
     async def shutdown(self) -> None:
         self._cancel_all_executions()
@@ -241,7 +255,12 @@ class KernelConnection:
             total_lines = full_code.count("\n") + 1
             logger.debug(
                 "complete: line=%d col=%d adj_line=%d total_lines=%d code_len=%d context_len=%d",
-                line, column, adjusted_line, total_lines, len(code), len(context),
+                line,
+                column,
+                adjusted_line,
+                total_lines,
+                len(code),
+                len(context),
             )
 
             env = JediEnvironment(kernel_python)
@@ -259,7 +278,7 @@ class KernelConnection:
                     return 2  # dunder / name-mangled
                 if name.startswith("_"):
                     return 1  # private / internal
-                return 0      # public
+                return 0  # public
 
             completions = sorted(completions, key=lambda c: _visibility(c.name))
             return [
@@ -283,6 +302,7 @@ class KernelConnection:
         Only diagnostics that fall within *code* (not the context) are returned,
         with row numbers relative to *code*.
         """
+
         def _run() -> list[dict]:
             full_code, context_line_count = KernelConnection._build_full_code(context, code)
 
@@ -292,12 +312,14 @@ class KernelConnection:
             except SyntaxError as exc:
                 row = (exc.lineno or 1) - context_line_count
                 if row >= 1:
-                    diagnostics.append({
-                        "row": row,
-                        "col": max(0, (exc.offset or 1) - 1),
-                        "message": exc.msg,
-                        "severity": "error",
-                    })
+                    diagnostics.append(
+                        {
+                            "row": row,
+                            "col": max(0, (exc.offset or 1) - 1),
+                            "message": exc.msg,
+                            "severity": "error",
+                        }
+                    )
                 return diagnostics
 
             try:
@@ -305,12 +327,14 @@ class KernelConnection:
                 for msg in checker.messages:
                     row = msg.lineno - context_line_count
                     if row >= 1:
-                        diagnostics.append({
-                            "row": row,
-                            "col": getattr(msg, "col", 0),
-                            "message": msg.message % msg.message_args,
-                            "severity": "warning",
-                        })
+                        diagnostics.append(
+                            {
+                                "row": row,
+                                "col": getattr(msg, "col", 0),
+                                "message": msg.message % msg.message_args,
+                                "severity": "warning",
+                            }
+                        )
             except ImportError:
                 pass
 
@@ -319,22 +343,97 @@ class KernelConnection:
         return await asyncio.to_thread(_run)
 
     # Python builtins that should get a distinct "builtin" token type.
-    _PYTHON_BUILTINS = frozenset([
-        "abs", "aiter", "all", "anext", "any", "ascii", "bin", "bool",
-        "breakpoint", "bytearray", "bytes", "callable", "chr", "classmethod",
-        "compile", "complex", "copyright", "credits", "delattr", "dict", "dir",
-        "display", "divmod", "enumerate", "eval", "exec", "exit", "filter",
-        "float", "format", "frozenset", "getattr", "globals", "hasattr", "hash",
-        "help", "hex", "id", "input", "int", "isinstance", "issubclass", "iter",
-        "len", "license", "list", "locals", "map", "max", "memoryview", "min",
-        "next", "object", "oct", "open", "ord", "pow", "print", "property",
-        "quit", "range", "repr", "reversed", "round", "set", "setattr", "slice",
-        "sorted", "staticmethod", "str", "sum", "super", "tuple", "type",
-        "vars", "zip", "__import__",
-        # Common constants
-        "True", "False", "None", "NotImplemented", "Ellipsis",
-        "__name__", "__doc__", "__file__", "__spec__",
-    ])
+    _PYTHON_BUILTINS = frozenset(
+        [
+            "abs",
+            "aiter",
+            "all",
+            "anext",
+            "any",
+            "ascii",
+            "bin",
+            "bool",
+            "breakpoint",
+            "bytearray",
+            "bytes",
+            "callable",
+            "chr",
+            "classmethod",
+            "compile",
+            "complex",
+            "copyright",
+            "credits",
+            "delattr",
+            "dict",
+            "dir",
+            "display",
+            "divmod",
+            "enumerate",
+            "eval",
+            "exec",
+            "exit",
+            "filter",
+            "float",
+            "format",
+            "frozenset",
+            "getattr",
+            "globals",
+            "hasattr",
+            "hash",
+            "help",
+            "hex",
+            "id",
+            "input",
+            "int",
+            "isinstance",
+            "issubclass",
+            "iter",
+            "len",
+            "license",
+            "list",
+            "locals",
+            "map",
+            "max",
+            "memoryview",
+            "min",
+            "next",
+            "object",
+            "oct",
+            "open",
+            "ord",
+            "pow",
+            "print",
+            "property",
+            "quit",
+            "range",
+            "repr",
+            "reversed",
+            "round",
+            "set",
+            "setattr",
+            "slice",
+            "sorted",
+            "staticmethod",
+            "str",
+            "sum",
+            "super",
+            "tuple",
+            "type",
+            "vars",
+            "zip",
+            "__import__",
+            # Common constants
+            "True",
+            "False",
+            "None",
+            "NotImplemented",
+            "Ellipsis",
+            "__name__",
+            "__doc__",
+            "__file__",
+            "__spec__",
+        ]
+    )
 
     # Preamble silently prepended to every analysis request (diagnostics,
     # completions, hover, semantic tokens).  It declares names that ipykernel
@@ -381,7 +480,9 @@ class KernelConnection:
             try:
                 names = script.get_names(all_scopes=True, references=True)
             except Exception:
-                logger.info("semantic_tokens: get_names() failed, falling back to AST", exc_info=True)
+                logger.info(
+                    "semantic_tokens: get_names() failed, falling back to AST", exc_info=True
+                )
                 return _run_ast()
 
             # Cache for resolved definition types: name_string → resolved_type
@@ -399,12 +500,14 @@ class KernelConnection:
                 if token_type is None:
                     continue
 
-                tokens.append({
-                    "line": line,
-                    "start_char": col,
-                    "length": length,
-                    "token_type": token_type,
-                })
+                tokens.append(
+                    {
+                        "line": line,
+                        "start_char": col,
+                        "length": length,
+                        "token_type": token_type,
+                    }
+                )
 
             logger.debug("semantic_tokens: %d names → %d tokens", len(names), len(tokens))
             return tokens
@@ -414,7 +517,7 @@ class KernelConnection:
             return len(n) > 1 and n[0].isupper() and not n.isupper()
 
         # Sentinel indicating goto() was attempted but failed entirely.
-        _GOTO_FAILED = "_failed_"
+        _goto_failed = "_failed_"
 
         def _resolve_statement_type(name, cache: dict[str, str]) -> str:
             """Resolve the actual definition type of a 'statement' name via goto().
@@ -424,7 +527,7 @@ class KernelConnection:
             and returns the resolved type (e.g. 'module', 'function', 'class',
             or 'statement' when the definition is a plain variable).
             Results are cached by name string to avoid redundant resolutions.
-            Returns _GOTO_FAILED if resolution fails entirely.
+            Returns _goto_failed if resolution fails entirely.
             """
             n = name.name
             if n in cache:
@@ -437,8 +540,8 @@ class KernelConnection:
                     return resolved
             except Exception:
                 pass
-            cache[n] = _GOTO_FAILED
-            return _GOTO_FAILED
+            cache[n] = _goto_failed
+            return _goto_failed
 
         def _classify_jedi_name(name, goto_cache: dict[str, str]) -> str | None:
             """Map a Jedi Name object to a semantic token type."""
@@ -528,62 +631,74 @@ class KernelConnection:
             tokens = []
 
             for node in _ast.walk(tree):
-                if isinstance(node, _ast.FunctionDef) or isinstance(node, _ast.AsyncFunctionDef):
+                if isinstance(node, _ast.FunctionDef | _ast.AsyncFunctionDef):
                     line = node.lineno - context_line_count
                     if line >= 1:
-                        tokens.append({
-                            "line": line,
-                            "start_char": node.col_offset,
-                            "length": len(node.name),
-                            "token_type": "function",
-                        })
+                        tokens.append(
+                            {
+                                "line": line,
+                                "start_char": node.col_offset,
+                                "length": len(node.name),
+                                "token_type": "function",
+                            }
+                        )
                     # Classify parameters
                     for arg in node.args.args + node.args.posonlyargs + node.args.kwonlyargs:
                         arg_line = arg.lineno - context_line_count
                         if arg_line >= 1:
                             tt = "selfParameter" if arg.arg in ("self", "cls") else "parameter"
-                            tokens.append({
-                                "line": arg_line,
-                                "start_char": arg.col_offset,
-                                "length": len(arg.arg),
-                                "token_type": tt,
-                            })
+                            tokens.append(
+                                {
+                                    "line": arg_line,
+                                    "start_char": arg.col_offset,
+                                    "length": len(arg.arg),
+                                    "token_type": tt,
+                                }
+                            )
                     # Decorators
                     for dec in node.decorator_list:
                         dec_line = dec.lineno - context_line_count
                         if dec_line >= 1 and isinstance(dec, _ast.Name):
-                            tokens.append({
-                                "line": dec_line,
-                                "start_char": dec.col_offset,
-                                "length": len(dec.id),
-                                "token_type": "decorator",
-                            })
+                            tokens.append(
+                                {
+                                    "line": dec_line,
+                                    "start_char": dec.col_offset,
+                                    "length": len(dec.id),
+                                    "token_type": "decorator",
+                                }
+                            )
                 elif isinstance(node, _ast.ClassDef):
                     line = node.lineno - context_line_count
                     if line >= 1:
-                        tokens.append({
-                            "line": line,
-                            "start_char": node.col_offset,
-                            "length": len(node.name),
-                            "token_type": "class",
-                        })
+                        tokens.append(
+                            {
+                                "line": line,
+                                "start_char": node.col_offset,
+                                "length": len(node.name),
+                                "token_type": "class",
+                            }
+                        )
                 elif isinstance(node, _ast.Name):
                     line = node.lineno - context_line_count
                     if line >= 1:
                         if node.id in KernelConnection._PYTHON_BUILTINS:
-                            tokens.append({
-                                "line": line,
-                                "start_char": node.col_offset,
-                                "length": len(node.id),
-                                "token_type": "builtin",
-                            })
+                            tokens.append(
+                                {
+                                    "line": line,
+                                    "start_char": node.col_offset,
+                                    "length": len(node.id),
+                                    "token_type": "builtin",
+                                }
+                            )
                         elif _is_pascal_case(node.id):
-                            tokens.append({
-                                "line": line,
-                                "start_char": node.col_offset,
-                                "length": len(node.id),
-                                "token_type": "class",
-                            })
+                            tokens.append(
+                                {
+                                    "line": line,
+                                    "start_char": node.col_offset,
+                                    "length": len(node.id),
+                                    "token_type": "class",
+                                }
+                            )
 
             return tokens
 
@@ -618,7 +733,10 @@ class KernelConnection:
 
             # If the first line looks like a function signature (contains '('),
             # format it as a Python code block for better readability.
-            if "(" in first_line and first_line.split("(")[0].replace(".", "").replace("_", "").isalnum():
+            if (
+                "(" in first_line
+                and first_line.split("(")[0].replace(".", "").replace("_", "").isalnum()
+            ):
                 result: list[str] = [f"```python\n{first_line}\n```"]
                 rest = "\n".join(lines[1:]).strip()
             else:
@@ -640,12 +758,20 @@ class KernelConnection:
 
             logger.debug(
                 "hover: line=%d col=%d adj_line=%d total_lines=%d",
-                line, column, adj_line, total_lines)
+                line,
+                column,
+                adj_line,
+                total_lines,
+            )
 
             if adj_line < 1 or adj_line > total_lines:
                 logger.warning(
                     "hover: adj_line %d out of range [1, %d] — code=%r context_tail=%r",
-                    adj_line, total_lines, code[:100], context[-100:] if context else "")
+                    adj_line,
+                    total_lines,
+                    code[:100],
+                    context[-100:] if context else "",
+                )
                 return []
 
             env = JediEnvironment(kernel_python)
@@ -675,7 +801,9 @@ class KernelConnection:
 
             # ── 2. Try goto (resolves to definition — best for compiled modules) ──
             try:
-                defs = script.goto(adj_line, column, follow_imports=True, follow_builtin_imports=True)
+                defs = script.goto(
+                    adj_line, column, follow_imports=True, follow_builtin_imports=True
+                )
                 logger.debug("goto(%d, %d) → %d defs", adj_line, column, len(defs))
                 for d in defs:
                     full_name = d.full_name or d.name
@@ -752,7 +880,7 @@ class KernelConnection:
 
         try:
             return await asyncio.wait_for(asyncio.to_thread(_run), timeout=10.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("hover() timed out for (line=%d, col=%d)", line, column)
             return []
         except Exception:
@@ -771,7 +899,7 @@ class KernelRegistry:
         self._kernels[kernel_id] = conn
         return conn
 
-    def get(self, kernel_id: str) -> Optional[KernelConnection]:
+    def get(self, kernel_id: str) -> KernelConnection | None:
         return self._kernels.get(kernel_id)
 
     def list(self) -> list[KernelConnection]:
@@ -786,10 +914,8 @@ class KernelRegistry:
 
     async def shutdown_all(self) -> None:
         for conn in list(self._kernels.values()):
-            try:
+            with contextlib.suppress(Exception):
                 await conn.shutdown()
-            except Exception:
-                pass
         self._kernels.clear()
 
 

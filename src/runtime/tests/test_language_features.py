@@ -6,13 +6,12 @@ not set, so sys.executable is used).
 """
 
 import pytest
-
 from datateal_runtime.kernels.manager import KernelConnection
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _token_map(tokens: list[dict]) -> dict[str, str]:
     """Build {name_at_line_col: token_type} from semantic token dicts.
@@ -54,6 +53,7 @@ def conn():
 # ---------------------------------------------------------------------------
 # Semantic tokens
 # ---------------------------------------------------------------------------
+
 
 class TestSemanticTokens:
     """Semantic token classification tests."""
@@ -160,6 +160,7 @@ class TestSemanticTokens:
 # Completions
 # ---------------------------------------------------------------------------
 
+
 class TestCompletions:
     """Auto-completion tests."""
 
@@ -212,6 +213,7 @@ class TestCompletions:
 # ---------------------------------------------------------------------------
 # Hover
 # ---------------------------------------------------------------------------
+
 
 class TestHover:
     """Hover documentation tests."""
@@ -278,6 +280,7 @@ class TestHover:
 # ---------------------------------------------------------------------------
 # Diagnostics
 # ---------------------------------------------------------------------------
+
 
 class TestDiagnostics:
     """Pyflakes diagnostics tests."""

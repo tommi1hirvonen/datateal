@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -17,15 +17,15 @@ class ExecutionHandle(BaseModel):
 
 class ExecuteRequest(BaseModel):
     code: str
-    timeout: Optional[float] = None  # None means no timeout
+    timeout: float | None = None  # None means no timeout
 
 
 class Output(BaseModel):
     type: str
-    name: Optional[str] = None
-    text: Optional[str] = None
-    data: Optional[dict[str, Any]] = None
-    execution_count: Optional[int] = None
+    name: str | None = None
+    text: str | None = None
+    data: dict[str, Any] | None = None
+    execution_count: int | None = None
 
 
 class ErrorInfo(BaseModel):
@@ -36,20 +36,20 @@ class ErrorInfo(BaseModel):
 
 class ExecutionResult(BaseModel):
     status: str
-    execution_count: Optional[int] = None
+    execution_count: int | None = None
     outputs: list[Output]
-    error: Optional[ErrorInfo] = None
+    error: ErrorInfo | None = None
     duration_ms: float
 
 
 class PollExecutionResponse(BaseModel):
     is_complete: bool
-    result: Optional[ExecutionResult] = None
+    result: ExecutionResult | None = None
 
 
 class CompleteRequest(BaseModel):
     code: str
-    line: int   # 1-based (Jedi convention)
+    line: int  # 1-based (Jedi convention)
     column: int  # 0-based (Jedi convention)
     context: str = ""  # code from all prior cells joined by newlines
 
@@ -57,8 +57,8 @@ class CompleteRequest(BaseModel):
 class CompletionItem(BaseModel):
     label: str
     kind: str  # jedi type: function, module, class, instance, keyword, etc.
-    detail: Optional[str] = None
-    documentation: Optional[str] = None
+    detail: str | None = None
+    documentation: str | None = None
     insert_text: str
 
 
@@ -72,8 +72,8 @@ class DiagnoseRequest(BaseModel):
 
 
 class Diagnostic(BaseModel):
-    row: int     # 1-based
-    col: int     # 0-based
+    row: int  # 1-based
+    col: int  # 0-based
     message: str
     severity: str  # error, warning
 
@@ -88,10 +88,12 @@ class SemanticTokenRequest(BaseModel):
 
 
 class SemanticToken(BaseModel):
-    line: int        # 1-based
+    line: int  # 1-based
     start_char: int  # 0-based
     length: int
-    token_type: str  # function, class, parameter, variable, builtin, selfParameter, property, decorator, namespace
+    # Expected values: function, class, parameter, variable, builtin,
+    # selfParameter, property, decorator, namespace
+    token_type: str
 
 
 class SemanticTokenResponse(BaseModel):
@@ -100,7 +102,7 @@ class SemanticTokenResponse(BaseModel):
 
 class HoverRequest(BaseModel):
     code: str
-    line: int    # 1-based (Jedi convention)
+    line: int  # 1-based (Jedi convention)
     column: int  # 0-based (Jedi convention)
     context: str = ""  # code from all prior cells joined by newlines
 
