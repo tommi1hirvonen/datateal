@@ -1,5 +1,5 @@
-using Microsoft.Extensions.AI;
 using Datateal.Ui.Shared.Ai;
+using Microsoft.Extensions.AI;
 
 namespace Datateal.Ui.Server.Application.Ai;
 

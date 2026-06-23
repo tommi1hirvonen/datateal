@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Datateal.Auth;
 using Datateal.Data;
 using Datateal.Orchestrator.Application;
@@ -5,7 +6,6 @@ using Datateal.Orchestrator.Endpoints;
 using Datateal.Orchestrator.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 

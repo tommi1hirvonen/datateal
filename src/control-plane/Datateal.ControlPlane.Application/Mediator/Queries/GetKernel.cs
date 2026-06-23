@@ -1,6 +1,6 @@
+using Datateal.ControlPlane.Core.Services;
 using Datateal.Core.Kernels;
 using Datateal.Core.Mediator;
-using Datateal.ControlPlane.Core.Services;
 
 namespace Datateal.ControlPlane.Application.Mediator.Queries;
 

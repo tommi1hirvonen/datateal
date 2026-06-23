@@ -1,5 +1,5 @@
-using Datateal.Core.Mediator;
 using Datateal.ControlPlane.Core.Services;
+using Datateal.Core.Mediator;
 
 namespace Datateal.ControlPlane.Application.Mediator.Commands;
 
