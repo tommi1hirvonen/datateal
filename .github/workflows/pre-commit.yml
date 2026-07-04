@@ -8,6 +8,10 @@ on:
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
+    env:
+      # Prevents a race condition where concurrent dotnet processes all try to
+      # create the NuGet-Migrations named mutex simultaneously on first run.
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
     steps:
       - uses: actions/checkout@v5
 
