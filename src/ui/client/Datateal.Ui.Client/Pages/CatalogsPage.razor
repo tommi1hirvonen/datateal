@@ -9,6 +9,7 @@
 @inject ICatalogService CatalogService
 @inject IWorkspaceManagementService WorkspaceService
 @inject IAuthorizationService AuthorizationService
+@inject ActiveWorkspaceProvider Workspaces
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -50,7 +51,7 @@
                         </span>
                         <div style="display: flex; align-items: center; gap: 2px;">
                             <button class="cp-collapse-btn" title="Refresh catalog explorer"
-                                    disabled="@_browseRefreshing"
+                                    disabled="@(_browseRefreshing || !Workspaces.IsInitialized)"
                                     @onclick="RefreshBrowserAsync">
                                 <Icon Type="@(_browseRefreshing ? IconType.Outline.Loading : IconType.Outline.Reload)" />
                             </button>
@@ -61,8 +62,17 @@
                         </div>
                     </div>
                     <div class="cp-panel-body">
-                        <CatalogBrowserTree @ref="_browserTreeRef"
-                                            OnObjectSelected="OnObjectSelected" />
+                        @if (Workspaces.IsInitialized)
+                        {
+                            <CatalogBrowserTree @ref="_browserTreeRef"
+                                                OnObjectSelected="OnObjectSelected" />
+                        }
+                        else
+                        {
+                            <Flex Justify="@("center")" Style="padding: 16px;">
+                                <Spin Size="SpinSize.Small" />
+                            </Flex>
+                        }
                     </div>
                 </div>
                 <div id="cb-handle" class="cp-drag-handle">
@@ -337,6 +347,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Workspaces.Changed += OnWorkspaceChanged;
+
         if (AuthenticationStateTask is not null)
         {
             var state = await AuthenticationStateTask;
@@ -349,6 +361,8 @@
         else
             _loading = false;
     }
+
+    private void OnWorkspaceChanged() => InvokeAsync(StateHasChanged);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -549,6 +563,7 @@
 
     public ValueTask DisposeAsync()
     {
+        Workspaces.Changed -= OnWorkspaceChanged;
         _dotNetRef?.Dispose();
         return ValueTask.CompletedTask;
     }
