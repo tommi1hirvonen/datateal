@@ -35,21 +35,4 @@ jobs:
       - name: Warm up NuGet migrations
         run: dotnet nuget locals global-packages --list
 
-      - name: Install pre-commit
-        run: python -m pip install pre-commit
-
-      # Cache pre-commit hook environments (previously handled by
-      # pre-commit/action) so switching to a manual run doesn't regress speed.
-      - name: Cache pre-commit environments
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-3|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
-
-      # Retry once as defense-in-depth: besides the NuGet-Migrations race above,
-      # MSBuild workspace loads can hit other transient hiccups that clear on a
-      # second run. A real formatting/lint failure still fails both attempts.
-      - name: Run pre-commit
-        run: |
-          pre-commit run --show-diff-on-failure --color=always --all-files \
-            || pre-commit run --show-diff-on-failure --color=always --all-files
+      - uses: pre-commit/action@v3.0.0
