@@ -150,7 +150,7 @@ public class TaskExecutor(
                     : cell.Source;
 
                 if (cell.Language != "Sql" && HasRunLines(code))
-                    code = await ExpandRunMagicAsync(code, notebookFolderPath, null, 0, ctx.Workspace, ct);
+                    code = await ExpandRunMagicAsync(code, notebookFolderPath, null, 0, ctx.Workspace, ctx.WorkspaceId, ct);
 
                 try
                 {
@@ -460,6 +460,7 @@ public class TaskExecutor(
         HashSet<Guid>? visited,
         int depth,
         IWorkspaceReader workspaceReader,
+        Guid workspaceId,
         CancellationToken ct)
     {
         if (depth > 10)
@@ -479,7 +480,7 @@ public class TaskExecutor(
             var absolutePath = ResolvePath(baseFolderPath, relativePath);
 
             // Try notebook first
-            var notebookId = await workspaceReader.ResolveNotebookIdByPathAsync(absolutePath, ct);
+            var notebookId = await workspaceReader.ResolveNotebookIdByPathAsync(workspaceId, absolutePath, ct);
             if (notebookId is not null)
             {
                 if (!visited.Add(notebookId.Value))
@@ -501,7 +502,7 @@ public class TaskExecutor(
                 // Recurse using the referenced notebook's folder as the new base
                 var refAbsPath = await workspaceReader.ResolveNotebookPathByIdAsync(notebookId.Value, ct);
                 var refFolderPath = refAbsPath is not null ? GetFolderPath(refAbsPath) : baseFolderPath;
-                cellCode = await ExpandRunMagicAsync(cellCode, refFolderPath, visited, depth + 1, workspaceReader, ct);
+                cellCode = await ExpandRunMagicAsync(cellCode, refFolderPath, visited, depth + 1, workspaceReader, workspaceId, ct);
 
                 visited.Remove(notebookId.Value);
                 lines[i] = cellCode;
@@ -510,7 +511,7 @@ public class TaskExecutor(
             }
 
             // Try query
-            var queryId = await workspaceReader.ResolveQueryIdByPathAsync(absolutePath, ct);
+            var queryId = await workspaceReader.ResolveQueryIdByPathAsync(workspaceId, absolutePath, ct);
             if (queryId is not null)
             {
                 if (!visited.Add(queryId.Value))

@@ -21,11 +21,11 @@ internal class WorkspaceReader(DatatealDbContext db) : IWorkspaceReader
             .Select(q => new WorkspaceItemContent(q.Id, q.Title, q.Content))
             .FirstOrDefaultAsync(ct);
 
-    public async Task<Guid?> ResolveNotebookIdByPathAsync(string path, CancellationToken ct)
-        => await ResolveItemIdByPathAsync<Notebook>(db, path, ct);
+    public async Task<Guid?> ResolveNotebookIdByPathAsync(Guid workspaceId, string path, CancellationToken ct)
+        => await ResolveItemIdByPathAsync<Notebook>(db, workspaceId, path, ct);
 
-    public async Task<Guid?> ResolveQueryIdByPathAsync(string path, CancellationToken ct)
-        => await ResolveItemIdByPathAsync<Query>(db, path, ct);
+    public async Task<Guid?> ResolveQueryIdByPathAsync(Guid workspaceId, string path, CancellationToken ct)
+        => await ResolveItemIdByPathAsync<Query>(db, workspaceId, path, ct);
 
     public async Task<string?> ResolveNotebookPathByIdAsync(Guid id, CancellationToken ct)
         => await ResolveItemPathByIdAsync<Notebook>(db, id, ct);
@@ -43,7 +43,7 @@ internal class WorkspaceReader(DatatealDbContext db) : IWorkspaceReader
         return catalogNames ?? [];
     }
 
-    private static async Task<Guid?> ResolveItemIdByPathAsync<T>(DatatealDbContext db, string path, CancellationToken ct)
+    private static async Task<Guid?> ResolveItemIdByPathAsync<T>(DatatealDbContext db, Guid workspaceId, string path, CancellationToken ct)
         where T : WorkspaceItem
     {
         var normalized = path.Trim('/');
@@ -57,7 +57,7 @@ internal class WorkspaceReader(DatatealDbContext db) : IWorkspaceReader
         foreach (var folderName in folderSegments)
         {
             folderId = await db.Folders
-                .Where(f => f.Name == folderName && f.ParentId == folderId)
+                .Where(f => f.WorkspaceId == workspaceId && f.Name == folderName && f.ParentId == folderId)
                 .Select(f => (Guid?)f.Id)
                 .FirstOrDefaultAsync(ct);
 
@@ -66,7 +66,7 @@ internal class WorkspaceReader(DatatealDbContext db) : IWorkspaceReader
 
         return await db.WorkspaceItems
             .OfType<T>()
-            .Where(i => i.Title == itemTitle && i.FolderId == folderId)
+            .Where(i => i.WorkspaceId == workspaceId && i.Title == itemTitle && i.FolderId == folderId)
             .Select(i => (Guid?)i.Id)
             .FirstOrDefaultAsync(ct);
     }
