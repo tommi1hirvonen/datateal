@@ -45,6 +45,7 @@ builder.Services.AddScoped<IActiveWorkspaceAccessor, HttpActiveWorkspaceAccessor
 builder.Services.AddScoped<IAuthorizationHandler, WorkspaceScopedRoleHandler>();
 builder.Services.Configure<AdminUsersOptions>(builder.Configuration.GetSection("Authorization"));
 builder.Services.AddScoped<IClaimsTransformation, AppClaimsTransformation>();
+builder.Services.AddHostedService<UserSeedBackgroundService>();
 
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
