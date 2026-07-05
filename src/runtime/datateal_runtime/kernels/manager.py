@@ -16,6 +16,8 @@ from jupyter_client.asynchronous.client import AsyncKernelClient
 from jupyter_client.kernelspec import KernelSpec
 from jupyter_client.manager import AsyncKernelManager
 
+from .redaction import redact_error, redact_output
+
 logger = logging.getLogger(__name__)
 
 
@@ -190,24 +192,32 @@ class KernelConnection:
             content = msg["content"]
 
             if msg_type == "stream":
-                outputs.append({"type": "stream", "name": content["name"], "text": content["text"]})
+                outputs.append(
+                    redact_output(
+                        {"type": "stream", "name": content["name"], "text": content["text"]}
+                    )
+                )
             elif msg_type == "execute_result":
                 execution_count = content.get("execution_count")
                 outputs.append(
-                    {
-                        "type": "execute_result",
-                        "data": content["data"],
-                        "execution_count": execution_count,
-                    }
+                    redact_output(
+                        {
+                            "type": "execute_result",
+                            "data": content["data"],
+                            "execution_count": execution_count,
+                        }
+                    )
                 )
             elif msg_type == "display_data":
-                outputs.append({"type": "display_data", "data": content["data"]})
+                outputs.append(redact_output({"type": "display_data", "data": content["data"]}))
             elif msg_type == "error":
-                error = {
-                    "ename": content["ename"],
-                    "evalue": content["evalue"],
-                    "traceback": content["traceback"],
-                }
+                error = redact_error(
+                    {
+                        "ename": content["ename"],
+                        "evalue": content["evalue"],
+                        "traceback": content["traceback"],
+                    }
+                )
             elif msg_type == "status" and content.get("execution_state") == "idle":
                 break
 

@@ -206,6 +206,16 @@ public sealed class AksNodeService : INodeService
                     },
                 });
             }
+
+            // Tell the runtime which env var names are secrets so it can redact their
+            // values from cell outputs before they reach the control plane.
+            // Environment var and secret keys cannot contain commas (due to validation),
+            // so we can safely join them into a single string.
+            envVars.Add(new V1EnvVar
+            {
+                Name = "DATATEAL_SECRET_KEYS",
+                Value = string.Join(',', request.Secrets.Keys),
+            });
         }
 
         // Inject runtime API key via a dedicated Kubernetes Secret (defense-in-depth auth).
