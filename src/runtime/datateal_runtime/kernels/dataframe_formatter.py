@@ -63,6 +63,30 @@ def _format_df(df) -> dict:
     }
 
 
+def _setup_matplotlib_inline() -> None:
+    """Configure matplotlib to emit inline PNG display_data if matplotlib is available.
+
+    Sets the backend to ``module://matplotlib_inline.backend_inline`` (the same
+    backend activated by ``%matplotlib inline``) and hooks ``configure_inline_support``
+    into the IPython post-execute event so that figures are flushed after every cell.
+
+    ``matplotlib_inline`` is a transitive dependency of ``ipykernel`` and is always
+    present in the kernel venv.  ``matplotlib`` itself is optional — this function
+    is a no-op when it is not installed.
+    """
+    try:
+        import matplotlib
+
+        matplotlib.use("module://matplotlib_inline.backend_inline", force=True)
+        from matplotlib_inline.backend_inline import configure_inline_support
+
+        ip = get_ipython()
+        if ip is not None:
+            configure_inline_support(ip, matplotlib)
+    except ImportError:
+        pass
+
+
 def register_formatters() -> None:
     """Register the Datateal DataFrame MIME formatter with the running IPython kernel."""
 
@@ -91,3 +115,5 @@ def register_formatters() -> None:
 
     formatter = _DatatealFormatter()
     ip.display_formatter.formatters[MIME_TYPE] = formatter
+
+    _setup_matplotlib_inline()

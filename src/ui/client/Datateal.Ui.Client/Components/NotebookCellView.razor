@@ -295,6 +295,18 @@
                         </div>
                     </div>
                 }
+                else if (output.Data is not null
+                         && GetDataText(output.Data, "image/png") is { } pngBase64)
+                {
+                    <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
+                        <span style="font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">@outLabel</span>
+                        <div style="flex: 1 1 0%; border-left: 3px solid; padding-left: 8px;">
+                            <img src="@($"data:image/png;base64,{pngBase64}")"
+                                 style="max-width: 100%; display: block;"
+                                 alt="Chart output" />
+                        </div>
+                    </div>
+                }
                 else
                 {
                     string? htmlText = GetDataText(output.Data, "text/html");
