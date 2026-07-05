@@ -41,10 +41,10 @@ internal class WorkspaceService(HttpClient httpClient, IActiveWorkspaceAccessor 
         return await response.Content.ReadFromJsonAsync<NotebookDetail>(JsonOptions, cancellationToken);
     }
 
-    public async Task<ResolvedWorkspaceItem?> ResolvePathAsync(string relativePath, Guid? baseFolderId, CancellationToken cancellationToken = default)
+    public async Task<ResolvedWorkspaceItem?> ResolvePathAsync(Guid workspaceId, string relativePath, Guid? baseFolderId, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync(
-            $"{Ws}/resolve",
+            $"api/workspaces/{workspaceId}/items/resolve",
             new ResolvePathRequest(relativePath, baseFolderId),
             JsonOptions,
             cancellationToken);

@@ -71,8 +71,13 @@ public static partial class RunMagicHelper
     /// Expands all <c>%run</c> lines in source code by resolving referenced workspace items.
     /// Supports recursive expansion with circular-reference detection.
     /// </summary>
+    /// <param name="workspaceId">
+    /// The owning workspace. Passed explicitly so resolution is always scoped to the same
+    /// workspace regardless of the client's active-workspace state changing during async execution.
+    /// </param>
     public static async Task<string> ExpandAsync(
         string source,
+        Guid workspaceId,
         Guid? baseFolderId,
         IWorkspaceService workspaceService,
         HashSet<Guid>? visited = null,
@@ -89,7 +94,7 @@ public static partial class RunMagicHelper
         var lines = source.Split('\n');
         foreach (var (lineIndex, path) in runLines)
         {
-            var resolved = await workspaceService.ResolvePathAsync(path, baseFolderId);
+            var resolved = await workspaceService.ResolvePathAsync(workspaceId, path, baseFolderId);
             if (resolved is null)
                 throw new RunMagicException($"%run: item not found: {path}");
 
@@ -105,7 +110,7 @@ public static partial class RunMagicHelper
 
             // Recursively expand any nested %run lines in the resolved code
             if (HasRunLines(expandedCode))
-                expandedCode = await ExpandAsync(expandedCode, resolved.FolderId, workspaceService, visited, depth + 1);
+                expandedCode = await ExpandAsync(expandedCode, workspaceId, resolved.FolderId, workspaceService, visited, depth + 1);
 
             lines[lineIndex] = expandedCode;
 

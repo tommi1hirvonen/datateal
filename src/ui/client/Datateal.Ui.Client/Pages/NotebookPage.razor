@@ -649,7 +649,7 @@
             try
             {
                 codeToRun = await RunMagicHelper.ExpandAsync(
-                    cell.Source, _workspaceNotebookFolderId, WorkspaceService);
+                    cell.Source, WorkspaceId, _workspaceNotebookFolderId, WorkspaceService);
                 cell.CachedExpandedSource = codeToRun;
             }
             catch (RunMagicException ex)
@@ -910,7 +910,7 @@
                 try
                 {
                     var expanded = await RunMagicHelper.ExpandAsync(
-                        c.Source, _workspaceNotebookFolderId, WorkspaceService);
+                        c.Source, WorkspaceId, _workspaceNotebookFolderId, WorkspaceService);
                     parts.Add(expanded);
                 }
                 catch
@@ -931,6 +931,7 @@
         try
         {
             var resolved = await WorkspaceService.ResolvePathAsync(
+                WorkspaceId,
                 directoryPath.EndsWith('/') ? directoryPath : directoryPath + "/",
                 _workspaceNotebookFolderId);
 
