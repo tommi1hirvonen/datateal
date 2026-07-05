@@ -1,0 +1,125 @@
+/* Cell container */
+.trnb-cell {
+  margin-bottom: 16px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+html.ant-dark .trnb-cell {
+  border-color: #434343;
+}
+
+/* Cell header bar */
+.trnb-cell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #d9d9d9;
+  font-size: 12px;
+}
+
+html.ant-dark .trnb-cell-header {
+  background: #1d1d1d;
+  border-bottom-color: #434343;
+}
+
+/* Code source block */
+.trnb-source {
+  margin: 0;
+  padding: 12px;
+  background: #f5f5f5;
+  font-size: 13px;
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+html.ant-dark .trnb-source {
+  background: #1e1e1e;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Injected-parameters banner */
+.trnb-injected-params {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  background: #f9f0ff;
+  border-top: 1px dashed #d3adf7;
+  border-bottom: 1px dashed #d3adf7;
+  font-size: 11px;
+  color: #531dab;
+}
+
+html.ant-dark .trnb-injected-params {
+  background: #1a0a2e;
+  border-color: #6b3fa0;
+  color: #b37feb;
+}
+
+/* Parameters banner */
+.trnb-params {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  background: #e6f4ff;
+  border-top: 1px dashed #91caff;
+  border-bottom: 1px dashed #91caff;
+  font-size: 11px;
+  color: #0958d9;
+}
+
+html.ant-dark .trnb-params {
+  background: #0a1f40;
+  border-color: #1554ad;
+  color: #4096ff;
+}
+
+/* Output row wrapper */
+.trnb-output {
+  padding: 8px 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+html.ant-dark .trnb-output {
+  border-top-color: #303030;
+}
+
+/* stdout/stream left-border accent */
+.trnb-stream-stdout {
+  border-left: 3px solid #d9d9d9;
+  padding-left: 8px;
+}
+
+html.ant-dark .trnb-stream-stdout {
+  border-left-color: #434343;
+}
+
+/* Execute-result / display_data left-border accent */
+.trnb-result-border {
+  flex: 1 1 0%;
+  border-left: 3px solid #d9d9d9;
+  padding-left: 8px;
+  min-width: 0;
+}
+
+html.ant-dark .trnb-result-border {
+  border-left-color: #434343;
+}
+
+/* Error output container */
+.trnb-error {
+  padding: 8px 12px;
+  border-top: 1px solid #f0f0f0;
+  background: #fff2f0;
+}
+
+html.ant-dark .trnb-error {
+  border-top-color: #303030;
+  background: #2a1215;
+}

@@ -39,10 +39,9 @@
     <Spin Spinning="_loading">
         @if (_cell is not null)
         {
-            <div style="border: 1px solid #d9d9d9; border-radius: 4px; overflow: hidden;">
+            <div class="trqp-cell">
                 @* Cell header *@
-                <div style="display: flex; justify-content: space-between; align-items: center;
-                            padding: 4px 12px; background: #fafafa; border-bottom: 1px solid #d9d9d9; font-size: 12px;">
+                <div class="trqp-cell-header">
                     <Space>
                         <SpaceItem>
                             <Tag Color="@GetCellStatusColor(_cell.Status)" Style="margin: 0;">@_cell.Status</Tag>
@@ -68,8 +67,7 @@
                 </div>
 
                 @* Query source *@
-                <pre style="margin: 0; padding: 12px; background: #f5f5f5; font-size: 13px;
-                            font-family: 'Cascadia Code', 'Consolas', monospace; overflow-x: auto; white-space: pre-wrap;">@_cell.CellSource</pre>
+                <pre class="trqp-source">@_cell.CellSource</pre>
 
                 @* Outputs *@
                 @{
@@ -84,7 +82,7 @@
                         @if (output.Type == "stream")
                         {
                             bool isStderr = output.Name == "stderr";
-                            <div style="padding: 8px 12px; border-top: 1px solid #f0f0f0;">
+                            <div class="trqp-output">
                                 @if (isStderr)
                                 {
                                     <pre style="margin: 0; font-family: monospace; font-size: 13px; white-space: pre; overflow-x: auto;
@@ -92,8 +90,7 @@
                                 }
                                 else
                                 {
-                                    <pre style="margin: 0; font-family: monospace; font-size: 13px; white-space: pre; overflow-x: auto;
-                                                border-left: 3px solid #d9d9d9; padding-left: 8px;">@output.Text</pre>
+                                    <pre class="trqp-stream-stdout" style="margin: 0; font-family: monospace; font-size: 13px; white-space: pre; overflow-x: auto;">@output.Text</pre>
                                 }
                             </div>
                         }
@@ -105,9 +102,9 @@
                                  && output.Data.TryGetValue(DataFrameOutput.MimeType, out var dfRaw)
                                  && DataFrameOutput.TryParse(dfRaw) is { } dfOutput)
                             {
-                                <div style="padding: 8px 12px; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; align-items: flex-start;">
+                                <div class="trqp-output" style="display: flex; gap: 8px; align-items: flex-start;">
                                     <span style="font-family: monospace; font-size: 13px; white-space: nowrap; padding-top: 4px;">@outLabel</span>
-                                    <div style="flex: 1 1 0%; border-left: 3px solid #d9d9d9; padding-left: 8px; min-width: 0;">
+                                    <div class="trqp-result-border">
                                         <DataFrameView Data="dfOutput" />
                                     </div>
                                 </div>
@@ -119,19 +116,18 @@
 
                                 @if (htmlText is not null)
                                 {
-                                    <div style="padding: 8px 12px; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; align-items: flex-start;">
+                                    <div class="trqp-output" style="display: flex; gap: 8px; align-items: flex-start;">
                                         <span style="font-family: monospace; font-size: 13px; white-space: nowrap; padding-top: 4px;">@outLabel</span>
-                                        <div style="flex: 1 1 0%; border-left: 3px solid #d9d9d9; padding-left: 8px; font-size: 13px;">
+                                        <div class="trqp-result-border" style="font-size: 13px;">
                                             @((MarkupString)HtmlSanitizeHelper.Sanitize(htmlText))
                                         </div>
                                     </div>
                                 }
                                 else if (plainText is not null)
                                 {
-                                    <div style="padding: 8px 12px; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; align-items: flex-start;">
+                                    <div class="trqp-output" style="display: flex; gap: 8px; align-items: flex-start;">
                                         <span style="font-family: monospace; font-size: 13px; white-space: nowrap; padding-top: 4px;">@outLabel</span>
-                                        <pre style="margin: 0; font-family: monospace; font-size: 13px; flex: 1 1 0%; min-width: 0;
-                                                    border-left: 3px solid #d9d9d9; padding-left: 8px; white-space: pre; overflow-x: auto;">@plainText</pre>
+                                        <pre class="trqp-result-border" style="margin: 0; font-family: monospace; font-size: 13px; white-space: pre; overflow-x: auto;">@plainText</pre>
                                     </div>
                                 }
                             }
@@ -141,7 +137,7 @@
 
                 @if (error is not null)
                 {
-                    <div style="padding: 8px 12px; border-top: 1px solid #f0f0f0; background: #fff2f0;">
+                    <div class="trqp-error">
                         <div style="display: flex; gap: 8px; align-items: flex-start;">
                             <span style="visibility: hidden; font-family: monospace; font-size: 13px; white-space: nowrap; padding-top: 4px;">Out[ ]:</span>
                             <div style="flex: 1 1 0%; border-left: 3px solid #ff4d4f; padding-left: 8px;">

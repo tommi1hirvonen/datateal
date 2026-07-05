@@ -1,0 +1,86 @@
+/* Cell container */
+.trqp-cell {
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+html.ant-dark .trqp-cell {
+  border-color: #434343;
+}
+
+/* Cell header bar */
+.trqp-cell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #d9d9d9;
+  font-size: 12px;
+}
+
+html.ant-dark .trqp-cell-header {
+  background: #1d1d1d;
+  border-bottom-color: #434343;
+}
+
+/* Query source block */
+.trqp-source {
+  margin: 0;
+  padding: 12px;
+  background: #f5f5f5;
+  font-size: 13px;
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+html.ant-dark .trqp-source {
+  background: #1e1e1e;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Output row wrapper */
+.trqp-output {
+  padding: 8px 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+html.ant-dark .trqp-output {
+  border-top-color: #303030;
+}
+
+/* stdout/stream left-border accent */
+.trqp-stream-stdout {
+  border-left: 3px solid #d9d9d9;
+  padding-left: 8px;
+}
+
+html.ant-dark .trqp-stream-stdout {
+  border-left-color: #434343;
+}
+
+/* Execute-result / display_data left-border accent */
+.trqp-result-border {
+  flex: 1 1 0%;
+  border-left: 3px solid #d9d9d9;
+  padding-left: 8px;
+  min-width: 0;
+}
+
+html.ant-dark .trqp-result-border {
+  border-left-color: #434343;
+}
+
+/* Error output container */
+.trqp-error {
+  padding: 8px 12px;
+  border-top: 1px solid #f0f0f0;
+  background: #fff2f0;
+}
+
+html.ant-dark .trqp-error {
+  border-top-color: #303030;
+  background: #2a1215;
+}
