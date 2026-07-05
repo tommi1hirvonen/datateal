@@ -75,13 +75,11 @@
                     </Tooltip>
                 </SpaceItem>
                 <SpaceItem>
-                    <Tooltip Title="@(context.IsDefault ? "The default workspace cannot be deleted" : "Delete")">
-                        <Popconfirm Title="@($"Delete workspace '{context.Name}'? All its content will be removed.")"
-                                    OnConfirm="() => DeleteAsync(context)" Disabled="context.IsDefault">
-                            <Button Danger Size="@ButtonSize.Small" Disabled="context.IsDefault">
-                                <Icon Type="@IconType.Outline.Delete" />
-                            </Button>
-                        </Popconfirm>
+                    <Tooltip Title="@(context.IsDefault ? "The default workspace cannot be deleted" : "Delete...")">
+                        <Button Danger Size="@ButtonSize.Small" Disabled="context.IsDefault"
+                                OnClick="() => StartDelete(context)">
+                            <Icon Type="@IconType.Outline.Delete" />
+                        </Button>
                     </Tooltip>
                 </SpaceItem>
             </Space>
@@ -217,6 +215,20 @@
     </div>
 </Drawer>
 
+@* ── Delete confirmation modal ────────────────────────────────────── *@
+<DeleteConfirmModal Visible="_showDeleteModal"
+                    Title="Delete workspace"
+                    ItemName="@(_deleteTarget?.Name ?? "")"
+                    DeleteButtonText="Delete workspace"
+                    Loading="_deleting"
+                    OnConfirm="ConfirmDeleteAsync"
+                    OnCancel="() => _showDeleteModal = false">
+    <p style="margin: 0; color: #595959;">
+        This will remove the workspace and all of its contents — notebooks, queries,
+        folders, jobs, runs, and environment configuration. This action cannot be undone.
+    </p>
+</DeleteConfirmModal>
+
 @code {
     private IReadOnlyList<WorkspaceDto> _workspaces = [];
     private IReadOnlyList<AppUserDto> _allUsers = [];
@@ -240,6 +252,11 @@
     private Guid? _editMemberUserId;
     private string[] _memberRoles = [];
     private bool _savingMember;
+
+    // Delete confirmation state
+    private bool _showDeleteModal;
+    private WorkspaceDto? _deleteTarget;
+    private bool _deleting;
 
     private IEnumerable<AppUserDto> _assignableUsers =>
         _allUsers.Where(u => _members.All(m => m.UserId != u.Id));
@@ -328,14 +345,24 @@
         finally { _saving = false; }
     }
 
-    private async Task DeleteAsync(WorkspaceDto workspace)
+    private void StartDelete(WorkspaceDto workspace)
     {
+        _deleteTarget = workspace;
+        _showDeleteModal = true;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_deleteTarget is null) return;
+        _deleting = true;
         try
         {
-            await WorkspaceService.DeleteAsync(workspace.Id);
+            await WorkspaceService.DeleteAsync(_deleteTarget.Id);
+            _showDeleteModal = false;
             await LoadWorkspacesAsync();
         }
         catch (Exception ex) { _error = $"Failed to delete workspace: {ex.Message}"; }
+        finally { _deleting = false; }
     }
 
     private async Task SetDefaultAsync(WorkspaceDto workspace)

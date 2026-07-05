@@ -67,9 +67,9 @@ internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor wo
         return await response.Content.ReadFromJsonAsync<UnmanagedCatalogDto>(JsonOptions, ct);
     }
 
-    public async Task DeleteCatalogAsync(Guid id, CancellationToken ct = default)
+    public async Task DeleteCatalogAsync(Guid id, bool dropDatabase, CancellationToken ct = default)
     {
-        var response = await httpClient.DeleteAsync($"api/catalogs/{id}", ct);
+        var response = await httpClient.DeleteAsync($"api/catalogs/{id}?dropDatabase={dropDatabase}", ct);
         response.EnsureSuccessStatusCode();
     }
 

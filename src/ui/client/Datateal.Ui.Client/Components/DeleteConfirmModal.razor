@@ -1,0 +1,59 @@
+<Modal Title="@Title"
+       Visible="Visible"
+       OnCancel="HandleCancel"
+       Footer="@null"
+       DestroyOnClose>
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <Icon Type="@IconType.Outline.ExclamationCircle"
+                  Style="font-size: 22px; color: #ff4d4f; flex-shrink: 0; margin-top: 2px;" />
+            <div>
+                <p style="margin: 0 0 8px; font-weight: 600;">
+                    You are about to permanently delete
+                    <span style="font-family: monospace;">@ItemName</span>.
+                </p>
+                @ChildContent
+            </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div>@AdditionalControls</div>
+            <div><Checkbox @bind-Value="_understood">I understand</Checkbox></div>
+        </div>
+        <Flex Justify="FlexJustify.FlexEnd" Gap="FlexGap.Small">
+            <Button OnClick="HandleCancel">Cancel</Button>
+            <Button Danger Type="@ButtonType.Primary"
+                    OnClick="OnConfirm" Loading="Loading"
+                    Disabled="@(!_understood || Loading)">
+                @DeleteButtonText
+            </Button>
+        </Flex>
+    </div>
+</Modal>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string Title { get; set; } = "Delete";
+    [Parameter] public string ItemName { get; set; } = "";
+    [Parameter] public string DeleteButtonText { get; set; } = "Delete";
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? AdditionalControls { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private bool _understood;
+    private bool _prevVisible;
+
+    protected override void OnParametersSet()
+    {
+        if (Visible && !_prevVisible)
+            _understood = false;
+        _prevVisible = Visible;
+    }
+
+    private async Task HandleCancel()
+    {
+        _understood = false;
+        await OnCancel.InvokeAsync();
+    }
+}

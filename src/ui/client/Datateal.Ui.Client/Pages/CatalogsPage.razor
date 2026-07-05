@@ -141,13 +141,11 @@
                             </Tooltip>
                         </SpaceItem>
                         <SpaceItem>
-                            <Tooltip Title="Delete">
-                                <Popconfirm Title="@(context is ManagedCatalogDto ? $"Delete catalog '{context.Name}'? The PostgreSQL database will also be dropped." : $"Delete catalog '{context.Name}'?")"
-                                            OnConfirm="() => DeleteAsync(context)">
-                                    <Button Danger Size="@ButtonSize.Small">
-                                        <Icon Type="@IconType.Outline.Delete" />
-                                    </Button>
-                                </Popconfirm>
+                            <Tooltip Title="Delete...">
+                                <Button Danger Size="@ButtonSize.Small"
+                                        OnClick="() => StartDelete(context)">
+                                    <Icon Type="@IconType.Outline.Delete" />
+                                </Button>
                             </Tooltip>
                         </SpaceItem>
                     </Space>
@@ -288,6 +286,40 @@
         <Button Type="@ButtonType.Primary" OnClick="SaveWorkspaceAccessAsync" Loading="_savingWsAccess">Save</Button>
     </div>
 </Drawer>
+
+@* ── Delete confirmation modal ────────────────────────────────────── *@
+<DeleteConfirmModal Visible="_showDeleteModal"
+                    Title="Delete catalog"
+                    ItemName="@(_deleteTarget?.Name ?? "")"
+                    DeleteButtonText="Delete catalog"
+                    Loading="_deleting"
+                    OnConfirm="ConfirmDeleteAsync"
+                    OnCancel="() => _showDeleteModal = false">
+    <ChildContent>
+        @if (_deleteTarget is ManagedCatalogDto)
+        {
+            <p style="margin: 0; color: #595959;">
+                This will remove this catalog from Datateal. Optionally, the associated
+                PostgreSQL catalog database can also be dropped.
+                This action cannot be undone.
+            </p>
+        }
+        else
+        {
+            <p style="margin: 0; color: #595959;">
+                This will permanently remove this catalog from Datateal. All workspace access
+                configurations for this catalog will also be deleted. The underlying data source
+                will not be affected.
+            </p>
+        }
+    </ChildContent>
+    <AdditionalControls>
+        @if (_deleteTarget is ManagedCatalogDto)
+        {
+            <Checkbox @bind-Value="_dropDatabase">Also drop the PostgreSQL catalog database</Checkbox>
+        }
+    </AdditionalControls>
+</DeleteConfirmModal>
 </Authorized>
 </AuthorizeView>
 
@@ -325,6 +357,12 @@
     private CatalogDto? _editTarget;
     private CatalogFormModel _form = new();
     private bool _nameSubmitAttempted;
+
+    // ── Delete confirmation state ─────────────────────────────────────
+    private bool _showDeleteModal;
+    private CatalogDto? _deleteTarget;
+    private bool _deleting;
+    private bool _dropDatabase = true;
 
     private string? NameDisplayError =>
         (_nameSubmitAttempted || !string.IsNullOrEmpty(_form.Name)) ? GetNameError() : null;
@@ -551,14 +589,25 @@
         catch (Exception ex) { _error = $"Failed to save catalog: {ex.Message}"; }
     }
 
-    private async Task DeleteAsync(CatalogDto catalog)
+    private void StartDelete(CatalogDto catalog)
     {
+        _deleteTarget = catalog;
+        _dropDatabase = catalog is ManagedCatalogDto; // default on for managed, irrelevant for unmanaged
+        _showDeleteModal = true;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_deleteTarget is null) return;
+        _deleting = true;
         try
         {
-            await CatalogService.DeleteCatalogAsync(catalog.Id);
+            await CatalogService.DeleteCatalogAsync(_deleteTarget.Id, _dropDatabase);
+            _showDeleteModal = false;
             await LoadCatalogsAsync();
         }
         catch (Exception ex) { _error = $"Failed to delete catalog: {ex.Message}"; }
+        finally { _deleting = false; }
     }
 
     public ValueTask DisposeAsync()

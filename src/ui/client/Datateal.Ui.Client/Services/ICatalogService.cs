@@ -14,7 +14,7 @@ public interface ICatalogService
     Task<UnmanagedCatalogDto> CreateUnmanagedCatalogAsync(CreateUnmanagedCatalogRequest request, CancellationToken ct = default);
     Task<ManagedCatalogDto?> UpdateManagedCatalogAsync(Guid id, UpdateManagedCatalogRequest request, CancellationToken ct = default);
     Task<UnmanagedCatalogDto?> UpdateUnmanagedCatalogAsync(Guid id, UpdateUnmanagedCatalogRequest request, CancellationToken ct = default);
-    Task DeleteCatalogAsync(Guid id, CancellationToken ct = default);
+    Task DeleteCatalogAsync(Guid id, bool dropDatabase, CancellationToken ct = default);
     Task<CatalogMetadataDto> GetMetadataAsync(Guid catalogId, CancellationToken ct = default);
     Task<CatalogInfoDto> GetCatalogInfoAsync(Guid catalogId, CancellationToken ct = default);
 

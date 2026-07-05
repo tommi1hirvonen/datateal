@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
-public record DeleteCatalogRequest(Guid Id) : IRequest<bool>;
+public record DeleteCatalogRequest(Guid Id, bool DropDatabase) : IRequest<bool>;
 
 internal class DeleteCatalogHandler(
     ICatalogRepository repository,
@@ -19,8 +19,8 @@ internal class DeleteCatalogHandler(
         var catalog = await repository.GetByIdAsync(request.Id, cancellationToken);
         if (catalog is null) return false;
 
-        // Drop the PostgreSQL database for managed catalogs
-        if (catalog is ManagedCatalog)
+        // Drop the PostgreSQL database for managed catalogs when requested
+        if (catalog is ManagedCatalog && request.DropDatabase)
         {
             var opts = settings.Value;
             await databaseService.DropDatabaseAsync(

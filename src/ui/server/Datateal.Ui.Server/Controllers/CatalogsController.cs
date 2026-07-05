@@ -104,9 +104,9 @@ public class CatalogsController(
 
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = AuthPolicy.CatalogManage)]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    public async Task<IActionResult> Delete(Guid id, [FromQuery] bool dropDatabase, CancellationToken ct = default)
     {
-        var deleted = await mediator.SendAsync(new Cmd.DeleteCatalogRequest(id), ct);
+        var deleted = await mediator.SendAsync(new Cmd.DeleteCatalogRequest(id, dropDatabase), ct);
         return deleted ? NoContent() : NotFound();
     }
 
