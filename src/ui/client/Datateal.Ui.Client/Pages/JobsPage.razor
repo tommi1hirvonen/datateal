@@ -5,6 +5,7 @@
 @inject IJobService JobService
 @inject IRecentItemsService RecentItemsService
 @inject NavigationManager Navigation
+@inject INotificationService NotificationService
 
 <PageTitle>Jobs — Datateal</PageTitle>
 
@@ -432,12 +433,28 @@
         try
         {
             var request = parameters?.Count > 0 ? new TriggerJobRequest(parameters) : null;
-            await JobService.TriggerJobAsync(_triggerJobId.Value, request);
+            var run = await JobService.TriggerJobAsync(_triggerJobId.Value, request);
             _error = null;
+            var runId = run.Id;
+            var jobName = run.JobName;
+            RenderFragment btn = @<Button Size="@ButtonSize.Small" Type="@ButtonType.Primary"
+                                         OnClick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/runs/{runId}"))">
+                                     View run
+                                 </Button>;
+            await NotificationService.Success(new NotificationConfig
+            {
+                Message = "Job triggered",
+                Description = $"{jobName} was started.",
+                Btn = btn
+            });
         }
         catch (Exception ex)
         {
-            _error = $"Failed to trigger job: {ex.Message}";
+            await NotificationService.Error(new NotificationConfig
+            {
+                Message = "Failed to trigger job",
+                Description = ex.Message
+            });
         }
     }
 

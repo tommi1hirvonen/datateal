@@ -12,6 +12,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject IMessageService MessageService
+@inject INotificationService NotificationService
 
 <PageTitle>@(_job?.Name ?? "Job Editor") — Datateal</PageTitle>
 <NavigationLock ConfirmExternalNavigation="@_isDirty"
@@ -793,13 +794,29 @@
         try
         {
             var request = parameters?.Count > 0 ? new TriggerJobRequest(parameters) : null;
-            await JobService.TriggerJobAsync(Id, request);
+            var run = await JobService.TriggerJobAsync(Id, request);
             await RefreshJobAsync();
             await RefreshRunsAsync();
+            var runId = run.Id;
+            var jobName = run.JobName;
+            RenderFragment btn = @<Button Size="@ButtonSize.Small" Type="@ButtonType.Primary"
+                                         OnClick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/runs/{runId}"))">
+                                     View run
+                                 </Button>;
+            await NotificationService.Success(new NotificationConfig
+            {
+                Message = "Job triggered",
+                Description = $"{jobName} was started.",
+                Btn = btn
+            });
         }
         catch (Exception ex)
         {
-            _error = $"Failed to trigger: {ex.Message}";
+            await NotificationService.Error(new NotificationConfig
+            {
+                Message = "Failed to trigger job",
+                Description = ex.Message
+            });
         }
     }
 
@@ -807,12 +824,28 @@
     {
         try
         {
-            await JobService.TriggerJobAsync(Id);
+            var run = await JobService.TriggerJobAsync(Id);
             await LoadAsync();
+            var runId = run.Id;
+            var jobName = run.JobName;
+            RenderFragment btn = @<Button Size="@ButtonSize.Small" Type="@ButtonType.Primary"
+                                         OnClick="@(() => Navigation.NavigateTo($"/w/{WorkspaceId}/runs/{runId}"))">
+                                     View run
+                                 </Button>;
+            await NotificationService.Success(new NotificationConfig
+            {
+                Message = "Job triggered",
+                Description = $"{jobName} was started.",
+                Btn = btn
+            });
         }
         catch (Exception ex)
         {
-            _error = $"Failed to trigger: {ex.Message}";
+            await NotificationService.Error(new NotificationConfig
+            {
+                Message = "Failed to trigger job",
+                Description = ex.Message
+            });
         }
     }
 

@@ -110,8 +110,8 @@
                 .ToDictionary(kv => kv.Key, kv => kv.Value);
             if (parameters.Count == 0) parameters = null;
         }
-        await OnConfirm.InvokeAsync(parameters);
         await VisibleChanged.InvokeAsync(false);
+        await OnConfirm.InvokeAsync(parameters);
     }
 
     private async Task HandleCancel()
