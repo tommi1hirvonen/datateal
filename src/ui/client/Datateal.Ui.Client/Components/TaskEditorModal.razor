@@ -312,7 +312,10 @@
                 _queryId = Task.QueryId;
                 _subJobId = Task.SubJobId;
                 _nodePoolRef = Task.NodePoolRef;
-                _parameters = Task.Parameters.Select(p => new EditableTaskParameter { Key = p.Key, Value = p.Value }).ToList();
+                _parameters = Task.Parameters
+                    .Select(p => new EditableTaskParameter { Key = p.Key, Value = p.Value })
+                    .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
                 _dependencies = Task.Dependencies.Select(d => new EditableDependency { TaskName = d.TaskName, Condition = d.Condition }).ToList();
 
                 if (_taskType == TaskType.SubJob && _subJobId.HasValue)
@@ -370,7 +373,7 @@
         try
         {
             var detail = await JobService.GetJobAsync(subJobId);
-            _subJobParameters = detail?.Parameters?.ToList() ?? [];
+            _subJobParameters = detail?.Parameters?.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList() ?? [];
         }
         catch
         {
@@ -421,7 +424,7 @@
             QueryId = _queryId,
             SubJobId = _subJobId,
             NodePoolRef = _nodePoolRef,
-            Parameters = _parameters.Where(p => !string.IsNullOrWhiteSpace(p.Key)).ToList(),
+            Parameters = _parameters.Where(p => !string.IsNullOrWhiteSpace(p.Key)).OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase).ToList(),
             Dependencies = _dependencies.Where(d => !string.IsNullOrWhiteSpace(d.TaskName)).ToList(),
         };
         await OnSave.InvokeAsync(result);

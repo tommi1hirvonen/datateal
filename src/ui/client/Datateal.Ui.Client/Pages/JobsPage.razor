@@ -466,7 +466,7 @@
 
     private static RenderFragment ParametersContent(Dictionary<string, string> parameters) =>
         @<div style="font-family: monospace; font-size: 12px; min-width: 160px;">
-            @foreach (var kv in parameters)
+            @foreach (var kv in parameters.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
             {
                 <div><strong>@kv.Key</strong> = @kv.Value</div>
             }

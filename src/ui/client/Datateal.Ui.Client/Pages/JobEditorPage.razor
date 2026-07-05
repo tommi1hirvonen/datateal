@@ -493,7 +493,9 @@
                     DefaultValue = p.DefaultValue,
                     IsRequired = p.IsRequired,
                     Description = p.Description,
-                }).ToList();
+                })
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
                 _isDirty = false;
 
@@ -691,7 +693,9 @@
                 DefaultValue = p.DefaultValue,
                 IsRequired = p.IsRequired,
                 Description = p.Description,
-            }).ToList();
+            })
+            .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         }
         catch
         {
@@ -771,6 +775,7 @@
         {
             _editParams.Add(param);
         }
+        _editParams = _editParams.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
         _showParamModal = false;
         await SaveParametersAsync();
     }
@@ -833,6 +838,7 @@
             Parameters = _editParams
                 .Where(p => p.IsRequired && p.DefaultValue is null)
                 .Select(p => new EditableTaskParameter { Key = p.Name, Value = "" })
+                .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
                 .ToList()
         };
         _showScheduleModal = true;
@@ -847,7 +853,7 @@
             Cron = schedule.CronExpression,
             TimeZone = schedule.TimeZone,
             Parameters = schedule.Parameters is { Count: > 0 }
-                ? schedule.Parameters.Select(kv => new EditableTaskParameter { Key = kv.Key, Value = kv.Value }).ToList()
+                ? schedule.Parameters.Select(kv => new EditableTaskParameter { Key = kv.Key, Value = kv.Value }).OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase).ToList()
                 : [],
         };
         _showScheduleModal = true;
@@ -885,6 +891,7 @@
             var parameters = _scheduleForm.Parameters.Count > 0
                 ? _scheduleForm.Parameters
                     .Where(p => !string.IsNullOrWhiteSpace(p.Key))
+                    .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
                     .ToDictionary(p => p.Key, p => p.Value)
                 : null;
             var tz = string.IsNullOrWhiteSpace(_scheduleForm.TimeZone) ? null : _scheduleForm.TimeZone.Trim();
@@ -967,7 +974,7 @@
 
     private static RenderFragment ParametersContent(Dictionary<string, string> parameters) =>
         @<div style="font-family: monospace; font-size: 12px; min-width: 160px;">
-            @foreach (var kv in parameters)
+            @foreach (var kv in parameters.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
             {
                 <div><strong>@kv.Key</strong> = @kv.Value</div>
             }

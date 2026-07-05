@@ -93,7 +93,7 @@
                 @if (_run.Parameters is { Count: > 0 })
                 {
                     <DescriptionsItem Title="Parameters" Span="3">
-                        @foreach (var kv in _run.Parameters)
+                        @foreach (var kv in _run.Parameters.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
                         {
                             <Tag Style="margin-bottom: 4px; font-family: monospace;">@kv.Key = @kv.Value</Tag>
                         }
@@ -249,7 +249,7 @@
                 {
                     <DescriptionsItem Title="Parameters">
                         <div style="font-family: monospace; font-size: 12px;">
-                            @foreach (var kv in row.Data.Parameters)
+                            @foreach (var kv in row.Data.Parameters.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
                             {
                                 <div><strong>@kv.Key</strong> = @kv.Value</div>
                             }
