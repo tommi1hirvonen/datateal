@@ -103,6 +103,18 @@ public class SqlCodeGeneratorTests
     }
 
     [Fact]
+    public void CleanSqlError_NullEnameAndEvalue_DoesNotThrow()
+    {
+        // JSON deserialization can produce null for non-nullable string fields.
+        // CleanSqlError must never throw regardless of payload content.
+        var raw = new ErrorInfo(null!, null!, []);
+        var clean = SqlCodeGenerator.CleanSqlError(raw);
+        Assert.Equal(string.Empty, clean.Ename);
+        Assert.Equal(string.Empty, clean.Evalue);
+        Assert.Empty(clean.Traceback);
+    }
+
+    [Fact]
     public void CleanSqlError_NoModulePrefix_LeavesEnameUnchanged()
     {
         var raw = new ErrorInfo("Exception", "something went wrong", []);

@@ -54,7 +54,7 @@ public static class SqlCodeGenerator
     /// </summary>
     public static ErrorInfo CleanSqlError(ErrorInfo error)
     {
-        var ename = error.Ename;
+        var ename = error.Ename ?? string.Empty;
         var lastDot = ename.LastIndexOf('.');
         if (lastDot >= 0)
             ename = ename[(lastDot + 1)..];
@@ -62,7 +62,7 @@ public static class SqlCodeGenerator
         // Split the DuckDB error message on newlines.
         // Line 0: the human-readable summary  (e.g. "Conversion Error: …")
         // Lines 1+: position context          (e.g. "LINE 3: select …" / "          ^")
-        var lines = error.Evalue.Split('\n');
+        var lines = (error.Evalue ?? string.Empty).Split('\n');
         var evalue = lines[0].TrimEnd('\r');
         var context = lines.Length > 1
             ? lines[1..].Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToArray()
