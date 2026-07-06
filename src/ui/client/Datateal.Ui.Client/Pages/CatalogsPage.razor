@@ -11,6 +11,8 @@
 @inject IAuthorizationService AuthorizationService
 @inject ActiveWorkspaceProvider Workspaces
 @inject IJSRuntime JS
+@inject INotificationService NotificationService
+@inject IMessageService MessageService
 @implements IAsyncDisposable
 
 <PageTitle>Catalogs — Datateal</PageTitle>
@@ -626,17 +628,22 @@
         _saving = true;
         try
         {
-            if (_editTarget is null)
+            var isCreate = _editTarget is null;
+            var name = _form.Name.Trim();
+            var duckLakeSettingsFailed = false;
+
+            if (isCreate)
             {
                 if (_form.IsManaged)
                 {
-                    await CatalogService.CreateManagedCatalogAsync(new CreateManagedCatalogRequest(
-                        _form.Name.Trim(), _form.AllowExistingDatabase, _form.ParquetV2, _form.PerThreadOutput));
+                    var created = await CatalogService.CreateManagedCatalogAsync(new CreateManagedCatalogRequest(
+                        name, _form.AllowExistingDatabase, _form.ParquetV2, _form.PerThreadOutput));
+                    duckLakeSettingsFailed = created.DuckLakeSettingsFailed;
                 }
                 else
                 {
                     await CatalogService.CreateUnmanagedCatalogAsync(new CreateUnmanagedCatalogRequest(
-                        _form.Name.Trim(),
+                        name,
                         _form.DataPath.Trim(),
                         string.IsNullOrWhiteSpace(_form.StorageConnectionString) ? null : _form.StorageConnectionString,
                         _form.CatalogHost.Trim(),
@@ -650,14 +657,14 @@
             {
                 await CatalogService.UpdateManagedCatalogAsync(_editTarget.Id,
                     new UpdateManagedCatalogRequest(
-                        _form.Name.Trim(),
+                        name,
                         _duckLakeSettingsAvailable ? _form.ParquetV2 : null,
                         _duckLakeSettingsAvailable ? _form.PerThreadOutput : null));
             }
             else
             {
-                await CatalogService.UpdateUnmanagedCatalogAsync(_editTarget.Id, new UpdateUnmanagedCatalogRequest(
-                    _form.Name.Trim(),
+                await CatalogService.UpdateUnmanagedCatalogAsync(_editTarget!.Id, new UpdateUnmanagedCatalogRequest(
+                    name,
                     string.IsNullOrWhiteSpace(_form.DataPath) ? null : _form.DataPath.Trim(),
                     string.IsNullOrWhiteSpace(_form.StorageConnectionString) ? null : _form.StorageConnectionString,
                     string.IsNullOrWhiteSpace(_form.CatalogHost) ? null : _form.CatalogHost.Trim(),
@@ -666,10 +673,28 @@
                     string.IsNullOrWhiteSpace(_form.CatalogUser) ? null : _form.CatalogUser.Trim(),
                     string.IsNullOrWhiteSpace(_form.CatalogPassword) ? null : _form.CatalogPassword));
             }
+
             _showModal = false;
             await LoadCatalogsAsync();
+
+            if (duckLakeSettingsFailed)
+                await NotificationService.Warning(new NotificationConfig
+                {
+                    Message = "DuckLake settings could not be applied",
+                    Description = "The catalog was created, but the initial DuckLake settings could not be written. " +
+                                  "Use Edit to re-apply your settings once the catalog database is reachable."
+                });
+            else
+                MessageService.Success(isCreate ? "Catalog created." : "Catalog updated.");
         }
-        catch (Exception ex) { _error = $"Failed to save catalog: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            await NotificationService.Error(new NotificationConfig
+            {
+                Message = _editTarget is null ? "Failed to create catalog" : "Failed to update catalog",
+                Description = ex.Message
+            });
+        }
         finally { _saving = false; }
     }
 
@@ -689,8 +714,16 @@
             await CatalogService.DeleteCatalogAsync(_deleteTarget.Id, _dropDatabase);
             _showDeleteModal = false;
             await LoadCatalogsAsync();
+            MessageService.Success("Catalog deleted.");
         }
-        catch (Exception ex) { _error = $"Failed to delete catalog: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            await NotificationService.Error(new NotificationConfig
+            {
+                Message = "Failed to delete catalog",
+                Description = ex.Message
+            });
+        }
         finally { _deleting = false; }
     }
 

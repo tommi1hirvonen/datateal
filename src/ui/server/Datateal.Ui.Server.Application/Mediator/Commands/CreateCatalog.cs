@@ -4,6 +4,7 @@ using Datateal.Ui.Server.Core.Catalogs;
 using Datateal.Ui.Server.Core.Repositories;
 using Datateal.Ui.Shared.Catalogs;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
@@ -23,7 +24,8 @@ public record CreateUnmanagedCatalogCommand(
 internal class CreateManagedCatalogHandler(
     ICatalogRepository repository,
     ICatalogDatabaseService databaseService,
-    IOptions<CatalogSettings> settings)
+    IOptions<CatalogSettings> settings,
+    ILogger<CreateManagedCatalogHandler> logger)
     : IRequestHandler<CreateManagedCatalogCommand, ManagedCatalogDto>
 {
     public async Task<ManagedCatalogDto> Handle(CreateManagedCatalogCommand request, CancellationToken cancellationToken)
@@ -67,12 +69,25 @@ internal class CreateManagedCatalogHandler(
         }
 
         var dataPath = opts.BaseDataPath.TrimEnd('/') + "/" + request.Name;
-        await databaseService.SetDuckLakeSettingsAsync(
-            opts.CatalogHost, opts.CatalogPort, request.Name, opts.CatalogUser, opts.CatalogPassword,
-            dataPath, !string.IsNullOrEmpty(opts.StorageConnectionString) ? opts.StorageConnectionString : null,
-            request.Name, request.ParquetV2, request.PerThreadOutput, cancellationToken);
+        var duckLakeSettingsFailed = false;
+        try
+        {
+            await databaseService.SetDuckLakeSettingsAsync(
+                opts.CatalogHost, opts.CatalogPort, request.Name, opts.CatalogUser, opts.CatalogPassword,
+                dataPath, !string.IsNullOrEmpty(opts.StorageConnectionString) ? opts.StorageConnectionString : null,
+                request.Name, request.ParquetV2, request.PerThreadOutput, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            duckLakeSettingsFailed = true;
+            logger.LogWarning(ex,
+                "Catalog '{CatalogName}' was created but DuckLake settings could not be applied. " +
+                "Settings will be initialised automatically on first kernel attach.",
+                request.Name);
+        }
 
-        return CatalogDtoMapper.ToDto(catalog, opts);
+        var dto = CatalogDtoMapper.ToDto(catalog, opts);
+        return duckLakeSettingsFailed ? dto with { DuckLakeSettingsFailed = true } : dto;
     }
 }
 

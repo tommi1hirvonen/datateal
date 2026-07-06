@@ -43,7 +43,7 @@ internal class UpdateManagedCatalogHandler(
         var updated = await repository.UpdateAsync(managed, cancellationToken);
         if (updated is not ManagedCatalog updatedManaged) return null;
 
-        if (request.ParquetV2.HasValue || request.PerThreadOutput.HasValue)
+        if (request.ParquetV2.HasValue && request.PerThreadOutput.HasValue)
         {
             var opts = settings.Value;
             var dataPath = opts.BaseDataPath.TrimEnd('/') + "/" + updatedManaged.Name;
@@ -51,7 +51,7 @@ internal class UpdateManagedCatalogHandler(
                 opts.CatalogHost, opts.CatalogPort, updatedManaged.Name, opts.CatalogUser, opts.CatalogPassword,
                 dataPath, !string.IsNullOrEmpty(opts.StorageConnectionString) ? opts.StorageConnectionString : null,
                 updatedManaged.Name,
-                request.ParquetV2 ?? false, request.PerThreadOutput ?? false,
+                request.ParquetV2.Value, request.PerThreadOutput.Value,
                 cancellationToken);
         }
 

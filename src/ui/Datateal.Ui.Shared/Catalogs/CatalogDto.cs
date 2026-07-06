@@ -32,7 +32,13 @@ public sealed record ManagedCatalogDto(
     bool HasStorageConnectionString,
     bool HasCatalogPassword,
     DateTime CreatedAt,
-    DateTime UpdatedAt)
+    DateTime UpdatedAt,
+    /// <summary>
+    /// Set to <c>true</c> when the catalog was created successfully but the initial
+    /// DuckLake settings call failed. The schema will be initialised automatically
+    /// on first kernel attach; the user should re-apply their settings via Edit.
+    /// </summary>
+    bool DuckLakeSettingsFailed = false)
     : CatalogDto(Id, Name, DataPath, CatalogHost, CatalogPort,
         CatalogDatabase, CatalogUser, HasStorageConnectionString, HasCatalogPassword,
         CreatedAt, UpdatedAt);
