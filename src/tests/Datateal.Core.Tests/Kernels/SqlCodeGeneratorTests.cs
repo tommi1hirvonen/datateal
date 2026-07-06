@@ -72,4 +72,41 @@ public class SqlCodeGeneratorTests
         Assert.Contains("_sqldf = duckdb.execute(_sql).df()", result);
         Assert.Contains("__result", result);
     }
+
+    [Fact]
+    public void CleanSqlError_StripsDuckDbModulePrefix()
+    {
+        var raw = new ErrorInfo("duckdb.duckdb.CatalogException", "Table not found", ["traceback line"]);
+        var clean = SqlCodeGenerator.CleanSqlError(raw);
+        Assert.Equal("CatalogException", clean.Ename);
+    }
+
+    [Fact]
+    public void CleanSqlError_SingleLineEvalue_ClearsTraceback()
+    {
+        var raw = new ErrorInfo("duckdb.duckdb.CatalogException", "Table not found", ["py line"]);
+        var clean = SqlCodeGenerator.CleanSqlError(raw);
+        Assert.Equal("Table not found", clean.Evalue);
+        Assert.Empty(clean.Traceback);
+    }
+
+    [Fact]
+    public void CleanSqlError_MultiLineEvalue_MovesPositionContextToTraceback()
+    {
+        // DuckDB embeds LINE N / caret context in the evalue after a newline.
+        const string evalue = "Conversion Error: Could not convert string 'asd' to DOUBLE\nLINE 3: select 1 / 'asd'\n                   ^";
+        var raw = new ErrorInfo("duckdb.duckdb.ConversionException", evalue, ["py traceback"]);
+        var clean = SqlCodeGenerator.CleanSqlError(raw);
+
+        Assert.Equal("Conversion Error: Could not convert string 'asd' to DOUBLE", clean.Evalue);
+        Assert.Equal(["LINE 3: select 1 / 'asd'", "                   ^"], clean.Traceback);
+    }
+
+    [Fact]
+    public void CleanSqlError_NoModulePrefix_LeavesEnameUnchanged()
+    {
+        var raw = new ErrorInfo("Exception", "something went wrong", []);
+        var clean = SqlCodeGenerator.CleanSqlError(raw);
+        Assert.Equal("Exception", clean.Ename);
+    }
 }

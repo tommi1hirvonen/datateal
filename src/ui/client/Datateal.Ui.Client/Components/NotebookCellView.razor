@@ -363,11 +363,17 @@
 
         @if (Cell.Error is { } err)
         {
+            var displayErr = Cell.Language == NotebookCellLanguage.Sql
+                ? SqlCodeGenerator.CleanSqlError(err)
+                : err;
             <div style="display: flex; gap: 8px; margin-bottom: 4px; align-items: flex-start;">
                 <span style="visibility: hidden; font-family: monospace; font-size: 0.875rem; white-space: nowrap; padding-top: 4px;">In [ ]:</span>
                 <div style="flex: 1 1 0%; border-left: 3px solid; padding-left: 8px; border-radius: 0 4px 4px 0; padding: 8px 8px 8px 12px;">
-                    <Text Type="TextElementType.Danger" Strong Style="display: block; font-size: 0.875rem; margin-bottom: 4px;">@err.Ename: @err.Evalue</Text>
-                    <pre class="kernel-pre" style="font-family: monospace; font-size: 0.875rem; margin: 0;"><Text Type="TextElementType.Danger">@string.Join("\n", err.Traceback.Select(StripAnsi))</Text></pre>
+                    <Text Type="TextElementType.Danger" Strong Style="display: block; font-size: 0.875rem; margin-bottom: 4px;">@displayErr.Evalue</Text>
+                    @if (displayErr.Traceback.Count > 0)
+                    {
+                        <pre class="kernel-pre" style="font-family: monospace; font-size: 0.875rem; margin: 0;"><Text Type="TextElementType.Danger">@string.Join("\n", displayErr.Traceback.Select(StripAnsi))</Text></pre>
+                    }
                 </div>
             </div>
         }

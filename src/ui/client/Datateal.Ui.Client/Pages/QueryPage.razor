@@ -248,10 +248,14 @@
                 }
                 else if (_resultError is not null)
                 {
+                    var displayErr = SqlCodeGenerator.CleanSqlError(_resultError);
                     <div style="flex: 1 1 0%; overflow: auto;">
                         <div class="qp-error-bar">
-                            <Text Type="TextElementType.Danger" Strong Style="display: block; font-size: 0.875rem; margin-bottom: 4px;">@_resultError.Ename: @_resultError.Evalue</Text>
-                            <pre style="font-family: monospace; font-size: 0.875rem; margin: 0; white-space: pre-wrap;"><Text Type="TextElementType.Danger">@string.Join("\n", _resultError.Traceback.Select(StripAnsi))</Text></pre>
+                            <Text Type="TextElementType.Danger" Strong Style="display: block; font-size: 0.875rem; margin-bottom: 4px;">@displayErr.Evalue</Text>
+                            @if (displayErr.Traceback.Count > 0)
+                            {
+                                <pre style="font-family: monospace; font-size: 0.875rem; margin: 0; white-space: pre-wrap;"><Text Type="TextElementType.Danger">@string.Join("\n", displayErr.Traceback.Select(StripAnsi))</Text></pre>
+                            }
                         </div>
                     </div>
                 }

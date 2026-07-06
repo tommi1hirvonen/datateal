@@ -137,12 +137,16 @@
 
                 @if (error is not null)
                 {
+                    var displayErr = SqlCodeGenerator.CleanSqlError(error);
                     <div class="trqp-error">
                         <div style="display: flex; gap: 8px; align-items: flex-start;">
                             <span style="visibility: hidden; font-family: monospace; font-size: 13px; white-space: nowrap; padding-top: 4px;">Out[ ]:</span>
                             <div style="flex: 1 1 0%; border-left: 3px solid #ff4d4f; padding-left: 8px;">
-                                <strong style="display: block; font-size: 13px; color: #ff4d4f; margin-bottom: 4px;">@error.Ename: @error.Evalue</strong>
-                                <pre style="margin: 0; font-family: monospace; font-size: 13px; color: #ff4d4f; white-space: pre; overflow-x: auto;">@string.Join("\n", error.Traceback.Select(StripAnsi))</pre>
+                                <strong style="display: block; font-size: 13px; color: #ff4d4f; margin-bottom: 4px;">@displayErr.Evalue</strong>
+                                @if (displayErr.Traceback.Count > 0)
+                                {
+                                    <pre style="margin: 0; font-family: monospace; font-size: 13px; color: #ff4d4f; white-space: pre; overflow-x: auto;">@string.Join("\n", displayErr.Traceback.Select(StripAnsi))</pre>
+                                }
                             </div>
                         </div>
                     </div>
