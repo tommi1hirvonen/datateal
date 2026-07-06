@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
-public record UpdateManagedCatalogCommand(Guid Id, string Name) : IRequest<ManagedCatalogDto?>;
+public record UpdateManagedCatalogCommand(Guid Id, string Name, bool? ParquetV2, bool? PerThreadOutput) : IRequest<ManagedCatalogDto?>;
 
 public record UpdateUnmanagedCatalogCommand(
     Guid Id,
@@ -23,6 +23,7 @@ public record UpdateUnmanagedCatalogCommand(
 
 internal class UpdateManagedCatalogHandler(
     ICatalogRepository repository,
+    ICatalogDatabaseService databaseService,
     IOptions<CatalogSettings> settings)
     : IRequestHandler<UpdateManagedCatalogCommand, ManagedCatalogDto?>
 {
@@ -40,9 +41,21 @@ internal class UpdateManagedCatalogHandler(
         managed.Name = request.Name;
 
         var updated = await repository.UpdateAsync(managed, cancellationToken);
-        return updated is ManagedCatalog updatedManaged
-            ? CatalogDtoMapper.ToDto(updatedManaged, settings.Value)
-            : null;
+        if (updated is not ManagedCatalog updatedManaged) return null;
+
+        if (request.ParquetV2.HasValue || request.PerThreadOutput.HasValue)
+        {
+            var opts = settings.Value;
+            var dataPath = opts.BaseDataPath.TrimEnd('/') + "/" + updatedManaged.Name;
+            await databaseService.SetDuckLakeSettingsAsync(
+                opts.CatalogHost, opts.CatalogPort, updatedManaged.Name, opts.CatalogUser, opts.CatalogPassword,
+                dataPath, !string.IsNullOrEmpty(opts.StorageConnectionString) ? opts.StorageConnectionString : null,
+                updatedManaged.Name,
+                request.ParquetV2 ?? false, request.PerThreadOutput ?? false,
+                cancellationToken);
+        }
+
+        return CatalogDtoMapper.ToDto(updatedManaged, settings.Value);
     }
 }
 

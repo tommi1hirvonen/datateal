@@ -18,4 +18,23 @@ public interface ICatalogDatabaseService
     /// </summary>
     Task DropDatabaseAsync(string databaseName, string host, int port, string user, string password,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads DuckLake catalog settings from the <c>ducklake_metadata</c> table via Npgsql.
+    /// Returns <c>null</c> if the table does not exist or the connection fails.
+    /// </summary>
+    Task<(bool ParquetV2, bool PerThreadOutput)?> GetDuckLakeSettingsAsync(
+        string host, int port, string database, string user, string password,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Writes DuckLake catalog settings using DuckDB with the DuckLake extension.
+    /// Attaches the catalog (initializing its schema on first call), calls <c>set_option()</c>,
+    /// then detaches. The first ATTACH on a new database creates the DuckLake schema correctly.
+    /// </summary>
+    Task SetDuckLakeSettingsAsync(
+        string host, int port, string database, string user, string password,
+        string dataPath, string? storageConnectionString, string catalogName,
+        bool parquetV2, bool perThreadOutput,
+        CancellationToken cancellationToken = default);
 }

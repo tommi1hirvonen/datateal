@@ -18,6 +18,12 @@ public interface ICatalogService
     Task<CatalogMetadataDto> GetMetadataAsync(Guid catalogId, CancellationToken ct = default);
     Task<CatalogInfoDto> GetCatalogInfoAsync(Guid catalogId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Reads DuckLake catalog settings from the catalog's own Postgres metadata database.
+    /// Returns <c>null</c> if the catalog is unreachable or not yet initialized.
+    /// </summary>
+    Task<ManagedCatalogDuckLakeSettingsDto?> GetManagedDuckLakeSettingsAsync(Guid catalogId, CancellationToken ct = default);
+
     Task<ExecutionHandle> SetupCatalogsOnKernelAsync(string nodeName, string kernelId, List<string> catalogNames, CancellationToken ct = default);
     Task<ExecutionHandle> ConnectCatalogOnKernelAsync(string nodeName, string kernelId, string catalogName, CancellationToken ct = default);
     Task<ExecutionHandle> DisconnectCatalogOnKernelAsync(string nodeName, string kernelId, string catalogName, CancellationToken ct = default);

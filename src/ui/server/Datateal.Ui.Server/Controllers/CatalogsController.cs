@@ -66,7 +66,8 @@ public class CatalogsController(
     [Authorize(Policy = AuthPolicy.CatalogManage)]
     public async Task<IActionResult> CreateManaged(SharedCat.CreateManagedCatalogRequest body, CancellationToken ct)
     {
-        var catalog = await mediator.SendAsync(new Cmd.CreateManagedCatalogCommand(body.Name, body.AllowExistingDatabase), ct);
+        var catalog = await mediator.SendAsync(
+            new Cmd.CreateManagedCatalogCommand(body.Name, body.AllowExistingDatabase, body.ParquetV2, body.PerThreadOutput), ct);
         return Created($"api/catalogs/{catalog.Id}", catalog);
     }
 
@@ -86,8 +87,17 @@ public class CatalogsController(
     [Authorize(Policy = AuthPolicy.CatalogManage)]
     public async Task<IActionResult> UpdateManaged(Guid id, SharedCat.UpdateManagedCatalogRequest body, CancellationToken ct)
     {
-        var catalog = await mediator.SendAsync(new Cmd.UpdateManagedCatalogCommand(id, body.Name), ct);
+        var catalog = await mediator.SendAsync(
+            new Cmd.UpdateManagedCatalogCommand(id, body.Name, body.ParquetV2, body.PerThreadOutput), ct);
         return catalog is null ? NotFound() : Ok(catalog);
+    }
+
+    [HttpGet("{id:guid}/managed/ducklake-settings")]
+    [Authorize(Policy = AuthPolicy.CatalogManage)]
+    public async Task<IActionResult> GetManagedDuckLakeSettings(Guid id, CancellationToken ct)
+    {
+        var settings = await mediator.SendAsync(new Qry.GetManagedCatalogDuckLakeSettingsRequest(id), ct);
+        return settings is null ? StatusCode(503) : Ok(settings);
     }
 
     [HttpPut("{id:guid}/unmanaged")]

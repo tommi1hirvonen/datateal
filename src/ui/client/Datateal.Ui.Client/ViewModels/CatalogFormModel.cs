@@ -14,4 +14,6 @@ public class CatalogFormModel
     public string CatalogDatabase { get; set; } = "";
     public string CatalogUser { get; set; } = "";
     public string CatalogPassword { get; set; } = "";
+    public bool ParquetV2 { get; set; }
+    public bool PerThreadOutput { get; set; }
 }

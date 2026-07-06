@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
-public record CreateManagedCatalogCommand(string Name, bool AllowExistingDatabase = false) : IRequest<ManagedCatalogDto>;
+public record CreateManagedCatalogCommand(string Name, bool AllowExistingDatabase, bool ParquetV2, bool PerThreadOutput) : IRequest<ManagedCatalogDto>;
 
 public record CreateUnmanagedCatalogCommand(
     string Name,
@@ -65,6 +65,12 @@ internal class CreateManagedCatalogHandler(
             }
             throw;
         }
+
+        var dataPath = opts.BaseDataPath.TrimEnd('/') + "/" + request.Name;
+        await databaseService.SetDuckLakeSettingsAsync(
+            opts.CatalogHost, opts.CatalogPort, request.Name, opts.CatalogUser, opts.CatalogPassword,
+            dataPath, !string.IsNullOrEmpty(opts.StorageConnectionString) ? opts.StorageConnectionString : null,
+            request.Name, request.ParquetV2, request.PerThreadOutput, cancellationToken);
 
         return CatalogDtoMapper.ToDto(catalog, opts);
     }

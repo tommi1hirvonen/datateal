@@ -241,11 +241,50 @@
                         OnPressEnter="@(async _ => await ConfirmSave())" />
                 </FormItem>
             }
+
+            @if (_form.IsManaged)
+            {
+                <div style="border-top: 1px solid #d9d9d9; padding-top: 16px; margin-top: 4px;">
+                    <div style="font-weight: 500; margin-bottom: 10px;">DuckLake options</div>
+                    @if (!_duckLakeSettingsLoaded)
+                    {
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <Spin Size="SpinSize.Small" />
+                            <span style="color: #8c8c8c; font-size: 13px;">Loading catalog settings…</span>
+                        </div>
+                    }
+                    else
+                    {
+                        @if (!_duckLakeSettingsAvailable && _editTarget is not null)
+                        {
+                            <Alert Type="@AlertType.Warning" ShowIcon="true"
+                                   Message="Catalog unreachable — settings cannot be changed."
+                                   Style="margin-bottom: 10px;" />
+                        }
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div>
+                                <Checkbox Checked="@_form.ParquetV2"
+                                          CheckedChanged="@(v => _form.ParquetV2 = v)"
+                                          Disabled="@(!_duckLakeSettingsAvailable)">
+                                    Parquet v2
+                                </Checkbox>
+                            </div>
+                            <div>
+                                <Checkbox Checked="@_form.PerThreadOutput"
+                                          CheckedChanged="@(v => _form.PerThreadOutput = v)"
+                                          Disabled="@(!_duckLakeSettingsAvailable)">
+                                    Per-thread output
+                                </Checkbox>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
         </Form>
     </div>
     <div class="drawer-footer">
         <Button OnClick="() => _showModal = false">Cancel</Button>
-        <Button Type="@ButtonType.Primary" OnClick="ConfirmSave" Disabled="@(!IsFormValid())">Save</Button>
+        <Button Type="@ButtonType.Primary" OnClick="ConfirmSave" Disabled="@(!IsFormValid() || _saving)" Loading="_saving">Save</Button>
     </div>
 </Drawer>
 
@@ -357,6 +396,11 @@
     private CatalogDto? _editTarget;
     private CatalogFormModel _form = new();
     private bool _nameSubmitAttempted;
+    private bool _saving;
+
+    // ── DuckLake settings state (managed catalogs only) ───────────────
+    private bool _duckLakeSettingsLoaded;
+    private bool _duckLakeSettingsAvailable;
 
     // ── Delete confirmation state ─────────────────────────────────────
     private bool _showDeleteModal;
@@ -514,6 +558,8 @@
         _editTarget = null;
         _form = new CatalogFormModel();
         _nameSubmitAttempted = false;
+        _duckLakeSettingsLoaded = true;
+        _duckLakeSettingsAvailable = true;
         _showModal = true;
     }
 
@@ -536,7 +582,39 @@
             _form.CatalogUser = u.CatalogUser;
         }
 
+        if (catalog is ManagedCatalogDto)
+        {
+            _duckLakeSettingsLoaded = false;
+            _duckLakeSettingsAvailable = false;
+            _ = LoadDuckLakeSettingsAsync(catalog.Id);
+        }
+        else
+        {
+            _duckLakeSettingsLoaded = true;
+            _duckLakeSettingsAvailable = false;
+        }
+
         _showModal = true;
+    }
+
+    private async Task LoadDuckLakeSettingsAsync(Guid catalogId)
+    {
+        try
+        {
+            var result = await CatalogService.GetManagedDuckLakeSettingsAsync(catalogId);
+            if (result is not null)
+            {
+                _form.ParquetV2 = result.ParquetV2;
+                _form.PerThreadOutput = result.PerThreadOutput;
+                _duckLakeSettingsAvailable = true;
+            }
+        }
+        catch { /* catalog unreachable — leave defaults, settings disabled */ }
+        finally
+        {
+            _duckLakeSettingsLoaded = true;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task ConfirmSave()
@@ -545,13 +623,15 @@
         if (GetNameError() is not null) return;
         if (!IsFormValid()) return;
 
+        _saving = true;
         try
         {
             if (_editTarget is null)
             {
                 if (_form.IsManaged)
                 {
-                    await CatalogService.CreateManagedCatalogAsync(new CreateManagedCatalogRequest(_form.Name.Trim(), _form.AllowExistingDatabase));
+                    await CatalogService.CreateManagedCatalogAsync(new CreateManagedCatalogRequest(
+                        _form.Name.Trim(), _form.AllowExistingDatabase, _form.ParquetV2, _form.PerThreadOutput));
                 }
                 else
                 {
@@ -569,7 +649,10 @@
             else if (_editTarget is ManagedCatalogDto)
             {
                 await CatalogService.UpdateManagedCatalogAsync(_editTarget.Id,
-                    new UpdateManagedCatalogRequest(_form.Name.Trim()));
+                    new UpdateManagedCatalogRequest(
+                        _form.Name.Trim(),
+                        _duckLakeSettingsAvailable ? _form.ParquetV2 : null,
+                        _duckLakeSettingsAvailable ? _form.PerThreadOutput : null));
             }
             else
             {
@@ -587,6 +670,7 @@
             await LoadCatalogsAsync();
         }
         catch (Exception ex) { _error = $"Failed to save catalog: {ex.Message}"; }
+        finally { _saving = false; }
     }
 
     private void StartDelete(CatalogDto catalog)

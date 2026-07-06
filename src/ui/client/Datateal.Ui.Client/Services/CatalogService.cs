@@ -67,6 +67,13 @@ internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor wo
         return await response.Content.ReadFromJsonAsync<UnmanagedCatalogDto>(JsonOptions, ct);
     }
 
+    public async Task<ManagedCatalogDuckLakeSettingsDto?> GetManagedDuckLakeSettingsAsync(Guid catalogId, CancellationToken ct = default)
+    {
+        var response = await httpClient.GetAsync($"api/catalogs/{catalogId}/managed/ducklake-settings", ct);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<ManagedCatalogDuckLakeSettingsDto>(JsonOptions, ct);
+    }
+
     public async Task DeleteCatalogAsync(Guid id, bool dropDatabase, CancellationToken ct = default)
     {
         var response = await httpClient.DeleteAsync($"api/catalogs/{id}?dropDatabase={dropDatabase}", ct);
