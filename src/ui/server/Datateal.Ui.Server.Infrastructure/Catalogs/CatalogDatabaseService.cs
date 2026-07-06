@@ -1,4 +1,5 @@
 using DuckDB.NET.Data;
+using Datateal.Core.Catalogs;
 using Datateal.Ui.Server.Core.Catalogs;
 using Npgsql;
 
@@ -126,7 +127,7 @@ internal class CatalogDatabaseService : ICatalogDatabaseService
                 CREATE SECRET secret_{suffix}_storage (
                   TYPE azure,
                   CONNECTION_STRING '{EscapeSql(storageConnectionString)}',
-                  SCOPE '{GetAzureScope(dataPath)}'
+                  SCOPE '{CatalogSetupGenerator.GetAzureScope(dataPath)}'
                 )
                 """;
             cmd.ExecuteNonQuery();
@@ -163,12 +164,4 @@ internal class CatalogDatabaseService : ICatalogDatabaseService
     }
 
     private static string EscapeSql(string value) => value.Replace("'", "''");
-
-    private static string GetAzureScope(string dataPath)
-    {
-        if (dataPath.StartsWith("abfss://", StringComparison.OrdinalIgnoreCase) ||
-            dataPath.StartsWith("az://", StringComparison.OrdinalIgnoreCase))
-            return dataPath;
-        return "az://";
-    }
 }

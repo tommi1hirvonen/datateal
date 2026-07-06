@@ -114,15 +114,16 @@ public static class CatalogSetupGenerator
     /// <summary>Escapes backslashes and triple double-quotes so values are safe inside Python triple-quoted strings.</summary>
     private static string EscapePython(string value) => value.Replace("\\", "\\\\").Replace("\"\"\"", "\\\"\\\"\\\"");
 
-    private static string GetAzureScope(string dataPath)
+    /// <summary>
+    /// Derives an Azure RBAC/SAS scope from an Azure storage data path.
+    /// For <c>abfss://</c> and <c>az://</c> paths the path itself is used as the scope;
+    /// any other value falls back to the root <c>az://</c> scope.
+    /// </summary>
+    public static string GetAzureScope(string dataPath)
     {
-        // Extract the container-level scope from the data path
-        // e.g., abfss://container@account.dfs.core.windows.net/path → az://account.dfs.core.windows.net/container
         if (dataPath.StartsWith("abfss://", StringComparison.OrdinalIgnoreCase) ||
             dataPath.StartsWith("az://", StringComparison.OrdinalIgnoreCase))
-        {
             return dataPath;
-        }
 
         return "az://";
     }
