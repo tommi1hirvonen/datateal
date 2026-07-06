@@ -1,63 +1,66 @@
+using System.Text;
 using Datateal.Core.Kernels;
 
 namespace Datateal.Core.Tests.Kernels;
 
 public class SqlCodeGeneratorTests
 {
-    [Fact]
-    public void WrapSql_NormalSql_ContainsSqlInOutput()
+    /// <summary>
+    /// Extracts the Base64 payload from the generated Python snippet and decodes it back to
+    /// the original SQL string. This is the canonical verification for all WrapSql tests.
+    /// </summary>
+    private static string DecodeBase64FromOutput(string output)
     {
-        var result = SqlCodeGenerator.WrapSql("SELECT 1");
-
-        Assert.Contains("duckdb.execute(\"\"\"SELECT 1\"\"\")", result);
+        // The generated line looks like: _sql = _b64.b64decode('BASE64==').decode()
+        const string marker = "b64decode('";
+        var start = output.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(start >= 0, "Could not find b64decode marker in output.");
+        start += marker.Length;
+        var end = output.IndexOf("')", start, StringComparison.Ordinal);
+        Assert.True(end > start, "Could not find closing quote after b64decode payload.");
+        var b64 = output[start..end];
+        return Encoding.UTF8.GetString(Convert.FromBase64String(b64));
     }
 
     [Fact]
-    public void WrapSql_TripleQuoteInSql_IsEscaped()
+    public void WrapSql_NormalSql_RoundTripsCorrectly()
     {
-        // Input SQL contains a triple-quote: SELECT '"""' AS col
-        var sql = "SELECT '\"\"\"' AS col";
-
+        const string sql = "SELECT 1";
         var result = SqlCodeGenerator.WrapSql(sql);
-
-        // The triple-quote must be escaped so it cannot terminate the Python string.
-        Assert.Contains("SELECT '\\\"\\\"\\\"' AS col", result);
+        Assert.Equal(sql, DecodeBase64FromOutput(result));
     }
 
     [Fact]
-    public void WrapSql_DoubleQuoteInSql_IsNotEscaped()
+    public void WrapSql_TrailingDoubleQuote_RoundTripsCorrectly()
     {
-        var result = SqlCodeGenerator.WrapSql("SELECT \"\" AS col");
-
-        Assert.Contains("SELECT \"\" AS col", result);
-    }
-
-    [Fact]
-    public void WrapSql_SingleQuoteInSql_IsNotEscaped()
-    {
-        var result = SqlCodeGenerator.WrapSql("SELECT '\"' AS col");
-
-        Assert.Contains("SELECT '\"' AS col", result);
-    }
-
-    [Fact]
-    public void WrapSql_BackslashInSql_IsEscaped()
-    {
-        var result = SqlCodeGenerator.WrapSql(@"SELECT '\n' AS col");
-
-        Assert.Contains(@"SELECT '\\n' AS col", result);
-    }
-
-    [Fact]
-    public void WrapSql_BackslashBeforeTripleQuote_BothAreEscaped()
-    {
-        // Input: \""" (backslash then triple-quote)
-        // Expected after escaping: \\\"\"\" (backslash escaped, then triple-quote escaped)
-        var sql = "\\\"\"\"";
-
+        // Regression test: SQL ending with " used to produce SyntaxError via triple-quote injection.
+        const string sql = "select 1 as \"value\"";
         var result = SqlCodeGenerator.WrapSql(sql);
+        Assert.Equal(sql, DecodeBase64FromOutput(result));
+    }
 
-        Assert.Contains("\\\\\\\"\\\"\\\"", result);
+    [Fact]
+    public void WrapSql_TripleQuoteInSql_RoundTripsCorrectly()
+    {
+        const string sql = "SELECT '\"\"\"' AS col";
+        var result = SqlCodeGenerator.WrapSql(sql);
+        Assert.Equal(sql, DecodeBase64FromOutput(result));
+    }
+
+    [Fact]
+    public void WrapSql_BackslashInSql_RoundTripsCorrectly()
+    {
+        const string sql = @"SELECT '\n' AS col";
+        var result = SqlCodeGenerator.WrapSql(sql);
+        Assert.Equal(sql, DecodeBase64FromOutput(result));
+    }
+
+    [Fact]
+    public void WrapSql_UnicodeInSql_RoundTripsCorrectly()
+    {
+        const string sql = "SELECT '日本語' AS col";
+        var result = SqlCodeGenerator.WrapSql(sql);
+        Assert.Equal(sql, DecodeBase64FromOutput(result));
     }
 
     [Fact]
@@ -66,7 +69,7 @@ public class SqlCodeGeneratorTests
         var result = SqlCodeGenerator.WrapSql("SELECT 1");
 
         Assert.Contains("import duckdb", result);
-        Assert.Contains("__df = duckdb.execute(", result);
+        Assert.Contains("_sqldf = duckdb.execute(_sql).df()", result);
         Assert.Contains("__result", result);
     }
 }
