@@ -11,6 +11,12 @@ namespace Datateal.Ui.Server.Auth;
 public interface IApiTokenAuthenticator
 {
     Task<ApiToken?> ValidateAsync(string token, CancellationToken ct = default);
+
+    /// <summary>
+    /// Removes any cached entry for the given token ID. Call after revoking or deleting a token
+    /// so that the change takes effect immediately rather than after the cache window expires.
+    /// </summary>
+    void Evict(Guid id);
 }
 
 internal sealed class ApiTokenAuthenticator(
@@ -48,8 +54,10 @@ internal sealed class ApiTokenAuthenticator(
         if (match is null || !match.IsActive(now))
             return null;
 
-        // Cache the validated token and record usage (throttled to once per cache window).
+        // Cache the validated token and store a reverse id→hash mapping so Evict() can find
+        // the cache entry by token ID (used when a token is revoked or deleted).
         cache.Set(cacheKey, match, CacheDuration);
+        cache.Set(ReverseKey(match.Id), hash, CacheDuration);
         try
         {
             await repository.TouchLastUsedAsync(match.Id, now, ct);
@@ -61,4 +69,14 @@ internal sealed class ApiTokenAuthenticator(
 
         return match;
     }
+
+    public void Evict(Guid id)
+    {
+        var reverseKey = ReverseKey(id);
+        if (cache.TryGetValue<string>(reverseKey, out var hash) && hash is not null)
+            cache.Remove("apitoken:" + hash);
+        cache.Remove(reverseKey);
+    }
+
+    private static string ReverseKey(Guid id) => "apitoken:id:" + id;
 }

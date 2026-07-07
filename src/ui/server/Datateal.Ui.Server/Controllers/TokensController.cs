@@ -1,6 +1,7 @@
 using Datateal.Auth;
 using Datateal.Core.ApiTokens;
 using Datateal.Core.Mediator;
+using Datateal.Ui.Server.Auth;
 using Datateal.Ui.Shared.ApiTokens;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +18,7 @@ namespace Datateal.Ui.Server.Controllers;
 [ApiController]
 [Route("api/tokens")]
 [Authorize(Policy = AuthPolicy.Admin)]
-public class TokensController(IMediator mediator) : ControllerBase
+public class TokensController(IMediator mediator, IApiTokenAuthenticator authenticator) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<ApiTokenDto>> GetAll(CancellationToken ct) =>
@@ -68,6 +69,8 @@ public class TokensController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> Revoke(Guid id, CancellationToken ct)
     {
         var revoked = await mediator.SendAsync(new Cmd.RevokeApiTokenCommand(id), ct);
+        if (revoked)
+            authenticator.Evict(id);
         return revoked ? NoContent() : NotFound();
     }
 
@@ -75,6 +78,8 @@ public class TokensController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var deleted = await mediator.SendAsync(new Cmd.DeleteApiTokenCommand(id), ct);
+        if (deleted)
+            authenticator.Evict(id);
         return deleted ? NoContent() : NotFound();
     }
 
