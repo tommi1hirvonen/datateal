@@ -3,18 +3,26 @@
 # These requests should all fail with 401 or 403.
 # Run these to verify the authentication and authorization guard rails work correctly.
 #
-# No tokens need to be generated — the point is that these calls fail.
+# ⚠️  DEV MODE NOTE (Authentication:Provider = Dev):
+#     DevAuthenticationHandler auto-authenticates EVERY request as the configured dev user,
+#     even requests with no headers at all. The "401 Unauthorized" section below is therefore
+#     only meaningful when running with a real OIDC provider (Authentication:Provider = EntraId).
+#     In dev mode, requests without a token are authenticated as the dev user and will return
+#     200 (or 403 if the dev user lacks the required role) instead of 401.
 #
-# For the "wrong token" and "revoked token" tests, use an invalid or revoked token value.
+#     The "403 Forbidden" section works correctly in both modes — those requests carry a
+#     valid API token but with insufficient roles, so the dev scheme is bypassed.
+#
+# For the invalid/revoked token tests, use a fabricated or previously-revoked token value.
 
 @baseUrl      = https://localhost:7179
-@workspaceId  = 00000000-0000-0000-0000-000000000000
+@workspaceId  = 11111111-1111-1111-1111-111111111111
 
-# ── 401 Unauthorized ──────────────────────────────────────────────────────
+# ── 401 Unauthorized (EntraId mode only — see note above) ────────────────
 
 ###
 # No authentication at all
-# Expected: 401 Unauthorized
+# Expected: 401 Unauthorized (EntraId) / 200 OK (Dev — auto-authenticated as dev user)
 
 GET {{baseUrl}}/api/workspaces
 
@@ -22,14 +30,14 @@ GET {{baseUrl}}/api/workspaces
 # Malformed Bearer token (not a dtl_ token)
 # The handler ignores non-dtl_ Bearer values and falls through to the next scheme.
 # With no other valid auth, the result is 401.
-# Expected: 401 Unauthorized
+# Expected: 401 Unauthorized (EntraId) / 200 OK (Dev)
 
 GET {{baseUrl}}/api/workspaces
 Authorization: Bearer not-a-real-token
 
 ###
 # X-Datateal-Api-Token header with a non-dtl_ value (ignored by handler)
-# Expected: 401 Unauthorized
+# Expected: 401 Unauthorized (EntraId) / 200 OK (Dev)
 
 GET {{baseUrl}}/api/workspaces
 X-Datateal-Api-Token: invalid_value_here

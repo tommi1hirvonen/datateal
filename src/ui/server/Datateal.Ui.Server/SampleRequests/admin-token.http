@@ -38,7 +38,7 @@ X-Datateal-Api-Token: {{adminRoleToken}}
 Content-Type: application/json
 
 {
-  "name": "API Token Test Workspace",
+  "name": "api-test-ws",
   "description": "Created via Admin API token"
 }
 
@@ -51,11 +51,12 @@ X-Datateal-Api-Token: {{catalogContributorToken}}
 Content-Type: application/json
 
 {
-  "name": "Should Fail",
+  "name": "api-test-fail-ws",
   "description": "CatalogContributor cannot create workspaces"
 }
 
-# ── Token management (requires Admin role) ─────────────────────────────────
+###
+# ── Token management (requires Admin role)
 
 ###
 # List tokens via Admin API token — both headers should work
