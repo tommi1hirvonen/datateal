@@ -1,0 +1,133 @@
+# Admin-Scoped Token Tests
+#
+# Tests endpoints using Admin-scoped API tokens.
+# Generate these tokens via the UI → API Tokens page or via token-management.http.
+#
+# Fill in:
+#   @adminRoleToken          — Admin-scoped token with "Admin" role
+#   @catalogContributorToken — Admin-scoped token with "CatalogContributor" role only
+#   @workspaceId             — GUID of a workspace in your local environment
+
+@baseUrl                = https://localhost:7179
+@adminRoleToken         = dtl_REPLACE_ME
+@catalogContributorToken = dtl_REPLACE_ME
+@workspaceId            = 00000000-0000-0000-0000-000000000000
+
+# ── Workspace management (requires Admin role) ──────────────────────────────
+
+###
+# List all workspaces — Admin sees all
+# Expected: 200 OK — array of WorkspaceDto
+
+GET {{baseUrl}}/api/workspaces
+X-Datateal-Api-Token: {{adminRoleToken}}
+
+###
+# Get a specific workspace
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}
+X-Datateal-Api-Token: {{adminRoleToken}}
+
+###
+# Create a workspace (Admin role required)
+# Expected: 201 Created
+
+POST {{baseUrl}}/api/workspaces
+X-Datateal-Api-Token: {{adminRoleToken}}
+Content-Type: application/json
+
+{
+  "name": "API Token Test Workspace",
+  "description": "Created via Admin API token"
+}
+
+###
+# CatalogContributor token cannot create workspaces (no Admin role)
+# Expected: 403 Forbidden
+
+POST {{baseUrl}}/api/workspaces
+X-Datateal-Api-Token: {{catalogContributorToken}}
+Content-Type: application/json
+
+{
+  "name": "Should Fail",
+  "description": "CatalogContributor cannot create workspaces"
+}
+
+# ── Token management (requires Admin role) ─────────────────────────────────
+
+###
+# List tokens via Admin API token — both headers should work
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminRoleToken}}
+
+###
+# CatalogContributor token cannot list tokens (token management requires Admin role)
+# Expected: 403 Forbidden
+
+GET {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{catalogContributorToken}}
+
+# ── Catalog management (requires CatalogContributor role) ──────────────────
+
+###
+# List all catalogs unfiltered (requires CatalogManage policy → CatalogContributor or Admin)
+# Expected: 200 OK with CatalogContributor token
+
+GET {{baseUrl}}/api/catalogs/all
+X-Datateal-Api-Token: {{catalogContributorToken}}
+
+###
+# Admin token can also list catalogs (Admin satisfies CatalogManage policy)
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/catalogs/all
+X-Datateal-Api-Token: {{adminRoleToken}}
+
+# ── Workspace-scoped read with Admin token ─────────────────────────────────
+# Admin tokens carry the Admin tenant role, so CanAccess() returns true for any workspace.
+
+###
+# List workspace items (Admin sees any workspace)
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/items
+X-Datateal-Api-Token: {{adminRoleToken}}
+
+###
+# Create a folder using Admin token
+# Expected: 201 Created
+
+POST {{baseUrl}}/api/workspaces/{{workspaceId}}/items/folders
+X-Datateal-Api-Token: {{adminRoleToken}}
+Content-Type: application/json
+
+{
+  "name": "Admin Token Test Folder"
+}
+
+###
+# List workspace members (Admin can manage members of any workspace)
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/members
+X-Datateal-Api-Token: {{adminRoleToken}}
+
+###
+# CatalogContributor token cannot list workspace members (no Admin or WorkspaceAdmin)
+# Expected: 403 Forbidden
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/members
+X-Datateal-Api-Token: {{catalogContributorToken}}
+
+# ── Bearer header variant ──────────────────────────────────────────────────
+
+###
+# Same list workspaces request using Authorization: Bearer header
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces
+Authorization: Bearer {{adminRoleToken}}

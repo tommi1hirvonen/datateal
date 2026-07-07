@@ -1,0 +1,120 @@
+# Auth Failure Tests
+#
+# These requests should all fail with 401 or 403.
+# Run these to verify the authentication and authorization guard rails work correctly.
+#
+# No tokens need to be generated — the point is that these calls fail.
+#
+# For the "wrong token" and "revoked token" tests, use an invalid or revoked token value.
+
+@baseUrl      = https://localhost:7179
+@workspaceId  = 00000000-0000-0000-0000-000000000000
+
+# ── 401 Unauthorized ──────────────────────────────────────────────────────
+
+###
+# No authentication at all
+# Expected: 401 Unauthorized
+
+GET {{baseUrl}}/api/workspaces
+
+###
+# Malformed Bearer token (not a dtl_ token)
+# The handler ignores non-dtl_ Bearer values and falls through to the next scheme.
+# With no other valid auth, the result is 401.
+# Expected: 401 Unauthorized
+
+GET {{baseUrl}}/api/workspaces
+Authorization: Bearer not-a-real-token
+
+###
+# X-Datateal-Api-Token header with a non-dtl_ value (ignored by handler)
+# Expected: 401 Unauthorized
+
+GET {{baseUrl}}/api/workspaces
+X-Datateal-Api-Token: invalid_value_here
+
+###
+# Plausible-looking but non-existent dtl_ token (hash won't match any stored record)
+# Expected: 401 Unauthorized (ValidateAsync returns null → Fail)
+
+GET {{baseUrl}}/api/workspaces
+X-Datateal-Api-Token: dtl_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+###
+# Revoked token
+# Generate a token in the UI, copy its value here, revoke it via token-management.http,
+# then send this request.
+# Expected: 401 Unauthorized
+
+@revokedToken = dtl_REPLACE_ME_WITH_REVOKED_TOKEN
+
+GET {{baseUrl}}/api/workspaces
+X-Datateal-Api-Token: {{revokedToken}}
+
+# ── 403 Forbidden ─────────────────────────────────────────────────────────
+
+###
+# Workspace-scoped token trying to call an Admin-only endpoint (token management)
+# Generate a workspace token with any role and fill in below.
+# Expected: 403 Forbidden
+
+@workspaceScopedToken = dtl_REPLACE_ME_WITH_WORKSPACE_TOKEN
+
+GET {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{workspaceScopedToken}}
+
+###
+# Workspace-scoped token trying to create a workspace (requires Admin role)
+# Expected: 403 Forbidden
+
+POST {{baseUrl}}/api/workspaces
+X-Datateal-Api-Token: {{workspaceScopedToken}}
+Content-Type: application/json
+
+{
+  "name": "Should Fail"
+}
+
+###
+# Admin-scoped CatalogContributor token trying to call token management (requires Admin role)
+# Generate an Admin token with CatalogContributor role only and fill in below.
+# Expected: 403 Forbidden
+
+@catalogOnlyToken = dtl_REPLACE_ME_WITH_CATALOG_CONTRIBUTOR_TOKEN
+
+GET {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{catalogOnlyToken}}
+
+###
+# Workspace-scoped token trying to access a workspace it doesn't belong to
+# Use any workspace token + a different workspaceId.
+# Expected: 403 Forbidden
+
+@anotherWorkspaceId = 11111111-1111-1111-1111-111111111111
+
+GET {{baseUrl}}/api/workspaces/{{anotherWorkspaceId}}/items
+X-Datateal-Api-Token: {{workspaceScopedToken}}
+
+###
+# WorkspaceReader token trying to write (create a folder)
+# Generate a workspace token with WorkspaceReader role only and fill in below.
+# Expected: 403 Forbidden
+
+@workspaceReaderToken = dtl_REPLACE_ME_WITH_READER_TOKEN
+
+POST {{baseUrl}}/api/workspaces/{{workspaceId}}/items/folders
+X-Datateal-Api-Token: {{workspaceReaderToken}}
+Content-Type: application/json
+
+{
+  "name": "Should Fail Folder"
+}
+
+###
+# Workspace token without EnvironmentManager role trying to read environment
+# (Use a WorkspaceReader or WorkspaceContributor-only token, not one with EnvironmentManager)
+# Expected: 403 Forbidden
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/environment/variables
+X-Datateal-Api-Token: {{workspaceReaderToken}}
