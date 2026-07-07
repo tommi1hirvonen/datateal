@@ -23,6 +23,12 @@ public class AppClaimsTransformation(
         if (principal.Identity is not ClaimsIdentity identity || !identity.IsAuthenticated)
             return principal;
 
+        // API-token principals carry an authoritative, pre-scoped claim set. Never augment them
+        // with the token owner's memberships/roles — doing so would break token isolation (e.g. a
+        // workspace-scoped token owned by an admin must not gain the Admin role).
+        if (identity.HasClaim(DatatealClaimTypes.AuthMethod, DatatealClaimTypes.AuthMethodApiToken))
+            return principal;
+
         var isDevRolesOverride = identity.AuthenticationType == DevAuthenticationOptions.SchemeName
             && identity.HasClaim(DevAuthenticationOptions.RolesOverrideClaim, "true");
 

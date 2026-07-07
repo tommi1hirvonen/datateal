@@ -1,0 +1,361 @@
+@page "/tokens"
+@attribute [Authorize(Policy = AuthPolicy.Admin)]
+
+@using Datateal.Auth
+@using Datateal.Ui.Shared.ApiTokens
+@using Datateal.Ui.Shared.Workspaces
+@inject IApiTokenService TokenService
+@inject IWorkspaceManagementService WorkspaceService
+@inject IJSRuntime JS
+
+<PageTitle>API tokens — Datateal</PageTitle>
+
+<Space>
+    <SpaceItem>
+        <Icon Height="24px" Width="24px" Type="@IconType.Outline.Key" />
+    </SpaceItem>
+    <SpaceItem>
+        <h2>API tokens</h2>
+    </SpaceItem>
+</Space>
+
+<p style="color: #8c8c8c; max-width: 720px;">
+    API tokens authenticate programmatic and CI/CD access. An <b>admin</b> token carries
+    tenant-global roles; a <b>workspace</b> token grants per-workspace roles for a single
+    workspace only and cannot act on any other workspace. Present the token as
+    <code>Authorization: Bearer &lt;token&gt;</code> or in the <code>X-Datateal-Api-Token</code>
+    header.
+</p>
+
+@if (!string.IsNullOrEmpty(_error))
+{
+    <Alert Type="@AlertType.Error" Message="@_error" Closable OnClose="() => _error = null"
+           Style="margin-bottom: 16px;" />
+}
+
+<Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
+    <Button Type="@ButtonType.Primary" OnClick="StartCreate">
+        <Icon Type="@IconType.Outline.Plus" /> New token
+    </Button>
+</Flex>
+
+<Spin Spinning="_loading">
+    <Table TItem="ApiTokenDto" DataSource="_tokens" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
+        <PropertyColumn Property="t => t.Name" Title="Name" Sortable />
+        <PropertyColumn Property="t => t.TokenPrefix" Title="Prefix">
+            <span style="font-family: monospace;">@context.TokenPrefix…</span>
+        </PropertyColumn>
+        <PropertyColumn Property="t => t.ScopeType" Title="Scope">
+            <Tag Color="@(context.ScopeType == "Admin" ? "gold" : "blue")">@context.ScopeType</Tag>
+        </PropertyColumn>
+        <PropertyColumn Property="t => t.WorkspaceName" Title="Workspace">
+            @(context.WorkspaceName ?? "—")
+        </PropertyColumn>
+        <PropertyColumn Property="t => t.Roles" Title="Roles">
+            @foreach (var role in context.Roles)
+            {
+                <Tag Style="margin-bottom: 2px;">@role</Tag>
+            }
+        </PropertyColumn>
+        <PropertyColumn Property="t => t.IsRevoked" Title="Status">
+            @{
+                var (label, color) = StatusOf(context);
+            }
+            <Tag Color="@color">@label</Tag>
+        </PropertyColumn>
+        <PropertyColumn Property="t => t.LastUsedAt" Title="Last used">
+            @(context.LastUsedAt is { } lu ? lu.ToString("yyyy-MM-dd HH:mm") : "Never")
+        </PropertyColumn>
+        <PropertyColumn Property="t => t.ValidTo" Title="Expires">
+            @(context.ValidTo is { } vt ? vt.ToString("yyyy-MM-dd") : "Never")
+        </PropertyColumn>
+        <ActionColumn Title="Actions">
+            <Space>
+                @if (!context.IsRevoked)
+                {
+                    <SpaceItem>
+                        <Tooltip Title="Revoke">
+                            <Popconfirm Title="@($"Revoke token '{context.Name}'? Clients using it will lose access.")"
+                                        OnConfirm="() => RevokeAsync(context)">
+                                <Button Size="@ButtonSize.Small">
+                                    <Icon Type="@IconType.Outline.Stop" />
+                                </Button>
+                            </Popconfirm>
+                        </Tooltip>
+                    </SpaceItem>
+                }
+                <SpaceItem>
+                    <Tooltip Title="Delete">
+                        <Popconfirm Title="@($"Delete token '{context.Name}'?")"
+                                    OnConfirm="() => DeleteAsync(context)">
+                            <Button Danger Size="@ButtonSize.Small">
+                                <Icon Type="@IconType.Outline.Delete" />
+                            </Button>
+                        </Popconfirm>
+                    </Tooltip>
+                </SpaceItem>
+            </Space>
+        </ActionColumn>
+    </Table>
+</Spin>
+
+<Drawer Closable="true" @bind-Visible="_showModal" Placement="DrawerPlacement.Right"
+        Width="520" Title="@("New API token")"
+        OnClose="() => _showModal = false"
+        BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+    <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        <Form Model="@_form" Layout="FormLayout.Vertical">
+            <FormItem Label="Name">
+                <Input @bind-Value="_form.Name" Placeholder="ci-deploy" BindOnInput
+                       Class="@(NameError is not null ? "ant-input-status-error" : "")" />
+                @if (NameError is not null)
+                {
+                    <div class="ant-form-item-explain-error">@NameError</div>
+                }
+            </FormItem>
+
+            <FormItem Label="Scope">
+                <Select TItemValue="string" TItem="string" @bind-Value="_form.ScopeType"
+                        Style="width: 100%;" OnSelectedItemChanged="OnScopeChanged">
+                    <SelectOptions>
+                        <SelectOption TItemValue="string" TItem="string" Value="@("Admin")" Label="Admin (tenant-wide)" />
+                        <SelectOption TItemValue="string" TItem="string" Value="@("Workspace")" Label="Workspace" />
+                    </SelectOptions>
+                </Select>
+            </FormItem>
+
+            @if (_form.ScopeType == "Workspace")
+            {
+                <FormItem Label="Workspace">
+                    <Select TItemValue="Guid?" TItem="WorkspaceDto" @bind-Value="_form.WorkspaceId"
+                            Style="width: 100%;" Placeholder="Select workspace..."
+                            Class="@(WorkspaceError is not null ? "ant-input-status-error" : "")">
+                        <SelectOptions>
+                            @foreach (var ws in _workspaces)
+                            {
+                                <SelectOption TItemValue="Guid?" TItem="WorkspaceDto" Value="ws.Id" Label="@ws.Name" />
+                            }
+                        </SelectOptions>
+                    </Select>
+                    @if (WorkspaceError is not null)
+                    {
+                        <div class="ant-form-item-explain-error">@WorkspaceError</div>
+                    }
+                </FormItem>
+            }
+
+            <FormItem Label="Roles">
+                <div style="color: #8c8c8c; font-size: 12px; margin-bottom: 8px;">
+                    The token can act only within the roles granted here.
+                </div>
+                <CheckboxGroup @bind-Value="_selectedRoles" @key="_form.ScopeType" TValue="string" Style="width:100%">
+                    <GridRow Gutter="(0, 8)">
+                        @foreach (var role in AvailableRoles)
+                        {
+                            <GridCol Span="12">
+                                <Checkbox Label="@role">@role</Checkbox>
+                            </GridCol>
+                        }
+                    </GridRow>
+                </CheckboxGroup>
+                @if (RolesError is not null)
+                {
+                    <div class="ant-form-item-explain-error">@RolesError</div>
+                }
+            </FormItem>
+
+            <FormItem Label="Expiry (optional)">
+                <DatePicker TValue="Nullable<DateTime>" @bind-Value="_form.ValidTo" ShowTime="@true"
+                            Style="width: 100%;" Placeholder="@("Never expires")" />
+            </FormItem>
+
+            @if (_saveError is not null)
+            {
+                <Alert Type="@AlertType.Error" Message="@_saveError" ShowIcon="true" />
+            }
+        </Form>
+    </div>
+    <div class="drawer-footer">
+        <Button OnClick="() => _showModal = false">Cancel</Button>
+        <Button Type="@ButtonType.Primary" OnClick="ConfirmCreate"
+                Disabled="@(!IsFormValid() || _saving)" Loading="_saving">Create</Button>
+    </div>
+</Drawer>
+
+<Modal Title="@("Token created")" Visible="_createdValue is not null"
+       OnOk="DismissCreated" OnCancel="DismissCreated"
+       OkText="@("Done")" CancelText="@("Close")">
+    <Alert Type="@AlertType.Warning" ShowIcon="true" Style="margin-bottom: 12px;"
+           Message="Copy this token now"
+           Description="This is the only time the token is shown. Store it securely — it cannot be retrieved again." />
+    <Input Value="@_createdValue" ReadOnly Style="font-family: monospace;">
+        <AddOnAfter>
+            <Button Type="@ButtonType.Link" OnClick="CopyCreated">
+                <Icon Type="@IconType.Outline.Copy" /> Copy
+            </Button>
+        </AddOnAfter>
+    </Input>
+</Modal>
+
+@code {
+    private IReadOnlyList<ApiTokenDto> _tokens = [];
+    private IReadOnlyList<WorkspaceDto> _workspaces = [];
+    private bool _loading = true;
+    private string? _error;
+
+    private bool _showModal;
+    private TokenFormModel _form = new();
+    private string[] _selectedRoles = [];
+    private bool _saving;
+    private string? _saveError;
+    private bool _submitAttempted;
+
+    private string? _createdValue;
+
+    private IReadOnlyList<string> AvailableRoles =>
+        _form.ScopeType == "Workspace" ? DatatealRole.PerWorkspace : DatatealRole.TenantGlobal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _tokens = await TokenService.GetTokensAsync();
+            _workspaces = await WorkspaceService.GetAccessibleAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load tokens: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void StartCreate()
+    {
+        _form = new TokenFormModel();
+        _selectedRoles = [];
+        _saveError = null;
+        _submitAttempted = false;
+        _showModal = true;
+    }
+
+    private void OnScopeChanged(string newScope)
+    {
+        // Drop any roles that are not valid for the newly selected scope.
+        // Use the newScope parameter directly — _form.ScopeType may still hold the old value
+        // when OnSelectedItemChanged fires (binding updates after the event callback).
+        var availableForNewScope = newScope == "Workspace" ? DatatealRole.PerWorkspace : DatatealRole.TenantGlobal;
+        _selectedRoles = _selectedRoles.Where(r => availableForNewScope.Contains(r)).ToArray();
+        if (newScope != "Workspace")
+            _form.WorkspaceId = null;
+    }
+
+    private string? NameError =>
+        (_submitAttempted || !string.IsNullOrEmpty(_form.Name)) && string.IsNullOrWhiteSpace(_form.Name)
+            ? "Name is required."
+            : null;
+
+    private string? WorkspaceError =>
+        _submitAttempted && _form.ScopeType == "Workspace" && _form.WorkspaceId is null
+            ? "Select a workspace."
+            : null;
+
+    private string? RolesError =>
+        _submitAttempted && _selectedRoles.Length == 0
+            ? "Select at least one role."
+            : null;
+
+    private bool IsFormValid() =>
+        !string.IsNullOrWhiteSpace(_form.Name)
+        && _selectedRoles.Length > 0
+        && (_form.ScopeType != "Workspace" || _form.WorkspaceId is not null);
+
+    private async Task ConfirmCreate()
+    {
+        _submitAttempted = true;
+        if (!IsFormValid()) return;
+
+        _saving = true;
+        _saveError = null;
+        try
+        {
+            var request = new CreateApiTokenRequest(
+                _form.Name.Trim(),
+                _form.ScopeType,
+                _form.ScopeType == "Workspace" ? _form.WorkspaceId : null,
+                _selectedRoles.ToList(),
+                _form.ValidTo);
+
+            var response = await TokenService.CreateTokenAsync(request);
+            _showModal = false;
+            _createdValue = response.Value;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _saveError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task RevokeAsync(ApiTokenDto token)
+    {
+        try
+        {
+            await TokenService.RevokeTokenAsync(token.Id);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to revoke token: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteAsync(ApiTokenDto token)
+    {
+        try
+        {
+            await TokenService.DeleteTokenAsync(token.Id);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to delete token: {ex.Message}";
+        }
+    }
+
+    private async Task CopyCreated()
+    {
+        if (_createdValue is not null)
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _createdValue);
+    }
+
+    private void DismissCreated() => _createdValue = null;
+
+    private static (string Label, string Color) StatusOf(ApiTokenDto token)
+    {
+        if (token.IsRevoked) return ("Revoked", "red");
+        if (token.ValidTo is { } vt && vt <= DateTime.UtcNow) return ("Expired", "orange");
+        return ("Active", "green");
+    }
+
+    private sealed class TokenFormModel
+    {
+        public string Name { get; set; } = "";
+        public string ScopeType { get; set; } = "Admin";
+        public Guid? WorkspaceId { get; set; }
+        public DateTime? ValidTo { get; set; }
+    }
+}

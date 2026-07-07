@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Datateal.Core.ApiTokens;
 using Datateal.Core.Catalogs;
 using Datateal.Core.Environment;
 using Datateal.Core.Nodes;
@@ -58,6 +59,9 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<UserCatalogAccess> UserCatalogAccess => Set<UserCatalogAccess>();
 
+    // ── API tokens ────────────────────────────────────────────────────────
+    public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
+
     // ── Orchestrator ──────────────────────────────────────────────────────
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<JobParameter> JobParameters => Set<JobParameter>();
@@ -76,6 +80,7 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
         ConfigureRuntimePackages(modelBuilder);
         ConfigureEnvironment(modelBuilder);
         ConfigureUsers(modelBuilder);
+        ConfigureApiTokens(modelBuilder);
         ConfigureOrchestrator(modelBuilder);
     }
 
@@ -274,6 +279,27 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
                 .HasForeignKey(e => e.CatalogId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => new { e.UserId, e.CatalogId }).IsUnique();
+        });
+    }
+
+    private static void ConfigureApiTokens(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ApiToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(250).IsRequired();
+            entity.Property(e => e.TokenPrefix).HasMaxLength(32).IsRequired();
+            entity.Property(e => e.TokenHash).HasMaxLength(128).IsRequired();
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => e.TokenPrefix);
+            entity.Property(e => e.ScopeType).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.PrimitiveCollection(e => e.Roles).HasColumnType("jsonb");
+            entity.HasOne<Datateal.Core.Workspaces.Workspace>()
+                .WithMany()
+                .HasForeignKey(e => e.WorkspaceId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.WorkspaceId);
         });
     }
 

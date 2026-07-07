@@ -40,6 +40,7 @@ else
     builder.Services.AddEntraIdAuthentication();
 builder.Services.AddDatatealWebAppAuthentication(builder.Configuration);
 builder.Services.AddAuthorization(DatatealAuthorizationPolicies.Configure);
+builder.Services.AddDatatealApiTokenAuthentication();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IActiveWorkspaceAccessor, HttpActiveWorkspaceAccessor>();
 builder.Services.AddScoped<IAuthorizationHandler, WorkspaceScopedRoleHandler>();
@@ -89,6 +90,7 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+app.UseDatatealApiTokenAuthentication();
 app.UseAuthorization();
 
 app.UseAntiforgery();
