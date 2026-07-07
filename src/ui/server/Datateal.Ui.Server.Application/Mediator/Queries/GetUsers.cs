@@ -10,7 +10,7 @@ internal class GetUsersHandler(IUserRepository repository) : IRequestHandler<Get
 {
     public async Task<IReadOnlyList<AppUserDto>> Handle(GetUsersRequest request, CancellationToken cancellationToken)
     {
-        var users = await repository.GetAllAsync(cancellationToken);
+        var users = await repository.GetAllUserAccountsAsync(cancellationToken);
         return users.Select(Commands.UserDtoMapper.ToDto).ToList();
     }
 }

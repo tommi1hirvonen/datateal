@@ -60,7 +60,7 @@ public class TokensController(IMediator mediator, IApiTokenAuthenticator authent
 
         var result = await mediator.SendAsync(
             new Cmd.CreateApiTokenCommand(
-                body.Name.Trim(), scopeType, body.WorkspaceId, roles, body.ValidTo, createdByUserId), ct);
+                body.Name.Trim(), scopeType, body.WorkspaceId, roles, body.ValidTo, createdByUserId, body.ActingUserId), ct);
 
         return Created($"api/tokens/{result.Token.Id}", result);
     }

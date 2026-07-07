@@ -11,7 +11,8 @@ public record CreateApiTokenCommand(
     Guid? WorkspaceId,
     List<string> Roles,
     DateTime? ValidTo,
-    Guid? CreatedByUserId) : IRequest<CreateApiTokenResponse>;
+    Guid? CreatedByUserId,
+    Guid? ActingUserId = null) : IRequest<CreateApiTokenResponse>;
 
 internal class CreateApiTokenHandler(
     IApiTokenRepository repository,
@@ -33,6 +34,7 @@ internal class CreateApiTokenHandler(
             WorkspaceId = request.ScopeType == ApiTokenScopeType.Workspace ? request.WorkspaceId : null,
             Roles = request.Roles,
             CreatedByUserId = request.CreatedByUserId,
+            ActingUserId = request.ActingUserId,
             ValidFrom = now,
             ValidTo = request.ValidTo,
             IsRevoked = false,

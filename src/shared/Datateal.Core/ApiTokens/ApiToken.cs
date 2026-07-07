@@ -36,9 +36,19 @@ public class ApiToken
 
     /// <summary>
     /// The user who created the token. Used as the effective/acting user for the token's requests
-    /// (job ownership, catalog access checks). References <c>AppUser.Id</c>.
+    /// (job ownership, catalog access checks) when <see cref="ActingUserId"/> is not set.
+    /// References <c>AppUser.Id</c>.
     /// </summary>
     public Guid? CreatedByUserId { get; set; }
+
+    /// <summary>
+    /// Optional override for the acting identity of this token. When set, all requests
+    /// authenticated by this token use this identity (rather than <see cref="CreatedByUserId"/>)
+    /// for job ownership and catalog access checks. Typically points to a
+    /// <see cref="Datateal.Core.Users.ServiceAccount"/> to decouple automation pipelines
+    /// from the creating user's personal permissions. References <c>AppUser.Id</c>.
+    /// </summary>
+    public Guid? ActingUserId { get; set; }
 
     public DateTime ValidFrom { get; set; }
 

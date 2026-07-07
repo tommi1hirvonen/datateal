@@ -3,8 +3,10 @@
 
 @using Datateal.Auth
 @using Datateal.Ui.Shared.ApiTokens
+@using Datateal.Ui.Shared.Users
 @using Datateal.Ui.Shared.Workspaces
 @inject IApiTokenService TokenService
+@inject IServiceAccountService ServiceAccountService
 @inject IWorkspaceManagementService WorkspaceService
 @inject IJSRuntime JS
 
@@ -50,6 +52,16 @@
         </PropertyColumn>
         <PropertyColumn Property="t => t.WorkspaceName" Title="Workspace">
             @(context.WorkspaceName ?? "—")
+        </PropertyColumn>
+        <PropertyColumn Property="t => t.ActingUserDisplayName" Title="Acting as">
+            @if (context.ActingUserDisplayName is not null)
+            {
+                <Tag Color="@("purple")">@context.ActingUserDisplayName</Tag>
+            }
+            else
+            {
+                <span style="color: #8c8c8c;">Token owner</span>
+            }
         </PropertyColumn>
         <PropertyColumn Property="t => t.Roles" Title="Roles">
             @foreach (var role in context.Roles)
@@ -169,6 +181,21 @@
                             Style="width: 100%;" Placeholder="@("Never expires")" />
             </FormItem>
 
+            <FormItem Label="Acting user (optional)">
+                <div style="color: #8c8c8c; font-size: 12px; margin-bottom: 8px;">
+                    If set, jobs and resources created via this token will be owned by this
+                    service account instead of you. Recommended for CI/CD tokens.
+                </div>
+                <Select TItemValue="Guid?" TItem="ServiceAccountDto"
+                        @bind-Value="_form.ActingUserId"
+                        DataSource="_serviceAccounts"
+                        ValueName="@nameof(ServiceAccountDto.Id)"
+                        LabelName="@nameof(ServiceAccountDto.DisplayName)"
+                        Placeholder="Use token creator's identity"
+                        AllowClear
+                        Style="width: 100%;" />
+            </FormItem>
+
             @if (_saveError is not null)
             {
                 <Alert Type="@AlertType.Error" Message="@_saveError" ShowIcon="true" />
@@ -200,6 +227,7 @@
 @code {
     private IReadOnlyList<ApiTokenDto> _tokens = [];
     private IReadOnlyList<WorkspaceDto> _workspaces = [];
+    private IReadOnlyList<ServiceAccountDto> _serviceAccounts = [];
     private bool _loading = true;
     private string? _error;
 
@@ -226,8 +254,10 @@
         _error = null;
         try
         {
-            _tokens = await TokenService.GetTokensAsync();
-            _workspaces = await WorkspaceService.GetAccessibleAsync();
+            (_tokens, _workspaces, _serviceAccounts) = (
+                await TokenService.GetTokensAsync(),
+                await WorkspaceService.GetAccessibleAsync(),
+                await ServiceAccountService.GetServiceAccountsAsync());
         }
         catch (Exception ex)
         {
@@ -293,7 +323,8 @@
                 _form.ScopeType,
                 _form.ScopeType == "Workspace" ? _form.WorkspaceId : null,
                 _selectedRoles.ToList(),
-                _form.ValidTo);
+                _form.ValidTo,
+                _form.ActingUserId);
 
             var response = await TokenService.CreateTokenAsync(request);
             _showModal = false;
@@ -357,5 +388,6 @@
         public string ScopeType { get; set; } = "Admin";
         public Guid? WorkspaceId { get; set; }
         public DateTime? ValidTo { get; set; }
+        public Guid? ActingUserId { get; set; }
     }
 }

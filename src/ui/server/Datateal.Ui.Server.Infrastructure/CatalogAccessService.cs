@@ -61,7 +61,7 @@ internal class CatalogAccessService(DatatealDbContext db, ICatalogAccessResolver
 
         if (externalId is not null)
         {
-            id = await db.AppUsers
+            id = await db.UserAccounts
                 .Where(u => u.ExternalId == externalId)
                 .Select(u => (Guid?)u.Id)
                 .FirstOrDefaultAsync(ct);

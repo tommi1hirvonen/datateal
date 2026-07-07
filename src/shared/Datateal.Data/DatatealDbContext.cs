@@ -57,6 +57,8 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
 
     // ── Users ─────────────────────────────────────────────────────────────
     public DbSet<AppUser> AppUsers => Set<AppUser>();
+    public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
+    public DbSet<ServiceAccount> ServiceAccounts => Set<ServiceAccount>();
     public DbSet<UserCatalogAccess> UserCatalogAccess => Set<UserCatalogAccess>();
 
     // ── API tokens ────────────────────────────────────────────────────────
@@ -261,10 +263,23 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Email).HasMaxLength(256).IsRequired();
             entity.HasIndex(e => e.Email).IsUnique();
-            entity.Property(e => e.ExternalId).HasMaxLength(256);
-            entity.HasIndex(e => e.ExternalId).IsUnique().HasFilter("\"ExternalId\" IS NOT NULL");
             entity.Property(e => e.DisplayName).HasMaxLength(256).IsRequired();
             entity.PrimitiveCollection(e => e.Roles).HasColumnType("jsonb");
+            entity.HasDiscriminator<string>("UserType")
+                .HasValue<UserAccount>("UserAccount")
+                .HasValue<ServiceAccount>("ServiceAccount");
+            entity.Property<string>("UserType").HasMaxLength(32).IsRequired();
+        });
+
+        modelBuilder.Entity<UserAccount>(entity =>
+        {
+            entity.Property(e => e.ExternalId).HasMaxLength(256);
+            entity.HasIndex(e => e.ExternalId).IsUnique().HasFilter("\"ExternalId\" IS NOT NULL");
+        });
+
+        modelBuilder.Entity<ServiceAccount>(entity =>
+        {
+            entity.Property(e => e.Description).HasMaxLength(1024);
         });
 
         modelBuilder.Entity<UserCatalogAccess>(entity =>
@@ -300,6 +315,10 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.WorkspaceId);
+            // ActingUserId is a soft reference — no FK constraint so that deleting a service
+            // account that is still referenced is blocked at the application layer (guard in
+            // DeleteServiceAccountHandler) rather than by the database.
+            entity.Property(e => e.ActingUserId).IsRequired(false);
         });
     }
 

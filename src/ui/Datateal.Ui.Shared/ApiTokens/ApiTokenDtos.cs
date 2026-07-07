@@ -13,6 +13,8 @@ public record ApiTokenDto(
     string? WorkspaceName,
     List<string> Roles,
     Guid? CreatedByUserId,
+    Guid? ActingUserId,
+    string? ActingUserDisplayName,
     DateTime ValidFrom,
     DateTime? ValidTo,
     bool IsRevoked,
@@ -24,7 +26,8 @@ public record CreateApiTokenRequest(
     string ScopeType,
     Guid? WorkspaceId,
     List<string> Roles,
-    DateTime? ValidTo);
+    DateTime? ValidTo,
+    Guid? ActingUserId = null);
 
 /// <summary>
 /// Returned once, on creation. <see cref="Value"/> is the plaintext token and is never

@@ -5,7 +5,7 @@ namespace Datateal.Ui.Server.Application.Mediator;
 
 internal static class ApiTokenDtoMapper
 {
-    internal static ApiTokenDto ToDto(ApiToken token, string? workspaceName) =>
+    internal static ApiTokenDto ToDto(ApiToken token, string? workspaceName, string? actingUserDisplayName = null) =>
         new(token.Id,
             token.Name,
             token.TokenPrefix,
@@ -14,6 +14,8 @@ internal static class ApiTokenDtoMapper
             workspaceName,
             token.Roles,
             token.CreatedByUserId,
+            token.ActingUserId,
+            actingUserDisplayName,
             token.ValidFrom,
             token.ValidTo,
             token.IsRevoked,

@@ -1,5 +1,5 @@
-using Datateal.Core.Mediator;
 using Datateal.Core.Users;
+using Datateal.Core.Mediator;
 using Datateal.Ui.Server.Core.Repositories;
 using Datateal.Ui.Shared.Users;
 
@@ -18,6 +18,6 @@ internal class UpdateUserHandler(IUserRepository repository) : IRequestHandler<U
             request.Id, request.DisplayName, request.IsEnabled,
             request.Roles, request.HasAllCatalogAccess, request.CatalogIds,
             cancellationToken);
-        return updated is not null ? UserDtoMapper.ToDto(updated) : null;
+        return updated is UserAccount ua ? UserDtoMapper.ToDto(ua) : null;
     }
 }

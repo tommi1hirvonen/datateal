@@ -36,6 +36,8 @@ builder.Services.AddHttpClient<ICatalogService, CatalogService>(
     client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 builder.Services.AddHttpClient<IUserService, UserService>(
     client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
+builder.Services.AddHttpClient<IServiceAccountService, ServiceAccountService>(
+    client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 builder.Services.AddHttpClient<IApiTokenService, ApiTokenService>(
     client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 builder.Services.AddHttpClient<IWorkspaceManagementService, WorkspaceManagementService>(

@@ -13,6 +13,8 @@ namespace Datateal.Ui.Server.Controllers;
 [Authorize(Policy = AuthPolicy.Admin)]
 public class UsersController(IMediator mediator) : ControllerBase
 {
+    // ── User accounts ─────────────────────────────────────────────────────
+
     [HttpGet]
     public async Task<IReadOnlyList<AppUserDto>> GetAll(CancellationToken ct) =>
         await mediator.SendAsync(new Qry.GetUsersRequest(), ct);
@@ -46,6 +48,56 @@ public class UsersController(IMediator mediator) : ControllerBase
         return user is null ? NotFound() : Ok(user);
     }
 
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var deleted = await mediator.SendAsync(new Cmd.DeleteUserCommand(id), ct);
+        return deleted ? NoContent() : NotFound();
+    }
+
+    // ── Service accounts ──────────────────────────────────────────────────
+
+    [HttpGet("service-accounts")]
+    public async Task<IReadOnlyList<ServiceAccountDto>> GetAllServiceAccounts(CancellationToken ct) =>
+        await mediator.SendAsync(new Qry.GetServiceAccountsRequest(), ct);
+
+    [HttpPost("service-accounts")]
+    public async Task<IActionResult> CreateServiceAccount(CreateServiceAccountRequest body, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(body.Name))
+            return Problem("Name is required.", statusCode: StatusCodes.Status400BadRequest, title: "Invalid service account");
+
+        if (InvalidTenantRoles(body.Roles) is { } error)
+            return error;
+
+        var account = await mediator.SendAsync(
+            new Cmd.CreateServiceAccountCommand(body.Name.Trim(), body.Description, body.Roles, body.HasAllCatalogAccess, body.CatalogIds), ct);
+        return Created($"api/users/service-accounts/{account.Id}", account);
+    }
+
+    [HttpPut("service-accounts/{id:guid}")]
+    public async Task<IActionResult> UpdateServiceAccount(Guid id, UpdateServiceAccountRequest body, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(body.Name))
+            return Problem("Name is required.", statusCode: StatusCodes.Status400BadRequest, title: "Invalid service account");
+
+        if (InvalidTenantRoles(body.Roles) is { } error)
+            return error;
+
+        var account = await mediator.SendAsync(
+            new Cmd.UpdateServiceAccountCommand(id, body.Name.Trim(), body.Description, body.IsEnabled, body.Roles, body.HasAllCatalogAccess, body.CatalogIds), ct);
+        return account is null ? NotFound() : Ok(account);
+    }
+
+    [HttpDelete("service-accounts/{id:guid}")]
+    public async Task<IActionResult> DeleteServiceAccount(Guid id, CancellationToken ct)
+    {
+        var deleted = await mediator.SendAsync(new Cmd.DeleteServiceAccountCommand(id), ct);
+        return deleted ? NoContent() : NotFound();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+
     /// <summary>
     /// The tenant role store (<c>AppUser.Roles</c>) may only hold tenant-global roles.
     /// Per-workspace roles are granted via workspace memberships, so reject them here to
@@ -63,12 +115,5 @@ public class UsersController(IMediator mediator) : ControllerBase
                 Detail = $"Not valid tenant-global roles: {string.Join(", ", invalid)}. " +
                          "Per-workspace roles are assigned from a workspace's members list.",
             });
-    }
-
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
-    {
-        var deleted = await mediator.SendAsync(new Cmd.DeleteUserCommand(id), ct);
-        return deleted ? NoContent() : NotFound();
     }
 }

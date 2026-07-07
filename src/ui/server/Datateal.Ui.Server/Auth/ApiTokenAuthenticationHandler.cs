@@ -38,7 +38,9 @@ public sealed class ApiTokenAuthenticationHandler(
         identity.AddClaim(new Claim(DatatealClaimTypes.AuthMethod, DatatealClaimTypes.AuthMethodApiToken));
         identity.AddClaim(new Claim(DatatealClaimTypes.TokenId, apiToken.Id.ToString()));
 
-        if (apiToken.CreatedByUserId is { } ownerId)
+        if (apiToken.ActingUserId is { } actingId)
+            identity.AddClaim(new Claim(DatatealClaimTypes.UserId, actingId.ToString()));
+        else if (apiToken.CreatedByUserId is { } ownerId)
             identity.AddClaim(new Claim(DatatealClaimTypes.UserId, ownerId.ToString()));
 
         switch (apiToken.ScopeType)

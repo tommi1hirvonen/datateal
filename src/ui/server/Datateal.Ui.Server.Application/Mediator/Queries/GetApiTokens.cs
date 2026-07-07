@@ -8,7 +8,8 @@ public record GetApiTokensRequest : IRequest<IReadOnlyList<ApiTokenDto>>;
 
 internal class GetApiTokensHandler(
     IApiTokenRepository repository,
-    IWorkspaceManagementRepository workspaceRepository)
+    IWorkspaceManagementRepository workspaceRepository,
+    IUserRepository userRepository)
     : IRequestHandler<GetApiTokensRequest, IReadOnlyList<ApiTokenDto>>
 {
     public async Task<IReadOnlyList<ApiTokenDto>> Handle(GetApiTokensRequest request, CancellationToken cancellationToken)
@@ -26,10 +27,23 @@ internal class GetApiTokensHandler(
             : (await workspaceRepository.GetByIdsAsync(workspaceIds, cancellationToken))
                 .ToDictionary(w => w.Id, w => w.Name);
 
+        // Batch-load acting user display names.
+        var actingUserIds = tokens
+            .Where(t => t.ActingUserId is not null)
+            .Select(t => t.ActingUserId!.Value)
+            .Distinct()
+            .ToList();
+
+        var actingUserNames = actingUserIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await userRepository.GetByIdsAsync(actingUserIds, cancellationToken))
+                .ToDictionary(u => u.Id, u => u.DisplayName);
+
         return tokens
             .Select(t => ApiTokenDtoMapper.ToDto(
                 t,
-                t.WorkspaceId is { } id && workspaceNames.TryGetValue(id, out var name) ? name : null))
+                t.WorkspaceId is { } id && workspaceNames.TryGetValue(id, out var name) ? name : null,
+                t.ActingUserId is { } aId && actingUserNames.TryGetValue(aId, out var aName) ? aName : null))
             .ToList();
     }
 }

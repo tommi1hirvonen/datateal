@@ -88,7 +88,7 @@ public class UserSeedBackgroundService(
                     }
 
                     var isUserAdmin = userDef.Roles.Contains(DatatealRole.Admin);
-                    var newUser = new AppUser
+                    var newUser = new UserAccount
                     {
                         Id = Guid.CreateVersion7(),
                         Email = userDef.Email,

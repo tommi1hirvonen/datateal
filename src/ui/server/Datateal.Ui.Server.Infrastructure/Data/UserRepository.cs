@@ -7,8 +7,15 @@ namespace Datateal.Ui.Server.Infrastructure.Data;
 
 internal class UserRepository(DatatealDbContext db) : IUserRepository
 {
-    public async Task<IReadOnlyList<AppUser>> GetAllAsync(CancellationToken ct = default) =>
-        await db.AppUsers
+    public async Task<IReadOnlyList<UserAccount>> GetAllUserAccountsAsync(CancellationToken ct = default) =>
+        await db.UserAccounts
+            .Include(u => u.CatalogAccessList)
+                .ThenInclude(a => a.Catalog)
+            .OrderBy(u => u.Email)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ServiceAccount>> GetAllServiceAccountsAsync(CancellationToken ct = default) =>
+        await db.ServiceAccounts
             .Include(u => u.CatalogAccessList)
                 .ThenInclude(a => a.Catalog)
             .OrderBy(u => u.Email)
@@ -34,6 +41,12 @@ internal class UserRepository(DatatealDbContext db) : IUserRepository
         return query.AnyAsync(ct);
     }
 
+    public async Task<IReadOnlyList<AppUser>> GetByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken ct = default) =>
+        await db.AppUsers
+            .AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .ToListAsync(ct);
+
     public async Task<AppUser> CreateAsync(AppUser user, CancellationToken ct = default)
     {
         db.AppUsers.Add(user);
@@ -56,33 +69,7 @@ internal class UserRepository(DatatealDbContext db) : IUserRepository
         existing.HasAllCatalogAccess = hasAllCatalogAccess;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        // Replace catalog access atomically.  ExecuteDeleteAsync bypasses the change
-        // tracker so there is no EF identity conflict with previously-loaded entries.
-        // Wrap in CreateExecutionStrategy().ExecuteAsync() because
-        // NpgsqlRetryingExecutionStrategy does not allow user-initiated transactions
-        // outside of a retriable unit.
-        var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
-        {
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-            await db.UserCatalogAccess
-                .Where(a => a.UserId == id)
-                .ExecuteDeleteAsync(ct);
-
-            foreach (var catalogId in catalogIds)
-            {
-                db.UserCatalogAccess.Add(new UserCatalogAccess
-                {
-                    Id = Guid.CreateVersion7(),
-                    UserId = id,
-                    CatalogId = catalogId,
-                });
-            }
-
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-        });
+        await ReplaceCatalogAccessAsync(id, catalogIds, ct);
 
         // Populate CatalogAccessList on the entity for DTO mapping
         existing.CatalogAccessList = await db.UserCatalogAccess
@@ -93,6 +80,36 @@ internal class UserRepository(DatatealDbContext db) : IUserRepository
         return existing;
     }
 
+    public async Task<ServiceAccount?> UpdateServiceAccountAsync(Guid id, string name, string? description,
+        bool isEnabled, List<string> roles, bool hasAllCatalogAccess, List<Guid> catalogIds,
+        CancellationToken ct = default)
+    {
+        var existing = await db.ServiceAccounts.FirstOrDefaultAsync(u => u.Id == id, ct);
+        if (existing is null) return null;
+
+        existing.Email = name;
+        existing.DisplayName = name;
+        existing.Description = description;
+        existing.IsEnabled = isEnabled;
+        existing.Roles = roles;
+        existing.HasAllCatalogAccess = hasAllCatalogAccess;
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        await ReplaceCatalogAccessAsync(id, catalogIds, ct);
+
+        existing.CatalogAccessList = await db.UserCatalogAccess
+            .Where(a => a.UserId == id)
+            .Include(a => a.Catalog)
+            .ToListAsync(ct);
+
+        return existing;
+    }
+
+    public Task<int> GetActiveTokenCountByActingUserAsync(Guid userId, CancellationToken ct = default) =>
+        db.ApiTokens
+            .Where(t => t.ActingUserId == userId && !t.IsRevoked)
+            .CountAsync(ct);
+
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
     {
         var user = await db.AppUsers.FindAsync([id], ct);
@@ -100,5 +117,36 @@ internal class UserRepository(DatatealDbContext db) : IUserRepository
         db.AppUsers.Remove(user);
         await db.SaveChangesAsync(ct);
         return true;
+    }
+
+    /// <summary>
+    /// Atomically replaces a user's catalog access list. Wrapped in an execution strategy
+    /// because <see cref="Npgsql.EntityFrameworkCore.PostgreSQL"/> retrying strategy forbids
+    /// user-initiated transactions outside a retriable unit.
+    /// </summary>
+    private async Task ReplaceCatalogAccessAsync(Guid userId, List<Guid> catalogIds, CancellationToken ct)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+            await db.UserCatalogAccess
+                .Where(a => a.UserId == userId)
+                .ExecuteDeleteAsync(ct);
+
+            foreach (var catalogId in catalogIds)
+            {
+                db.UserCatalogAccess.Add(new UserCatalogAccess
+                {
+                    Id = Guid.CreateVersion7(),
+                    UserId = userId,
+                    CatalogId = catalogId,
+                });
+            }
+
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        });
     }
 }

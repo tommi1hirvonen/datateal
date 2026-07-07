@@ -5,6 +5,7 @@
 @using Datateal.Ui.Shared.Users
 @using Datateal.Ui.Shared.Workspaces
 @inject IUserService UserService
+@inject IServiceAccountService ServiceAccountService
 @inject ICatalogService CatalogService
 @inject IWorkspaceManagementService WorkspaceService
 
@@ -25,78 +26,248 @@
            Style="margin-bottom: 16px;" />
 }
 
-<Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
-    <Button Type="@ButtonType.Primary" OnClick="StartCreate">
-        <Icon Type="@IconType.Outline.Plus" /> New user
-    </Button>
-</Flex>
+<Tabs DefaultActiveKey="users" OnChange="OnTabChange">
+    <TabPane Key="users" Tab="User Accounts">
+        <div style="margin-top: 12px;">
+            <Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
+                <Button Type="@ButtonType.Primary" OnClick="StartCreate">
+                    <Icon Type="@IconType.Outline.Plus" /> New user
+                </Button>
+            </Flex>
+            <Spin Spinning="_loading">
+                <Table TItem="AppUserDto" DataSource="_users" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
+                    <PropertyColumn Property="u => u.Email" Title="Email" Sortable>
+                        <span style="font-family: monospace;">@context.Email</span>
+                    </PropertyColumn>
+                    <PropertyColumn Property="u => u.DisplayName" Title="Display Name" Sortable />
+                    <PropertyColumn Property="u => u.IsEnabled" Title="Status" Sortable>
+                        @if (context.IsEnabled)
+                        {
+                            <Tag Color="@("green")">Enabled</Tag>
+                        }
+                        else
+                        {
+                            <Tag Color="@("red")">Disabled</Tag>
+                        }
+                    </PropertyColumn>
+                    <PropertyColumn Property="u => u.Roles" Title="Roles">
+                        @foreach (var role in context.Roles)
+                        {
+                            <Tag Color="@("blue")" Style="margin-bottom: 2px;">@role</Tag>
+                        }
+                    </PropertyColumn>
+                    <PropertyColumn Property="u => u.HasAllCatalogAccess" Title="Catalog Access">
+                        @if (context.Roles.Contains(DatatealRole.Admin) || context.Roles.Contains(DatatealRole.CatalogContributor))
+                        {
+                            <span>All (implicit)</span>
+                        }
+                        else if (context.HasAllCatalogAccess)
+                        {
+                            <span>All</span>
+                        }
+                        else if (context.CatalogAccessList.Count > 0)
+                        {
+                            <span>@context.CatalogAccessList.Count catalog(s)</span>
+                        }
+                        else
+                        {
+                            <span style="color: #8c8c8c;">None</span>
+                        }
+                    </PropertyColumn>
+                    <PropertyColumn Property="u => u.CreatedAt" Title="Created" Sortable>
+                        @context.CreatedAt.ToString("yyyy-MM-dd")
+                    </PropertyColumn>
+                    <ActionColumn Title="Actions">
+                        <Space>
+                            <SpaceItem>
+                                <Tooltip Title="Edit">
+                                    <Button Size="@ButtonSize.Small" OnClick="() => StartEdit(context)">
+                                        <Icon Type="@IconType.Outline.Edit" />
+                                    </Button>
+                                </Tooltip>
+                            </SpaceItem>
+                            <SpaceItem>
+                                <Tooltip Title="Delete">
+                                    <Popconfirm Title="@($"Delete user '{context.Email}'?")"
+                                                OnConfirm="() => DeleteAsync(context)">
+                                        <Button Danger Size="@ButtonSize.Small">
+                                            <Icon Type="@IconType.Outline.Delete" />
+                                        </Button>
+                                    </Popconfirm>
+                                </Tooltip>
+                            </SpaceItem>
+                        </Space>
+                    </ActionColumn>
+                </Table>
+            </Spin>
+        </div>
+    </TabPane>
 
-<Spin Spinning="_loading">
-    <Table TItem="AppUserDto" DataSource="_users" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
-        <PropertyColumn Property="u => u.Email" Title="Email" Sortable>
-            <span style="font-family: monospace;">@context.Email</span>
-        </PropertyColumn>
-        <PropertyColumn Property="u => u.DisplayName" Title="Display Name" Sortable />
-        <PropertyColumn Property="u => u.IsEnabled" Title="Status" Sortable>
-            @if (context.IsEnabled)
+    <TabPane Key="service-accounts" Tab="Service Accounts">
+        <div style="margin-top: 12px;">
+            <p style="color: #8c8c8c; max-width: 720px; margin-bottom: 12px;">
+                Service accounts are non-interactive identities for automation and CI/CD pipelines.
+                Assign a service account as the <b>acting user</b> on an API token so that jobs
+                deployed via that token are owned by the service account — not by the token creator.
+            </p>
+            <Flex Justify="FlexJustify.FlexEnd" Style="margin-bottom: 12px;">
+                <Button Type="@ButtonType.Primary" OnClick="StartCreateServiceAccount">
+                    <Icon Type="@IconType.Outline.Plus" /> New service account
+                </Button>
+            </Flex>
+            <Spin Spinning="_loadingSa">
+                <Table TItem="ServiceAccountDto" DataSource="_serviceAccounts" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
+                    <PropertyColumn Property="sa => sa.Email" Title="Name" Sortable>
+                        <span style="font-family: monospace;">@context.Email</span>
+                    </PropertyColumn>
+                    <PropertyColumn Property="sa => sa.Description" Title="Description" Sortable>
+                        @(context.Description ?? "—")
+                    </PropertyColumn>
+                    <PropertyColumn Property="sa => sa.IsEnabled" Title="Status" Sortable>
+                        @if (context.IsEnabled)
+                        {
+                            <Tag Color="@("green")">Enabled</Tag>
+                        }
+                        else
+                        {
+                            <Tag Color="@("red")">Disabled</Tag>
+                        }
+                    </PropertyColumn>
+                    <PropertyColumn Property="sa => sa.Roles" Title="Roles">
+                        @foreach (var role in context.Roles)
+                        {
+                            <Tag Color="@("blue")" Style="margin-bottom: 2px;">@role</Tag>
+                        }
+                    </PropertyColumn>
+                    <PropertyColumn Property="sa => sa.HasAllCatalogAccess" Title="Catalog Access">
+                        @if (context.Roles.Contains(DatatealRole.Admin) || context.Roles.Contains(DatatealRole.CatalogContributor))
+                        {
+                            <span>All (implicit)</span>
+                        }
+                        else if (context.HasAllCatalogAccess)
+                        {
+                            <span>All</span>
+                        }
+                        else if (context.CatalogAccessList.Count > 0)
+                        {
+                            <span>@context.CatalogAccessList.Count catalog(s)</span>
+                        }
+                        else
+                        {
+                            <span style="color: #8c8c8c;">None</span>
+                        }
+                    </PropertyColumn>
+                    <PropertyColumn Property="sa => sa.CreatedAt" Title="Created" Sortable>
+                        @context.CreatedAt.ToString("yyyy-MM-dd")
+                    </PropertyColumn>
+                    <ActionColumn Title="Actions">
+                        <Space>
+                            <SpaceItem>
+                                <Tooltip Title="Edit">
+                                    <Button Size="@ButtonSize.Small" OnClick="() => StartEditServiceAccount(context)">
+                                        <Icon Type="@IconType.Outline.Edit" />
+                                    </Button>
+                                </Tooltip>
+                            </SpaceItem>
+                            <SpaceItem>
+                                <Tooltip Title="Delete">
+                                    <Popconfirm Title="@($"Delete service account '{context.Email}'?")"
+                                                OkText="Delete"
+                                                OnConfirm="() => DeleteServiceAccountAsync(context)">
+                                        <Button Danger Size="@ButtonSize.Small">
+                                            <Icon Type="@IconType.Outline.Delete" />
+                                        </Button>
+                                    </Popconfirm>
+                                </Tooltip>
+                            </SpaceItem>
+                        </Space>
+                    </ActionColumn>
+                </Table>
+            </Spin>
+        </div>
+    </TabPane>
+</Tabs>
+
+<Drawer Closable="true" @bind-Visible="_showSaModal" Placement="DrawerPlacement.Right"
+        Width="520" Title="@(_editSaTarget is null ? "New service account" : "Edit service account")"
+        OnClose="() => _showSaModal = false"
+        BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+    <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        <Form Model="@_saForm" Layout="FormLayout.Vertical">
+            <FormItem Label="Name">
+                <Input @bind-Value="context.Name" Placeholder="svc-data-pipeline"
+                       BindOnInput
+                       Class="@(SaNameDisplayError is not null ? "ant-input-status-error" : "")"
+                       Disabled="@(_editSaTarget is not null)" />
+                @if (SaNameDisplayError is not null)
+                {
+                    <div class="ant-form-item-explain-error">@SaNameDisplayError</div>
+                }
+            </FormItem>
+
+            <FormItem Label="Description (optional)">
+                <Input @bind-Value="context.Description" Placeholder="Describe this service account's purpose" />
+            </FormItem>
+
+            @if (_editSaTarget is not null)
             {
-                <Tag Color="@("green")">Enabled</Tag>
+                <FormItem Label="Enabled">
+                    <Switch @bind-Checked="context.IsEnabled" />
+                </FormItem>
             }
-            else
+
+            <FormItem Label="Roles">
+                <div style="color: #8c8c8c; font-size: 12px; margin-bottom: 8px;">
+                    Tenant-wide roles. Service accounts do not have per-workspace roles
+                    via this form — grant them from each workspace's <b>Members</b> list.
+                </div>
+                <CheckboxGroup @bind-Value="_selectedSaRoles" TValue="string" Style="width:100%">
+                    <GridRow Gutter="(0, 8)">
+                        @foreach (var role in DatatealRole.TenantGlobal)
+                        {
+                            <GridCol Span="12">
+                                <Checkbox Label="@role">@role</Checkbox>
+                            </GridCol>
+                        }
+                    </GridRow>
+                </CheckboxGroup>
+            </FormItem>
+
+            <FormItem Label="Catalog Access">
+                <Checkbox Checked="_saForm.HasAllCatalogAccess"
+                          CheckedChanged="v => _saForm.HasAllCatalogAccess = v">
+                    Access to all catalogs (present and future)
+                </Checkbox>
+            </FormItem>
+
+            @if (!_saForm.HasAllCatalogAccess && !_selectedSaRoles.Contains(DatatealRole.Admin)
+                && !_selectedSaRoles.Contains(DatatealRole.CatalogContributor))
             {
-                <Tag Color="@("red")">Disabled</Tag>
+                <FormItem Label="Specific Catalogs">
+                    <Select TItem="CatalogDto"
+                            TItemValue="Guid"
+                            DataSource="_catalogs"
+                            Mode="@SelectMode.Multiple"
+                            @bind-Values="_selectedSaCatalogIds"
+                            ValueName="@nameof(CatalogDto.Id)"
+                            LabelName="@nameof(CatalogDto.Name)"
+                            Placeholder="Select catalogs..."
+                            AllowClear />
+                </FormItem>
             }
-        </PropertyColumn>
-        <PropertyColumn Property="u => u.Roles" Title="Roles">
-            @foreach (var role in context.Roles)
+
+            @if (_saveSaError is not null)
             {
-                <Tag Color="@("blue")" Style="margin-bottom: 2px;">@role</Tag>
+                <Alert Type="@AlertType.Error" Message="@_saveSaError" ShowIcon="true" />
             }
-        </PropertyColumn>
-        <PropertyColumn Property="u => u.HasAllCatalogAccess" Title="Catalog Access">
-            @if (context.Roles.Contains(DatatealRole.Admin) || context.Roles.Contains(DatatealRole.CatalogContributor))
-            {
-                <span>All (implicit)</span>
-            }
-            else if (context.HasAllCatalogAccess)
-            {
-                <span>All</span>
-            }
-            else if (context.CatalogAccessList.Count > 0)
-            {
-                <span>@context.CatalogAccessList.Count catalog(s)</span>
-            }
-            else
-            {
-                <span style="color: #8c8c8c;">None</span>
-            }
-        </PropertyColumn>
-        <PropertyColumn Property="u => u.CreatedAt" Title="Created" Sortable>
-            @context.CreatedAt.ToString("yyyy-MM-dd")
-        </PropertyColumn>
-        <ActionColumn Title="Actions">
-            <Space>
-                <SpaceItem>
-                    <Tooltip Title="Edit">
-                        <Button Size="@ButtonSize.Small" OnClick="() => StartEdit(context)">
-                            <Icon Type="@IconType.Outline.Edit" />
-                        </Button>
-                    </Tooltip>
-                </SpaceItem>
-                <SpaceItem>
-                    <Tooltip Title="Delete">
-                        <Popconfirm Title="@($"Delete user '{context.Email}'?")"
-                                    OnConfirm="() => DeleteAsync(context)">
-                            <Button Danger Size="@ButtonSize.Small">
-                                <Icon Type="@IconType.Outline.Delete" />
-                            </Button>
-                        </Popconfirm>
-                    </Tooltip>
-                </SpaceItem>
-            </Space>
-        </ActionColumn>
-    </Table>
-</Spin>
+        </Form>
+    </div>
+    <div class="drawer-footer">
+        <Button OnClick="() => _showSaModal = false">Cancel</Button>
+        <Button Type="@ButtonType.Primary" OnClick="ConfirmSaveSa"
+                Disabled="@(!IsSaFormValid() || _savingSa)" Loading="_savingSa">Save</Button>
+    </div>
+</Drawer>
 
 <Drawer Closable="true" @bind-Visible="_showModal" Placement="DrawerPlacement.Right"
         Width="520" Title="@(_editTarget is null ? "New user" : "Edit user")"
@@ -232,13 +403,17 @@
 </Drawer>
 
 @code {
+    // ── State ───────────────────────────────────────────────────────────────
     private IReadOnlyList<AppUserDto> _users = [];
+    private IReadOnlyList<ServiceAccountDto> _serviceAccounts = [];
     private IReadOnlyList<CatalogDto> _catalogs = [];
     private IReadOnlyList<WorkspaceDto> _workspaces = [];
     private Dictionary<Guid, IReadOnlyList<WorkspaceMemberDto>> _membershipsByWorkspace = [];
     private bool _loading = true;
+    private bool _loadingSa = true;
     private string? _error;
 
+    // ── User drawer ─────────────────────────────────────────────────────────
     private bool _showModal;
     private AppUserDto? _editTarget;
     private UserFormModel _form = new();
@@ -246,12 +421,23 @@
     private string? _saveError;
     private bool _submitAttempted;
 
-    // Checkbox group binding
     private string[] _selectedRoles = [];
     private IEnumerable<Guid> _selectedCatalogIds = [];
-
-    // Per-workspace roles selected in the modal, keyed by workspace id.
     private Dictionary<Guid, string[]> _workspaceRoles = [];
+
+    // ── Service account drawer ──────────────────────────────────────────────
+    private bool _showSaModal;
+    private ServiceAccountDto? _editSaTarget;
+    private ServiceAccountFormModel _saForm = new();
+    private bool _savingSa;
+    private string? _saveSaError;
+    private bool _submitSaAttempted;
+
+    private string[] _selectedSaRoles = [];
+    private IEnumerable<Guid> _selectedSaCatalogIds = [];
+
+    // ── Tab ─────────────────────────────────────────────────────────────────
+    private string _activeTab = "users";
 
     private IEnumerable<string> WorkspaceRolesFor(Guid workspaceId) =>
         _workspaceRoles.TryGetValue(workspaceId, out var roles) ? roles : [];
@@ -262,6 +448,7 @@
     private RenderFragment RoleInfoContent(string role) =>
         @<span style="max-width: 260px; display: block;">@RoleCatalog.Describe(role)</span>;
 
+    // ── User validation ─────────────────────────────────────────────────────
     private string? EmailDisplayError =>
         (_submitAttempted || !string.IsNullOrEmpty(_form.Email)) ? GetEmailError() : null;
 
@@ -288,9 +475,25 @@
         return true;
     }
 
+    // ── Service account validation ──────────────────────────────────────────
+    private string? SaNameDisplayError =>
+        (_submitSaAttempted || !string.IsNullOrEmpty(_saForm.Name)) ? GetSaNameError() : null;
+
+    private string? GetSaNameError()
+    {
+        if (string.IsNullOrWhiteSpace(_saForm.Name)) return "Name is required.";
+        if (_serviceAccounts.Any(sa => sa.Email.Equals(_saForm.Name.Trim(), StringComparison.OrdinalIgnoreCase)
+                                       && sa != _editSaTarget))
+            return "A service account with this name already exists.";
+        return null;
+    }
+
+    private bool IsSaFormValid() => GetSaNameError() is null;
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
-        await Task.WhenAll(LoadUsersAsync(), LoadCatalogsAsync(), LoadWorkspacesAsync());
+        await Task.WhenAll(LoadUsersAsync(), LoadServiceAccountsAsync(), LoadCatalogsAsync(), LoadWorkspacesAsync());
     }
 
     private async Task LoadUsersAsync()
@@ -301,10 +504,18 @@
         finally { _loading = false; }
     }
 
+    private async Task LoadServiceAccountsAsync()
+    {
+        _loadingSa = true;
+        try { _serviceAccounts = await ServiceAccountService.GetServiceAccountsAsync(); }
+        catch (Exception ex) { _error = $"Failed to load service accounts: {ex.Message}"; }
+        finally { _loadingSa = false; }
+    }
+
     private async Task LoadCatalogsAsync()
     {
         try { _catalogs = await CatalogService.GetAllCatalogsAsync(); }
-        catch { /* non-fatal — catalog picker just won't have data */ }
+        catch { /* non-fatal */ }
     }
 
     private async Task LoadWorkspacesAsync()
@@ -314,7 +525,7 @@
             _workspaces = await WorkspaceService.GetAccessibleAsync();
             await LoadMembershipsAsync();
         }
-        catch { /* non-fatal — workspace access section just won't have data */ }
+        catch { /* non-fatal */ }
     }
 
     private async Task LoadMembershipsAsync()
@@ -328,14 +539,16 @@
         _membershipsByWorkspace = map;
     }
 
+    private void OnTabChange(string key) => _activeTab = key;
+
+    // ── User CRUD ───────────────────────────────────────────────────────────
     private Dictionary<Guid, string[]> BuildWorkspaceRoles(Guid? userId)
     {
         var map = new Dictionary<Guid, string[]>();
         foreach (var ws in _workspaces)
         {
             string[] roles = [];
-            if (userId is not null
-                && _membershipsByWorkspace.TryGetValue(ws.Id, out var members))
+            if (userId is not null && _membershipsByWorkspace.TryGetValue(ws.Id, out var members))
             {
                 var membership = members.FirstOrDefault(m => m.UserId == userId);
                 if (membership is not null) roles = membership.Roles.ToArray();
@@ -457,6 +670,80 @@
         catch (Exception ex) { _error = $"Failed to delete user: {ex.Message}"; }
     }
 
+    // ── Service account CRUD ────────────────────────────────────────────────
+    private void StartCreateServiceAccount()
+    {
+        _editSaTarget = null;
+        _saForm = new ServiceAccountFormModel();
+        _selectedSaRoles = [];
+        _selectedSaCatalogIds = [];
+        _submitSaAttempted = false;
+        _saveSaError = null;
+        _showSaModal = true;
+    }
+
+    private void StartEditServiceAccount(ServiceAccountDto sa)
+    {
+        _editSaTarget = sa;
+        _saForm = new ServiceAccountFormModel
+        {
+            Name = sa.Email,
+            Description = sa.Description ?? "",
+            IsEnabled = sa.IsEnabled,
+            HasAllCatalogAccess = sa.HasAllCatalogAccess,
+        };
+        _selectedSaRoles = sa.Roles.ToArray();
+        _selectedSaCatalogIds = sa.CatalogAccessList.Select(a => a.CatalogId);
+        _submitSaAttempted = false;
+        _saveSaError = null;
+        _showSaModal = true;
+    }
+
+    private async Task ConfirmSaveSa()
+    {
+        _submitSaAttempted = true;
+        if (!IsSaFormValid()) return;
+
+        _savingSa = true;
+        _saveSaError = null;
+        try
+        {
+            var roles = _selectedSaRoles.ToList();
+            var catalogIds = _saForm.HasAllCatalogAccess
+                || roles.Contains(DatatealRole.Admin)
+                || roles.Contains(DatatealRole.CatalogContributor)
+                    ? []
+                    : _selectedSaCatalogIds.ToList();
+            var description = string.IsNullOrWhiteSpace(_saForm.Description) ? null : _saForm.Description.Trim();
+
+            if (_editSaTarget is null)
+            {
+                await ServiceAccountService.CreateServiceAccountAsync(new CreateServiceAccountRequest(
+                    _saForm.Name.Trim(), description, roles, _saForm.HasAllCatalogAccess, catalogIds));
+            }
+            else
+            {
+                await ServiceAccountService.UpdateServiceAccountAsync(_editSaTarget.Id, new UpdateServiceAccountRequest(
+                    _saForm.Name.Trim(), description, _saForm.IsEnabled, roles, _saForm.HasAllCatalogAccess, catalogIds));
+            }
+            _showSaModal = false;
+            await LoadServiceAccountsAsync();
+        }
+        catch (Exception ex) { _saveSaError = $"Failed to save service account: {ex.Message}"; }
+        finally { _savingSa = false; }
+    }
+
+    private async Task DeleteServiceAccountAsync(ServiceAccountDto sa)
+    {
+        try
+        {
+            await ServiceAccountService.DeleteServiceAccountAsync(sa.Id);
+            await LoadServiceAccountsAsync();
+        }
+        catch (Exception ex) { _error = $"Failed to delete service account: {ex.Message}"; }
+    }
+
+    // ── Form models ─────────────────────────────────────────────────────────
     private class UserFormModel
     {
         public string Email { get; set; } = "";
@@ -464,5 +751,13 @@
         public bool IsEnabled { get; set; } = true;
         public bool HasAllCatalogAccess { get; set; }
         public List<string> SelectedRoles { get; set; } = [];
+    }
+
+    private class ServiceAccountFormModel
+    {
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public bool IsEnabled { get; set; } = true;
+        public bool HasAllCatalogAccess { get; set; }
     }
 }
