@@ -37,7 +37,7 @@ internal class WorkspaceService(HttpClient httpClient, IActiveWorkspaceAccessor 
     {
         var response = await httpClient.GetAsync($"{Ws}/notebooks/{id}", cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return await response.Content.ReadFromJsonAsync<NotebookDetail>(JsonOptions, cancellationToken);
     }
 
@@ -49,14 +49,14 @@ internal class WorkspaceService(HttpClient httpClient, IActiveWorkspaceAccessor 
             JsonOptions,
             cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return await response.Content.ReadFromJsonAsync<ResolvedWorkspaceItem>(JsonOptions, cancellationToken);
     }
 
     public async Task<FolderSummary> CreateFolderAsync(CreateFolderRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync($"{Ws}/folders", request, JsonOptions, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return (await response.Content.ReadFromJsonAsync<FolderSummary>(JsonOptions, cancellationToken))!;
     }
 
@@ -64,21 +64,20 @@ internal class WorkspaceService(HttpClient httpClient, IActiveWorkspaceAccessor 
     {
         var response = await httpClient.PutAsJsonAsync($"{Ws}/folders/{id}", request, JsonOptions, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return await response.Content.ReadFromJsonAsync<FolderSummary>(JsonOptions, cancellationToken);
     }
 
     public async Task DeleteFolderAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.DeleteAsync($"{Ws}/folders/{id}", cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
     }
 
     public async Task<WorkspaceItemSummary> CreateNotebookAsync(CreateNotebookRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync($"{Ws}/notebooks", request, JsonOptions, cancellationToken);
-        await EnsureNotConflictAsync(response, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return (await response.Content.ReadFromJsonAsync<WorkspaceItemSummary>(JsonOptions, cancellationToken))!;
     }
 
@@ -86,30 +85,28 @@ internal class WorkspaceService(HttpClient httpClient, IActiveWorkspaceAccessor 
     {
         var response = await httpClient.PutAsJsonAsync($"{Ws}/notebooks/{id}", request, JsonOptions, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        await EnsureNotConflictAsync(response, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return await response.Content.ReadFromJsonAsync<WorkspaceItemSummary>(JsonOptions, cancellationToken);
     }
 
     public async Task DeleteNotebookAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.DeleteAsync($"{Ws}/notebooks/{id}", cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
     }
 
     public async Task<QueryDetail?> GetQueryAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.GetAsync($"{Ws}/queries/{id}", cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return await response.Content.ReadFromJsonAsync<QueryDetail>(JsonOptions, cancellationToken);
     }
 
     public async Task<WorkspaceItemSummary> CreateQueryAsync(CreateQueryRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync($"{Ws}/queries", request, JsonOptions, cancellationToken);
-        await EnsureNotConflictAsync(response, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return (await response.Content.ReadFromJsonAsync<WorkspaceItemSummary>(JsonOptions, cancellationToken))!;
     }
 
@@ -117,31 +114,13 @@ internal class WorkspaceService(HttpClient httpClient, IActiveWorkspaceAccessor 
     {
         var response = await httpClient.PutAsJsonAsync($"{Ws}/queries/{id}", request, JsonOptions, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        await EnsureNotConflictAsync(response, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return await response.Content.ReadFromJsonAsync<WorkspaceItemSummary>(JsonOptions, cancellationToken);
     }
 
     public async Task DeleteQueryAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.DeleteAsync($"{Ws}/queries/{id}", cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
     }
-
-    private static async Task EnsureNotConflictAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        if (response.StatusCode != HttpStatusCode.Conflict) return;
-
-        string? detail = null;
-        try
-        {
-            var problem = await response.Content.ReadFromJsonAsync<ConflictProblem>(JsonOptions, cancellationToken);
-            detail = problem?.Detail;
-        }
-        catch { /* fall through to default message */ }
-
-        throw new InvalidOperationException(detail ?? "A notebook or query with this title already exists in the selected folder.");
-    }
-
-    private sealed record ConflictProblem(string? Detail);
 }

@@ -27,15 +27,14 @@ internal class JobService(HttpClient httpClient, IActiveWorkspaceAccessor worksp
     {
         var response = await httpClient.GetAsync($"{Ws}/jobs/{id}", ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadFromJsonAsync<JobDetail>(JsonOptions, ct);
     }
 
     public async Task<JobSummary> CreateJobAsync(CreateJobRequest request, CancellationToken ct)
     {
         var response = await httpClient.PostAsJsonAsync($"{Ws}/jobs", request, JsonOptions, ct);
-        await EnsureNoJobErrorAsync(response, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<JobSummary>(JsonOptions, ct))!;
     }
 
@@ -43,22 +42,21 @@ internal class JobService(HttpClient httpClient, IActiveWorkspaceAccessor worksp
     {
         var response = await httpClient.PutAsJsonAsync($"{Ws}/jobs/{id}", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        await EnsureNoJobErrorAsync(response, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadFromJsonAsync<JobSummary>(JsonOptions, ct);
     }
 
     public async Task DeleteJobAsync(Guid id, CancellationToken ct)
     {
         var response = await httpClient.DeleteAsync($"{Ws}/jobs/{id}", ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 
     public async Task<JobRunSummary> TriggerJobAsync(Guid id, TriggerJobRequest? request, CancellationToken ct)
     {
         var response = await httpClient.PostAsJsonAsync($"{Ws}/jobs/{id}/trigger",
             request ?? new TriggerJobRequest(), JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<JobRunSummary>(JsonOptions, ct))!;
     }
 
@@ -83,14 +81,14 @@ internal class JobService(HttpClient httpClient, IActiveWorkspaceAccessor worksp
     {
         var response = await httpClient.GetAsync($"{Ws}/runs/{runId}", ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadFromJsonAsync<JobRunDetail>(JsonOptions, ct);
     }
 
     public async Task CancelRunAsync(Guid runId, CancellationToken ct)
     {
         var response = await httpClient.PostAsync($"{Ws}/runs/{runId}/cancel", null, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 
     public async Task<IReadOnlyList<CellOutputDto>> GetCellOutputsAsync(Guid runId, Guid taskRunId, CancellationToken ct)
@@ -108,7 +106,7 @@ internal class JobService(HttpClient httpClient, IActiveWorkspaceAccessor worksp
     public async Task<ScheduleDto> CreateScheduleAsync(Guid jobId, CreateScheduleRequest request, CancellationToken ct)
     {
         var response = await httpClient.PostAsJsonAsync($"{Ws}/jobs/{jobId}/schedules", request, JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<ScheduleDto>(JsonOptions, ct))!;
     }
 
@@ -116,14 +114,14 @@ internal class JobService(HttpClient httpClient, IActiveWorkspaceAccessor worksp
     {
         var response = await httpClient.PutAsJsonAsync($"{Ws}/jobs/{jobId}/schedules/{scheduleId}", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadFromJsonAsync<ScheduleDto>(JsonOptions, ct);
     }
 
     public async Task DeleteScheduleAsync(Guid jobId, Guid scheduleId, CancellationToken ct)
     {
         var response = await httpClient.DeleteAsync($"{Ws}/jobs/{jobId}/schedules/{scheduleId}", ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 
     public async Task<IReadOnlyList<TimeZoneDto>> GetTimeZonesAsync(CancellationToken ct)
@@ -135,36 +133,14 @@ internal class JobService(HttpClient httpClient, IActiveWorkspaceAccessor worksp
     public async Task<string> ExportJobAsync(Guid id, CancellationToken ct)
     {
         var response = await httpClient.GetAsync($"{Ws}/jobs/{id}/export", ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadAsStringAsync(ct);
     }
 
     public async Task<JobSummary> ImportJobAsync(string yaml, CancellationToken ct)
     {
         var response = await httpClient.PostAsJsonAsync($"{Ws}/jobs/import", new { yaml }, JsonOptions, ct);
-        await EnsureNoJobErrorAsync(response, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<JobSummary>(JsonOptions, ct))!;
     }
-
-    /// <summary>
-    /// Reads the <c>{ "error": "..." }</c> body from 400 Bad Request and 409 Conflict responses
-    /// and throws <see cref="InvalidOperationException"/> with that message so callers display it correctly.
-    /// </summary>
-    private static async Task EnsureNoJobErrorAsync(HttpResponseMessage response, CancellationToken ct)
-    {
-        if (response.StatusCode is not (HttpStatusCode.BadRequest or HttpStatusCode.Conflict)) return;
-
-        string? message = null;
-        try
-        {
-            var body = await response.Content.ReadFromJsonAsync<JobErrorBody>(JsonOptions, ct);
-            message = body?.Error;
-        }
-        catch { /* fall through to default message */ }
-
-        throw new InvalidOperationException(message ?? "The operation failed. Please check the job configuration.");
-    }
-
-    private sealed record JobErrorBody(string? Error);
 }

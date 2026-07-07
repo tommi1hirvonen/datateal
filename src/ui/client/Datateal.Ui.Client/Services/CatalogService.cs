@@ -34,20 +34,20 @@ internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor wo
     public async Task SetWorkspaceAccessAsync(Guid catalogId, SetCatalogWorkspaceAccessRequest request, CancellationToken ct = default)
     {
         var response = await httpClient.PutAsJsonAsync($"api/catalogs/{catalogId}/workspace-access", request, JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 
     public async Task<ManagedCatalogDto> CreateManagedCatalogAsync(CreateManagedCatalogRequest request, CancellationToken ct = default)
     {
         var response = await httpClient.PostAsJsonAsync("api/catalogs/managed", request, JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<ManagedCatalogDto>(JsonOptions, ct))!;
     }
 
     public async Task<UnmanagedCatalogDto> CreateUnmanagedCatalogAsync(CreateUnmanagedCatalogRequest request, CancellationToken ct = default)
     {
         var response = await httpClient.PostAsJsonAsync("api/catalogs/unmanaged", request, JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<UnmanagedCatalogDto>(JsonOptions, ct))!;
     }
 
@@ -55,7 +55,7 @@ internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor wo
     {
         var response = await httpClient.PutAsJsonAsync($"api/catalogs/{id}/managed", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadFromJsonAsync<ManagedCatalogDto>(JsonOptions, ct);
     }
 
@@ -63,7 +63,7 @@ internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor wo
     {
         var response = await httpClient.PutAsJsonAsync($"api/catalogs/{id}/unmanaged", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadFromJsonAsync<UnmanagedCatalogDto>(JsonOptions, ct);
     }
 
@@ -77,7 +77,7 @@ internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor wo
     public async Task DeleteCatalogAsync(Guid id, bool dropDatabase, CancellationToken ct = default)
     {
         var response = await httpClient.DeleteAsync($"api/catalogs/{id}?dropDatabase={dropDatabase}", ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 
     public async Task<CatalogMetadataDto> GetMetadataAsync(Guid catalogId, CancellationToken ct = default) =>
@@ -93,7 +93,7 @@ internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor wo
         var response = await httpClient.PostAsJsonAsync(
             $"{Ws}/nodes/{nodeName}/kernels/{kernelId}/catalogs/setup",
             new KernelCatalogSetupRequest(catalogNames), JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, ct))!;
     }
 
@@ -101,7 +101,7 @@ internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor wo
     {
         var response = await httpClient.PostAsync(
             $"{Ws}/nodes/{nodeName}/kernels/{kernelId}/catalogs/{Uri.EscapeDataString(catalogName)}/connect", null, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, ct))!;
     }
 
@@ -109,7 +109,7 @@ internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor wo
     {
         var response = await httpClient.PostAsync(
             $"{Ws}/nodes/{nodeName}/kernels/{kernelId}/catalogs/{Uri.EscapeDataString(catalogName)}/disconnect", null, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, ct))!;
     }
 
@@ -120,6 +120,6 @@ internal class CatalogService(HttpClient httpClient, IActiveWorkspaceAccessor wo
     {
         var response = await httpClient.PutAsJsonAsync($"{Ws}/items/{itemId}/catalogs",
             new UpdateWorkspaceItemCatalogsRequest(catalogNames), JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 }

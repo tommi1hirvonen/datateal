@@ -22,13 +22,13 @@ internal class WheelPackageService(HttpClient httpClient, IActiveWorkspaceAccess
         content.Add(new StreamContent(stream), "file", file.Name);
 
         var response = await httpClient.PostAsync(Ws, content, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<WheelPackageDto>(JsonOptions, ct))!;
     }
 
     public async Task DeletePackageAsync(Guid id, CancellationToken ct = default)
     {
         var response = await httpClient.DeleteAsync($"{Ws}/{id}", ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 }

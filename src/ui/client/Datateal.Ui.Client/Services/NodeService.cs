@@ -23,13 +23,13 @@ internal class NodeService(HttpClient httpClient, IActiveWorkspaceAccessor works
     {
         var response = await httpClient.GetAsync($"{Ws}/{name}", cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return await response.Content.ReadFromJsonAsync<NodeInfo>(JsonOptions, cancellationToken);
     }
 
     public async Task RemoveNodeAsync(string name, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.DeleteAsync($"{Ws}/{name}", cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
     }
 }

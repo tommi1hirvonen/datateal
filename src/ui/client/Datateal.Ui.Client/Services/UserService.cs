@@ -14,20 +14,20 @@ internal class UserService(HttpClient httpClient) : IUserService
     public async Task<AppUserDto> CreateUserAsync(CreateUserRequest request, CancellationToken ct = default)
     {
         var response = await httpClient.PostAsJsonAsync("api/users", request, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<AppUserDto>(ct))!;
     }
 
     public async Task<AppUserDto?> UpdateUserAsync(Guid id, UpdateUserRequest request, CancellationToken ct = default)
     {
         var response = await httpClient.PutAsJsonAsync($"api/users/{id}", request, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadFromJsonAsync<AppUserDto>(ct);
     }
 
     public async Task DeleteUserAsync(Guid id, CancellationToken ct = default)
     {
         var response = await httpClient.DeleteAsync($"api/users/{id}", ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 }

@@ -25,7 +25,7 @@ internal class EnvironmentService(HttpClient httpClient, IActiveWorkspaceAccesso
     public async Task<EnvironmentVariableDto> CreateVariableAsync(CreateEnvironmentVariableRequest request, CancellationToken ct)
     {
         var response = await httpClient.PostAsJsonAsync($"{Ws}/variables", request, JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<EnvironmentVariableDto>(JsonOptions, ct))!;
     }
 
@@ -33,14 +33,14 @@ internal class EnvironmentService(HttpClient httpClient, IActiveWorkspaceAccesso
     {
         var response = await httpClient.PutAsJsonAsync($"{Ws}/variables/{id}", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadFromJsonAsync<EnvironmentVariableDto>(JsonOptions, ct);
     }
 
     public async Task DeleteVariableAsync(Guid id, CancellationToken ct)
     {
         var response = await httpClient.DeleteAsync($"{Ws}/variables/{id}", ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 
     // ── Secrets ──────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ internal class EnvironmentService(HttpClient httpClient, IActiveWorkspaceAccesso
     public async Task<SecretDto> CreateSecretAsync(CreateSecretRequest request, CancellationToken ct)
     {
         var response = await httpClient.PostAsJsonAsync($"{Ws}/secrets", request, JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<SecretDto>(JsonOptions, ct))!;
     }
 
@@ -60,13 +60,13 @@ internal class EnvironmentService(HttpClient httpClient, IActiveWorkspaceAccesso
     {
         var response = await httpClient.PutAsJsonAsync($"{Ws}/secrets/{id}", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadFromJsonAsync<SecretDto>(JsonOptions, ct);
     }
 
     public async Task DeleteSecretAsync(Guid id, CancellationToken ct)
     {
         var response = await httpClient.DeleteAsync($"{Ws}/secrets/{id}", ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 }

@@ -1,6 +1,7 @@
 using Datateal.Auth;
 using Datateal.Auth.ApiKey;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
 namespace Datateal.Ui.Server;
@@ -40,6 +41,13 @@ public static class OrchestratorProxy
                 if (!authResult.Succeeded)
                 {
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.ContentType = "application/problem+json";
+                    await context.Response.WriteAsJsonAsync(new ProblemDetails
+                    {
+                        Status = StatusCodes.Status403Forbidden,
+                        Title = "Forbidden",
+                        Detail = "You do not have permission to perform this action.",
+                    });
                     return;
                 }
             }

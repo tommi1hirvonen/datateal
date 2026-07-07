@@ -23,7 +23,7 @@ internal class KernelService(HttpClient httpClient, IActiveWorkspaceAccessor wor
     public async Task<KernelInfo> CreateKernelAsync(string nodeName, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsync(KernelsBase(nodeName), content: null, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return (await response.Content.ReadFromJsonAsync<KernelInfo>(JsonOptions, cancellationToken))!;
     }
 
@@ -33,13 +33,13 @@ internal class KernelService(HttpClient httpClient, IActiveWorkspaceAccessor wor
     public async Task DeleteKernelAsync(string nodeName, string kernelId, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.DeleteAsync($"{KernelsBase(nodeName)}/{kernelId}", cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
     }
 
     public async Task<ExecutionHandle> StartExecuteAsync(string nodeName, string kernelId, ExecuteKernelRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync($"{KernelsBase(nodeName)}/{kernelId}/execute", request, JsonOptions, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return (await response.Content.ReadFromJsonAsync<ExecutionHandle>(JsonOptions, cancellationToken))!;
     }
 
@@ -49,41 +49,41 @@ internal class KernelService(HttpClient httpClient, IActiveWorkspaceAccessor wor
     public async Task<KernelInfo> RestartKernelAsync(string nodeName, string kernelId, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsync($"{KernelsBase(nodeName)}/{kernelId}/restart", content: null, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return (await response.Content.ReadFromJsonAsync<KernelInfo>(JsonOptions, cancellationToken))!;
     }
 
     public async Task InterruptKernelAsync(string nodeName, string kernelId, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsync($"{KernelsBase(nodeName)}/{kernelId}/interrupt", content: null, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
     }
 
     public async Task<CompleteResponse> CompleteAsync(string nodeName, string kernelId, CompleteRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync($"{KernelsBase(nodeName)}/{kernelId}/completions", request, JsonOptions, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return (await response.Content.ReadFromJsonAsync<CompleteResponse>(JsonOptions, cancellationToken))!;
     }
 
     public async Task<DiagnoseResponse> DiagnoseAsync(string nodeName, string kernelId, DiagnoseRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync($"{KernelsBase(nodeName)}/{kernelId}/diagnostics", request, JsonOptions, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return (await response.Content.ReadFromJsonAsync<DiagnoseResponse>(JsonOptions, cancellationToken))!;
     }
 
     public async Task<SemanticTokenResponse> GetSemanticTokensAsync(string nodeName, string kernelId, SemanticTokenRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync($"{KernelsBase(nodeName)}/{kernelId}/semantic-tokens", request, JsonOptions, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return (await response.Content.ReadFromJsonAsync<SemanticTokenResponse>(JsonOptions, cancellationToken))!;
     }
 
     public async Task<HoverInfoResponse> GetHoverInfoAsync(string nodeName, string kernelId, HoverInfoRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync($"{KernelsBase(nodeName)}/{kernelId}/hover", request, JsonOptions, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return (await response.Content.ReadFromJsonAsync<HoverInfoResponse>(JsonOptions, cancellationToken))!;
     }
 }

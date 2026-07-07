@@ -97,7 +97,12 @@ public class CatalogsController(
     public async Task<IActionResult> GetManagedDuckLakeSettings(Guid id, CancellationToken ct)
     {
         var settings = await mediator.SendAsync(new Qry.GetManagedCatalogDuckLakeSettingsRequest(id), ct);
-        return settings is null ? StatusCode(503) : Ok(settings);
+        return settings is null
+            ? Problem(
+                statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "Catalog service unavailable",
+                detail: "DuckLake settings could not be retrieved. The catalog service may be temporarily unavailable.")
+            : Ok(settings);
     }
 
     [HttpPut("{id:guid}/unmanaged")]

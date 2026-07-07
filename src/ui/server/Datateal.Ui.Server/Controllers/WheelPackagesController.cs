@@ -30,10 +30,20 @@ public class WheelPackagesController(IMediator mediator, IWheelPackageRepository
     public async Task<IActionResult> UploadPackage(Guid workspaceId, IFormFile file, CancellationToken ct)
     {
         if (file.Length > MaxFileSizeBytes)
-            return BadRequest($"File exceeds maximum size of {MaxFileSizeBytes / 1024 / 1024} MB.");
+            return BadRequest(new ProblemDetails
+            {
+                Status = 400,
+                Title = "File too large",
+                Detail = $"File exceeds the maximum size of {MaxFileSizeBytes / 1024 / 1024} MB.",
+            });
 
         if (!file.FileName.EndsWith(".whl", StringComparison.OrdinalIgnoreCase))
-            return BadRequest("Only .whl files are accepted.");
+            return BadRequest(new ProblemDetails
+            {
+                Status = 400,
+                Title = "Invalid file type",
+                Detail = "Only .whl files are accepted.",
+            });
 
         using var ms = new MemoryStream();
         await file.CopyToAsync(ms, ct);
@@ -50,7 +60,12 @@ public class WheelPackagesController(IMediator mediator, IWheelPackageRepository
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(ex.Message);
+            return Conflict(new ProblemDetails
+            {
+                Status = 409,
+                Title = "Package already exists",
+                Detail = ex.Message,
+            });
         }
     }
 

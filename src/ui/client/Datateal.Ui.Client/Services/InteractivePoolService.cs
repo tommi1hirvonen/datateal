@@ -28,7 +28,7 @@ internal class InteractivePoolService(HttpClient httpClient, IActiveWorkspaceAcc
             $"{Ws}/{Uri.EscapeDataString(poolName)}/ensure-node",
             content: null, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(cancellationToken);
         return await response.Content.ReadFromJsonAsync<NodeInfo>(JsonOptions, cancellationToken);
     }
 }

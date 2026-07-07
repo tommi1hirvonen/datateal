@@ -25,7 +25,7 @@ internal class NodePoolService(HttpClient httpClient, IActiveWorkspaceAccessor w
     public async Task<NodePoolConfigDto> CreateNodePoolAsync(CreateNodePoolRequest request, CancellationToken ct)
     {
         var response = await httpClient.PostAsJsonAsync(Ws, request, JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return (await response.Content.ReadFromJsonAsync<NodePoolConfigDto>(JsonOptions, ct))!;
     }
 
@@ -33,13 +33,13 @@ internal class NodePoolService(HttpClient httpClient, IActiveWorkspaceAccessor w
     {
         var response = await httpClient.PutAsJsonAsync($"{Ws}/{id}", request, JsonOptions, ct);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
         return await response.Content.ReadFromJsonAsync<NodePoolConfigDto>(JsonOptions, ct);
     }
 
     public async Task DeleteNodePoolAsync(Guid id, CancellationToken ct)
     {
         var response = await httpClient.DeleteAsync($"{Ws}/{id}", ct);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithDetailsAsync(ct);
     }
 }
