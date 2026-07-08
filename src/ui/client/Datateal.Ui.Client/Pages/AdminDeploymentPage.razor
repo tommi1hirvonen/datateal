@@ -30,13 +30,25 @@
 <Card>
     <div style="display: flex; flex-direction: column; gap: 12px;">
         <div>
-            <InputFile OnChange="OnBundleSelected" accept=".zip" />
+            <Upload Drag
+                    Action="."
+                    Name="file"
+                    Accept=".zip"
+                    ShowUploadList="false"
+                    BeforeUpload="OnBeforeUpload">
+                <p class="ant-upload-drag-icon">
+                    <Icon Type="@IconType.Outline.Inbox" />
+                </p>
+                <p class="ant-upload-text">Click or drag a bundle ZIP to this area</p>
+                <p class="ant-upload-hint">Accepts .zip files only</p>
+            </Upload>
         </div>
-        <div>
-            <Text Type="TextElementType.Secondary">
-                @(_bundleName is null ? "No bundle selected." : $"Selected bundle: {_bundleName}")
-            </Text>
-        </div>
+        @if (_bundleName is not null)
+        {
+            <div>
+                <span style="color: #8c8c8c;">Selected: @_bundleName</span>
+            </div>
+        }
         <div>
             <Space Wrap>
                 <SpaceItem>
@@ -90,18 +102,26 @@
     private string? _error;
     private ChangeSetDto? _changeSet;
 
-    private async Task OnBundleSelected(InputFileChangeEventArgs args)
+    private bool OnBeforeUpload(UploadFileItem file)
     {
         _error = null;
         _changeSet = null;
+        _ = ReadBundleAsync(file.ObjectURL, file.FileName);
+        return false;
+    }
 
-        var file = args.File;
-        using var stream = file.OpenReadStream(1024L * 1024L * 1024L);
-        using var ms = new MemoryStream();
-        await stream.CopyToAsync(ms);
-
-        _bundleBytes = ms.ToArray();
-        _bundleName = file.Name;
+    private async Task ReadBundleAsync(string objectUrl, string fileName)
+    {
+        try
+        {
+            _bundleBytes = await JS.InvokeAsync<byte[]>("readBlobAsBytes", objectUrl);
+            _bundleName = fileName;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to read bundle: {ex.Message}";
+        }
+        await InvokeAsync(StateHasChanged);
     }
 
     private Task PlanAsync() => ExecuteBundleActionAsync(stream => DeploymentService.PlanAdminDeploymentAsync(stream));
