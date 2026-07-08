@@ -18,17 +18,6 @@ internal sealed class PlanJobDeploymentHandler(
         var current = await JobDeploymentHelpers.LoadCurrentModelsAsync(request.WorkspaceId, jobRepository, mapper, cancellationToken);
         var diff = DiffEngine.Diff(mapper, JobDeploymentHelpers.NormalizeJobs(request.Jobs), current.Models, allowDeletes: true);
 
-        foreach (var (model, _) in diff.Creations)
-            _ = await mapper.ToCreateRequestAsync(request.WorkspaceId, request.OwnerUserId, model, cancellationToken);
-
-        foreach (var (model, _) in diff.Updates)
-            _ = await mapper.ToUpdateRequestAsync(
-                request.WorkspaceId,
-                current.ByName[mapper.NaturalKey(model)].Id,
-                request.OwnerUserId,
-                model,
-                cancellationToken);
-
         return new ChangeSet
         {
             Scope = "workspace",
