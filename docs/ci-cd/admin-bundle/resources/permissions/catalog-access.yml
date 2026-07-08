@@ -1,28 +1,23 @@
-# Catalog access control.
+# User catalog access — restricts which catalogs a specific user can reach.
 #
-# Two independent axes:
+# Two independent axes control catalog visibility:
 #
-#   catalog_workspace_access — restricts which workspaces can attach a catalog.
-#     Only meaningful when accessible_from_all_workspaces: false on the catalog.
+#   1. catalog.workspace_access (per-catalog YAML) — restricts which workspaces can attach
+#      a catalog. Only meaningful when accessible_from_all_workspaces: false.
 #
-#   user_catalog_access — restricts which catalogs a specific user can reach.
-#     has_all_catalog_access: true (default) = unrestricted.
-#     has_all_catalog_access: false + allowed_catalogs list = explicit allowlist.
+#   2. This file (user_catalog_access) — restricts which catalogs a user can reach.
+#      has_all_catalog_access: true (default) = unrestricted.
+#      has_all_catalog_access: false + allowed_catalogs list = explicit allowlist.
+#
+# Admin-scope deployments are upsert-only: entries here are created or updated,
+# users not listed are left untouched.
 
-# The partner_data catalog is restricted to specific workspaces.
-catalog_workspace_access:
-  - catalog: partner_data
-    workspaces:
-      - Sales (Prod)
-      - Sales (Dev)
+# The ETL service account needs unrestricted access to all catalogs.
+- email: svc-etl-prod@example.com
+  has_all_catalog_access: true
 
-# The service account used by ETL jobs has full access to all catalogs.
-# Individual analysts are restricted to the catalogs relevant to their work.
-user_catalog_access:
-  - email: svc-etl-prod@example.com
-    has_all_catalog_access: true
-
-  - email: carol@example.com
-    has_all_catalog_access: false
-    allowed_catalogs:
-      - sales_prod
+# Individual analyst restricted to their relevant catalog only.
+- email: carol@example.com
+  has_all_catalog_access: false
+  allowed_catalogs:
+    - sales_prod

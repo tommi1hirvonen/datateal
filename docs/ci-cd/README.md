@@ -19,8 +19,16 @@ Admin deployments are intentionally non-destructive. To remove a catalog or work
 
 Every deployment goes through a two-step cycle:
 
-1. **Plan** (`/plan`) — dry-run. Computes the full change set and returns it without modifying anything.
-2. **Apply** (`/apply`) — executes the changes and returns the same change set with the actual results.
+1. **Plan** (`/plan`) — dry-run. Validates the bundle (required fields, cross-references) and computes the full change set without modifying anything.
+2. **Apply** (`/apply`) — validates the same rules, then executes the changes and returns the change set.
+
+Running plan before apply is recommended but not required — both steps perform the same validation. Plan catches problems such as:
+
+- Missing required fields (e.g. `vm_size` on a node pool, `node_pool_ref` on a notebook task)
+- Broken cross-references (e.g. a job task referencing a node pool not in the bundle or workspace)
+- Inconsistencies that would fail at runtime (e.g. a task dependency naming a task that doesn't exist in the same job)
+
+All validation errors are collected and reported together so a single plan run surfaces the complete list.
 
 Both operations return a structured change set:
 
@@ -164,6 +172,26 @@ resources/
     catalog-access.yml
 ```
 
+**Catalog YAML** supports an optional `workspace_access` list that restricts which workspaces can attach the catalog (only meaningful when `accessible_from_all_workspaces: false`):
+
+```yaml
+type: unmanaged
+name: partner_data
+accessible_from_all_workspaces: false
+workspace_access:
+  - Sales (Prod)
+  - Sales (Dev)
+```
+
+**`catalog-access.yml`** is a flat list of per-user access entries — it controls which catalogs individual users can reach, independent of workspace access:
+
+```yaml
+- email: analyst@example.com
+  has_all_catalog_access: false
+  allowed_catalogs:
+    - sales_prod
+```
+
 ### Workspace bundle layout
 
 ```
@@ -240,3 +268,4 @@ jobs:
 - Role names keep their canonical PascalCase identifiers (`WorkspaceAdmin`, `JobContributor`).
 - `null` / default values are omitted on export.
 - REST/JSON API responses (change sets) use camelCase per standard JSON convention.
+- Job YAML does **not** contain a `node_pools` section — node pool configs are separate workspace resources declared in `resources/node_pools/`. Job tasks reference them by name via `node_pool_ref`.

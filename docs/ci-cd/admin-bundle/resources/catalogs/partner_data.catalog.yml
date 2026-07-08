@@ -6,6 +6,12 @@ name: partner_data
 
 accessible_from_all_workspaces: false
 
+# Workspaces that are allowed to attach this catalog.
+# Only meaningful when accessible_from_all_workspaces is false.
+workspace_access:
+  - Sales (Prod)
+  - Sales (Dev)
+
 catalog_host: partner-db.internal
 catalog_database: ducklake_partner
 catalog_user: datateal_reader

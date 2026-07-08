@@ -15,10 +15,6 @@ parameters:
       Override the processing date (YYYY-MM-DD). Defaults to yesterday
       when empty.
 
-node_pools:
-  - name: etl-pool
-    vm_size: Standard_D4s_v3
-
 tasks:
   - name: ingest_orders
     type: notebook
