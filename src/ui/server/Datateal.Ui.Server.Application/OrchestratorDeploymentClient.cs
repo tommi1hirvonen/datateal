@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Datateal.Auth;
 using Datateal.Deployment.Diff;
 using Datateal.Deployment.Models;
@@ -8,6 +10,11 @@ namespace Datateal.Ui.Server.Application;
 
 internal static class OrchestratorDeploymentClient
 {
+    // The orchestrator serializes enums as strings; match that here for response deserialization.
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() },
+    };
     public static Task<ChangeSet> PlanJobsAsync(
         IHttpClientFactory httpClientFactory,
         Guid workspaceId,
@@ -60,7 +67,7 @@ internal static class OrchestratorDeploymentClient
             request.Headers.TryAddWithoutValidation(DatatealHeaders.ActingUser, actingUserId);
         using var response = await client.SendAsync(request, ct);
         await EnsureSuccessAsync(response, ct);
-        return (await response.Content.ReadFromJsonAsync<ChangeSet>(ct))!;
+        return (await response.Content.ReadFromJsonAsync<ChangeSet>(JsonOptions, ct))!;
     }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken ct)
