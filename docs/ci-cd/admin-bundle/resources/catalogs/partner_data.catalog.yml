@@ -1,0 +1,12 @@
+# External (unmanaged) DuckLake catalog with a separately managed Postgres backend.
+# Sensitive values (catalog_password) are injected via ${env.*} at deploy time.
+
+type: unmanaged
+name: partner_data
+
+accessible_from_all_workspaces: false
+
+catalog_host: partner-db.internal
+catalog_database: ducklake_partner
+catalog_user: datateal_reader
+data_path: abfss://partner@${var.adls_account}.dfs.core.windows.net/ducklake

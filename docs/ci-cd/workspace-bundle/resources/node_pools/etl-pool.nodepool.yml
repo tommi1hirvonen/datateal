@@ -1,0 +1,29 @@
+# Job-type node pool for ETL workloads.
+#
+# type: job      — fresh node provisioned per run, deleted when the run completes.
+# type: interactive — single persistent node, evicted after idle_timeout.
+
+type: job
+name: etl-pool
+vm_size: Standard_D4s_v3
+description: ETL pipeline pool for ingestion and transformation jobs
+
+# Keep 1 warm standby node ready at all times to eliminate cold-start latency.
+warm_nodes: 1
+
+# Cap total live nodes (warm + active) to 4 across all concurrent runs.
+max_nodes: 4
+
+# Block new runs for up to 5 minutes if max_nodes is reached.
+node_acquire_timeout: 00:05:00
+
+# Attached resources injected into every pod environment.
+environment_variables:
+  - DATA_PATH
+  - LOG_LEVEL
+
+secrets:
+  - db_password
+
+wheel_packages:
+  - shared_utils

@@ -1,0 +1,94 @@
+# Nightly ETL pipeline: ingest → validate → transform → report.
+#
+# Task types:  notebook | sql_query | sub_job
+# Dependency conditions:  on_success | on_failure | on_completion | on_skip
+
+name: nightly_etl
+description: Nightly ingestion and transformation pipeline for Sales (Prod)
+max_concurrent_runs: 1
+
+parameters:
+  - name: run_date
+    default_value: ''
+    required: false
+    description: >
+      Override the processing date (YYYY-MM-DD). Defaults to yesterday
+      when empty.
+
+node_pools:
+  - name: etl-pool
+    vm_size: Standard_D4s_v3
+
+tasks:
+  - name: ingest_orders
+    type: notebook
+    notebook_path: pipelines/ingestion/ingest_orders
+    node_pool_ref: etl-pool
+    parameters:
+      run_date: ${run_date}
+    max_retries: 2
+    retry_interval: 00:01:00
+    timeout: 00:30:00
+
+  - name: ingest_customers
+    type: notebook
+    notebook_path: pipelines/ingestion/ingest_customers
+    node_pool_ref: etl-pool
+    max_retries: 2
+    retry_interval: 00:01:00
+    timeout: 00:30:00
+
+  - name: validate_sources
+    type: sql_query
+    query_path: pipelines/validate_sources
+    node_pool_ref: etl-pool
+    dependencies:
+      - task: ingest_orders
+        condition: on_success
+      - task: ingest_customers
+        condition: on_success
+    timeout: 00:10:00
+
+  - name: transform_revenue
+    type: notebook
+    notebook_path: pipelines/transformation/transform_revenue
+    node_pool_ref: etl-pool
+    parameters:
+      run_date: ${run_date}
+    dependencies:
+      - task: validate_sources
+        condition: on_success
+    max_retries: 1
+    timeout: 01:00:00
+
+  - name: build_daily_report
+    type: sub_job
+    job_name: build_report
+    parameters:
+      report_date: ${run_date}
+    dependencies:
+      - task: transform_revenue
+        condition: on_success
+
+  - name: notify_on_failure
+    type: notebook
+    notebook_path: shared/notify_failure
+    node_pool_ref: etl-pool
+    dependencies:
+      - task: transform_revenue
+        condition: on_failure
+      - task: build_daily_report
+        condition: on_failure
+
+schedules:
+  - name: weekday_run
+    cron: 0 0 3 ? * MON-FRI
+    time_zone: Europe/Helsinki
+    parameters:
+      run_date: ''
+
+  - name: weekend_run
+    cron: 0 0 5 ? * SAT-SUN
+    time_zone: Europe/Helsinki
+    parameters:
+      run_date: ''

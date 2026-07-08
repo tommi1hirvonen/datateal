@@ -241,29 +241,6 @@ Jobs declare named parameters with optional defaults and a required flag. Parame
 - **Template substitution**: `${{ param_name }}` placeholders in task configuration are replaced with the resolved value before execution.
 - **Notebook parameterisation**: if the notebook contains a cell tagged `parameters`, an injected-parameters cell is inserted immediately after it before the notebook runs. The injected cell is never written back to the source notebook.
 
-```yaml
-# Example: YAML job definition
-name: daily-sales-pipeline
-parameters:
-  - name: run_date
-    defaultValue: '2024-01-01'
-    isRequired: true
-
-tasks:
-  - name: ingest
-    type: notebook
-    notebookPath: /pipelines/ingest_sales
-    nodePool: job-pool-standard
-
-  - name: transform
-    type: notebook
-    notebookPath: /pipelines/transform_sales
-    nodePool: job-pool-standard
-    dependencies:
-      - task: ingest
-        condition: OnSuccess
-```
-
 #### Scheduling
 
 Jobs can have one or more **cron schedules** with:
@@ -287,7 +264,7 @@ Jobs can have one or more **cron schedules** with:
 - **Concurrent run cap**: per-job `MaxConcurrentRuns` limit enforced at trigger time.
 - **Crash recovery**: the orchestrator re-dispatches any `Running` or `Pending` runs on startup — interrupted runs resume from where they stopped.
 - **History retention**: old run records are automatically purged on a configurable schedule.
-- **YAML import/export**: jobs can be exported to and imported from a YAML format covering tasks, parameters, schedules, and node pool definitions. Workspace paths are resolved to stable IDs at import time, so notebooks and queries can be safely renamed or moved later.
+- **YAML import/export**: jobs can be exported to and imported from a YAML format covering tasks, parameters, schedules, and node pool definitions. Workspace paths are resolved to stable IDs at import time, so notebooks and queries can be safely renamed or moved later. Jobs can also be managed as part of a [workspace deployment bundle](#cicd--deployment-bundles).
 - **`%run` magic**: Python notebook cells can use `%run path/to/other/notebook` to inline another notebook's content, with recursive resolution and cycle detection.
 - **Effective owner identity**: every job records the user who last saved it. Catalog access is re-validated against that owner's permissions before the run starts and again at catalog attachment time. Jobs with no recorded owner cannot access restricted catalogs (fail closed).
 
@@ -372,9 +349,67 @@ Roles are split into two tiers:
 
 A bootstrap `AdminUsers` list in `appsettings` lets the first admin log in before any users have been configured in the database.
 
+#### Service Accounts
+
+In addition to human users, Datateal supports **service accounts** — system identities for integration services and automated processes. Service accounts are tenant-scoped, have no IdP identity, and hold the same tenant-level roles as regular users (`Admin`, `CatalogContributor`). They are managed from the Users administration page.
+
+#### API Tokens
+
+**API tokens** enable non-interactive, programmatic access to the Datateal API — the foundation for CI/CD pipelines, infrastructure-as-code tooling, and any external integration. Tokens are generated through the UI (Admin → API Tokens) and presented as a `Bearer` token in the `Authorization` header or as `X-Datateal-Api-Token`.
+
+Two token scopes are available:
+
+| Scope         | Auth gate                              | Granted roles                       |
+| ------------- | -------------------------------------- | ----------------------------------- |
+| **Admin**     | Tenant Admin only                      | `Admin` and/or `CatalogContributor` |
+| **Workspace** | WorkspaceAdmin of the target workspace | Any per-workspace roles             |
+
+Tokens carry only the roles explicitly granted at creation — a workspace token owned by an Admin user does **not** inherit that user's tenant-admin privileges. Tokens can be set to expire and are individually revocable. The plaintext secret is shown only once at creation; only a SHA-256 hash is stored.
+
 ---
 
-## Infrastructure
+## CI/CD & Deployment Bundles
+
+Datateal resources can be managed declaratively using **deployment bundles** — ZIP archives of YAML files that describe the desired state of a platform configuration or a single workspace. This enables GitOps workflows where the source of truth lives in version control and CI/CD pipelines deploy changes automatically.
+
+Two deployment scopes mirror the authorization model:
+
+| Scope         | Resources covered                                                                             | Semantics                            | Auth                                   |
+| ------------- | --------------------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------- |
+| **Admin**     | Catalogs, workspaces, memberships, catalog access grants                                      | Upsert-only (safe — never deletes)   | Admin token                            |
+| **Workspace** | Folders, notebooks, queries, node pools, jobs, environment variables, secrets, wheel packages | Full sync (create / update / delete) | Workspace token with `WorkspaceManage` |
+
+#### Workflow
+
+Every deployment goes through a **plan → apply** cycle. `plan` is a dry-run that returns the full change set (resource type, name, and change type — Create / Update / Delete / NoChange) without writing anything. `apply` executes the same logic and commits the changes.
+
+```
+# Plan (dry run)
+POST api/deployments/admin/plan          # body: bundle ZIP
+POST api/workspaces/{id}/deployment/plan
+
+# Apply
+POST api/deployments/admin/apply
+POST api/workspaces/{id}/deployment/apply
+
+# Export current state as a bundle
+GET  api/deployments/admin/export
+GET  api/workspaces/{id}/deployment/export
+```
+
+#### Variable substitution
+
+Bundle YAML can contain `${var.NAME}` and `${env.NAME}` tokens that are resolved at deploy time. This keeps secrets and environment-specific values out of the bundle files:
+
+```yaml
+# resources/environment/secrets.yml
+- key: db_password
+  value: ${env.DB_PASSWORD} # resolved from CI/CD environment variable
+```
+
+See [`docs/ci-cd/`](docs/ci-cd/) for annotated sample bundles and a field reference for every resource type.
+
+---
 
 The Bicep template in `src/infra/` deploys the full production environment on Azure:
 
@@ -395,7 +430,9 @@ src/
 ├── control-plane/  # ASP.NET Core: node & kernel provisioning
 ├── orchestrator/   # ASP.NET Core: job execution engine
 ├── runtime/        # FastAPI: per-node kernel management (Python)
-├── shared/         # Shared domain types (Datateal.Core)
+├── shared/         # Shared domain types, EF migrations, deployment library
 ├── app-host/       # .NET Aspire app host
 └── infra/          # Bicep infrastructure templates
+docs/
+└── ci-cd/          # Deployment bundle documentation and sample bundles
 ```

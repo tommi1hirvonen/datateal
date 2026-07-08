@@ -1,0 +1,16 @@
+# Workspace-scope bundle manifest.
+# Deploy via: POST api/workspaces/{workspaceId}/deployment/{plan|apply}
+# Semantics:  FULL SYNC — resources absent from this bundle are deleted from the workspace.
+# Auth:       Workspace API token with WorkspaceManage role.
+#
+# The workspace must already exist (created via an admin bundle or the UI).
+# The target_workspace name is validated against the workspace ID in the deploy URL.
+
+scope: workspace
+target_workspace: Sales (Prod)
+
+# Deploy-time variables. Reference as ${var.NAME} anywhere in this bundle.
+# Values are either set here (non-sensitive) or injected from CI/CD secrets (sensitive).
+variables:
+  environment: prod
+  data_path: abfss://data@mysalesaccount.dfs.core.windows.net/prod

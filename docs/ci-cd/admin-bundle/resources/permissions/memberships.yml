@@ -1,0 +1,50 @@
+# Workspace membership declarations.
+#
+# Users are referenced by email address. If the email has never logged in, Datateal
+# creates a stub user account that is linked to the identity provider on first login.
+#
+# Admin-scope deployments are upsert-only: memberships in this file are created or
+# updated, but memberships not listed here are left untouched.
+#
+# Valid per-workspace roles:
+#   WorkspaceAdmin       — manage workspace settings and memberships
+#   WorkspaceContributor — create/edit notebooks and queries
+#   WorkspaceReader      — read-only access to notebooks and queries
+#   NodePoolContributor  — manage node pool configurations
+#   NodePoolOperator     — start/stop nodes, connect interactive pools
+#   JobContributor       — create and edit jobs
+#   JobOperator          — trigger and cancel job runs
+#   JobReader            — view jobs and run history
+#   EnvironmentManager   — manage secrets, variables, and wheel packages
+
+- workspace: Sales (Prod)
+  members:
+    - email: alice@example.com
+      roles:
+        - WorkspaceAdmin
+    - email: bob@example.com
+      roles:
+        - WorkspaceContributor
+        - JobOperator
+    - email: carol@example.com
+      roles:
+        - WorkspaceReader
+        - JobReader
+    - email: svc-etl-prod@example.com
+      roles:
+        - JobContributor
+        - JobOperator
+        - EnvironmentManager
+
+- workspace: Sales (Dev)
+  members:
+    - email: alice@example.com
+      roles:
+        - WorkspaceAdmin
+    - email: bob@example.com
+      roles:
+        - WorkspaceAdmin
+    - email: carol@example.com
+      roles:
+        - WorkspaceContributor
+        - JobContributor

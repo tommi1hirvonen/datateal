@@ -1,0 +1,13 @@
+# Admin-scope bundle manifest.
+# Deploy via: POST api/deployments/admin/{plan|apply}
+# Semantics:  UPSERT-ONLY — creates and updates resources, never deletes.
+# Auth:       Admin API token.
+
+scope: admin
+
+# Optional deploy-time variables referenced as ${var.NAME} in any resource file.
+# Values are injected by CI/CD at deploy time (environment variables or pipeline secrets).
+variables:
+  adls_account:
+    # Azure Data Lake Storage account name for external catalog connections.
+    # Set via: export DATATEAL_VAR_adls_account=mystorageaccount
