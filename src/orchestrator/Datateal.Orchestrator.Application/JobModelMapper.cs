@@ -12,7 +12,8 @@ namespace Datateal.Orchestrator.Application;
 
 internal sealed class JobModelMapper(
     IWorkspaceReader workspaceReader,
-    IJobRepository jobRepository) : IResourceMapper<JobModel>
+    IJobRepository jobRepository,
+    INodePoolConfigRepository nodePoolConfigRepository) : IResourceMapper<JobModel>
 {
     public string ResourceType => "job";
 
@@ -221,6 +222,13 @@ internal sealed class JobModelMapper(
                     subJobId = (await jobRepository.GetJobByNameAsync(task.JobName ?? string.Empty, workspaceId, ct))?.Id
                         ?? throw new InvalidOperationException($"Sub-job '{task.JobName}' was not found.");
                     break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(task.NodePoolRef))
+            {
+                var pool = await nodePoolConfigRepository.GetByNameAsync(task.NodePoolRef, workspaceId, ct);
+                if (pool is null)
+                    throw new InvalidOperationException($"Node pool '{task.NodePoolRef}' was not found in this workspace.");
             }
 
             createTasks.Add(new CreateJobTaskRequest(

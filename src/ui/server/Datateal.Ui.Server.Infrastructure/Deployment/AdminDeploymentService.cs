@@ -109,6 +109,11 @@ internal sealed class AdminDeploymentService(
         var membershipMapper = new AdminMembershipMapper();
         var userAccessMapper = new AdminUserCatalogAccessMapper();
 
+        AdminBundleValidator.Validate(
+            bundle,
+            existingWorkspaceNames: workspaces.Select(w => w.Name),
+            existingCatalogNames: catalogs.Select(c => c.Name));
+
         var currentWorkspaceModels = workspaces.Select(workspaceMapper.ToModel).ToList();
         var currentCatalogModels = catalogs
             .Select(catalog => catalogMapper.ToModel(

@@ -163,6 +163,11 @@ internal sealed class WorkspaceDeploymentService(
             .AsNoTracking()
             .Where(w => w.WorkspaceId == workspaceId)
             .ToListAsync(ct);
+        var existingJobNames = await db.Jobs
+            .AsNoTracking()
+            .Where(j => j.WorkspaceId == workspaceId)
+            .Select(j => j.Name)
+            .ToListAsync(ct);
 
         var folderMapper = new WorkspaceFolderMapper();
         var notebookMapper = new WorkspaceNotebookMapper();
@@ -181,9 +186,6 @@ internal sealed class WorkspaceDeploymentService(
         var variableNamesById = variables.ToDictionary(v => v.Id, v => v.Key);
         var secretNamesById = secrets.ToDictionary(s => s.Id, s => s.Key);
 
-        var currentFolderModels = folders
-            .Select(folder => folderMapper.ToModel(folder, folderPaths[folder.Id]))
-            .ToList();
         var currentNotebookModels = items
             .OfType<Notebook>()
             .Select(notebook => notebookMapper.ToModel(notebook, DeploymentPathHelpers.GetItemPath(notebook, folderPaths)))
@@ -191,6 +193,20 @@ internal sealed class WorkspaceDeploymentService(
         var currentQueryModels = items
             .OfType<Query>()
             .Select(query => queryMapper.ToModel(query, DeploymentPathHelpers.GetItemPath(query, folderPaths)))
+            .ToList();
+
+        WorkspaceBundleValidator.Validate(
+            bundle,
+            existingNotebookPaths: currentNotebookModels.Select(n => n.Path),
+            existingQueryPaths: currentQueryModels.Select(q => q.Path),
+            existingNodePoolNames: nodePools.Select(p => p.Name),
+            existingEnvironmentVariableKeys: variables.Select(v => v.Key),
+            existingSecretKeys: secrets.Select(s => s.Key),
+            existingWheelPackageNames: wheelPackages.Select(w => w.Name),
+            existingJobNames: existingJobNames);
+
+        var currentFolderModels = folders
+            .Select(folder => folderMapper.ToModel(folder, folderPaths[folder.Id]))
             .ToList();
         var currentNodePoolModels = nodePools
             .Select(pool => nodePoolMapper.ToModel(pool, wheelNamesById, variableNamesById, secretNamesById))
