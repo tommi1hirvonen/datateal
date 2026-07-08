@@ -177,7 +177,7 @@ resources/
   wheel_packages/<name>.yml
   folders.yml
 src/
-  notebooks/<path>.py          # notebook source files
+  notebooks/<path>.ipynb       # notebook source files (Jupyter nbformat 4)
   queries/<path>.sql           # SQL query files
 files/
   wheels/<name>.whl            # wheel package binaries
