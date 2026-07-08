@@ -10,7 +10,7 @@ namespace Datateal.Orchestrator.Application.Yaml;
 
 /// <summary>
 /// Deserializes YAML text into a <see cref="Job"/> entity, resolving workspace paths and
-/// sub-job references from the database.
+/// sub-job references from the database. YAML keys are snake_case.
 /// </summary>
 public class YamlJobImporter(
     IWorkspaceReader workspaceReader,
@@ -18,7 +18,7 @@ public class YamlJobImporter(
     INodePoolConfigRepository nodePoolConfigRepository)
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
-        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
 
@@ -110,7 +110,7 @@ public class YamlJobImporter(
                         : t.NodePoolRef,
                     Parameters = t.Parameters,
                 },
-                "sqlquery" or "sql" => new SqlQueryTask
+                "sql_query" or "sql" => new SqlQueryTask
                 {
                     Id = Guid.NewGuid(),
                     JobId = job.Id,
@@ -124,7 +124,7 @@ public class YamlJobImporter(
                         : t.NodePoolRef,
                     Parameters = t.Parameters,
                 },
-                "subjob" => new SubJobTask
+                "sub_job" => new SubJobTask
                 {
                     Id = Guid.NewGuid(),
                     JobId = job.Id,
@@ -135,7 +135,7 @@ public class YamlJobImporter(
                     SubJobId = await ResolveSubJobAsync(workspaceId, t.JobName, ct),
                     Parameters = t.Parameters,
                 },
-                _ => throw new InvalidOperationException($"Unknown task type: '{t.Type}'."),
+                _ => throw new InvalidOperationException($"Unknown task type: '{t.Type}'. Expected 'notebook', 'sql_query', or 'sub_job'."),
             };
 
             if (!tasksByName.TryAdd(t.Name, task))
@@ -168,15 +168,21 @@ public class YamlJobImporter(
         DagValidator.Validate(job.Tasks);
 
         // Schedules
-        foreach (var s in model.Schedules)
+        for (var i = 0; i < model.Schedules.Count; i++)
         {
+            var s = model.Schedules[i];
             if (string.IsNullOrWhiteSpace(s.Cron))
                 throw new InvalidOperationException("Schedule cron expression is required.");
+
+            var scheduleName = string.IsNullOrWhiteSpace(s.Name)
+                ? $"schedule-{i + 1}"
+                : s.Name;
 
             job.Schedules.Add(new JobSchedule
             {
                 Id = Guid.NewGuid(),
                 JobId = job.Id,
+                Name = scheduleName,
                 CronExpression = s.Cron,
                 TimeZone = s.TimeZone,
                 Parameters = s.Parameters,
@@ -218,11 +224,11 @@ public class YamlJobImporter(
 
     private static DependencyCondition ParseCondition(string condition) => condition.ToLowerInvariant() switch
     {
-        "onsuccess" => DependencyCondition.OnSuccess,
-        "onfailure" => DependencyCondition.OnFailure,
-        "oncompletion" => DependencyCondition.OnCompletion,
-        "onskip" => DependencyCondition.OnSkip,
-        _ => throw new InvalidOperationException($"Unknown dependency condition: '{condition}'."),
+        "on_success" => DependencyCondition.OnSuccess,
+        "on_failure" => DependencyCondition.OnFailure,
+        "on_completion" => DependencyCondition.OnCompletion,
+        "on_skip" => DependencyCondition.OnSkip,
+        _ => throw new InvalidOperationException($"Unknown dependency condition: '{condition}'. Expected 'on_success', 'on_failure', 'on_completion', or 'on_skip'."),
     };
 
     private static TimeSpan ParseTimeSpan(string? value, TimeSpan defaultValue)

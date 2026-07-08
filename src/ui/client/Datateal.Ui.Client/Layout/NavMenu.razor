@@ -66,6 +66,12 @@
             <span>Environment</span>
         </MenuItem>
     </AuthorizeView>
+    <AuthorizeView Policy="@AuthPolicy.WorkspaceManage">
+        <MenuItem Key="deployment" RouterLink="@Ws("deployment")" RouterMatch="NavLinkMatch.Prefix">
+            <Icon Type="@IconType.Outline.CloudUpload" />
+            <span>Deployment</span>
+        </MenuItem>
+    </AuthorizeView>
     <MenuItem Key="catalogs" RouterLink="/catalogs" RouterMatch="NavLinkMatch.Prefix">
         <Icon Type="@IconType.Outline.Database" />
         <span>Catalogs</span>
@@ -74,6 +80,12 @@
         <Icon Type="@IconType.Outline.Setting" />
         <span>Settings</span>
     </MenuItem>
+    <AuthorizeView Policy="@AuthPolicy.Admin">
+        <MenuItem Key="admin-deployment" RouterLink="/deployment/admin" RouterMatch="NavLinkMatch.Prefix">
+            <Icon Type="@IconType.Outline.CloudServer" />
+            <span>Deployment</span>
+        </MenuItem>
+    </AuthorizeView>
     <AuthorizeView Policy="@AuthPolicy.Admin">
         <MenuItem Key="workspaces" RouterLink="/workspaces" RouterMatch="NavLinkMatch.Prefix">
             <Icon Type="@IconType.Outline.Appstore" />
@@ -227,6 +239,8 @@
             _ when path.StartsWith("/runs") => ["jobs"],
             _ when path.StartsWith("/node-pools") => ["node-pools"],
             _ when path.StartsWith("/environment") => ["environment"],
+            _ when path.StartsWith("/deployment/admin") => ["admin-deployment"],
+            _ when path.StartsWith("/deployment") => ["deployment"],
             _ when path.StartsWith("/catalogs") => ["catalogs"],
             _ when path.StartsWith("/settings") => ["settings"],
             _ when path.StartsWith("/users") => ["users"],

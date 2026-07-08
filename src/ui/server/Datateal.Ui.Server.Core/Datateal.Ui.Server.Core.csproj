@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\shared\Datateal.Core\Datateal.Core.csproj" />
+    <ProjectReference Include="..\..\..\shared\Datateal.Deployment\Datateal.Deployment.csproj" />
   </ItemGroup>
 
 </Project>

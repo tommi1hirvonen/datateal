@@ -132,6 +132,15 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
                 .HasForeignKey(e => e.WorkspaceId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.WorkspaceId);
+            // Two partial unique indexes because NULL != NULL in SQL.
+            entity.HasIndex(e => new { e.WorkspaceId, e.Name })
+                .IsUnique()
+                .HasFilter("\"ParentId\" IS NULL")
+                .HasDatabaseName("IX_Folders_WorkspaceId_Name_Root");
+            entity.HasIndex(e => new { e.WorkspaceId, e.ParentId, e.Name })
+                .IsUnique()
+                .HasFilter("\"ParentId\" IS NOT NULL")
+                .HasDatabaseName("IX_Folders_WorkspaceId_ParentId_Name");
         });
 
         modelBuilder.Entity<WorkspaceItem>(entity =>
@@ -342,6 +351,7 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(128).IsRequired();
+            entity.HasIndex(e => new { e.JobId, e.Name }).IsUnique();
         });
 
         modelBuilder.Entity<JobTask>(entity =>
@@ -377,14 +387,17 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Condition).HasConversion<string>().HasMaxLength(32);
             entity.HasOne(e => e.DependsOnTask).WithMany().HasForeignKey(e => e.DependsOnTaskId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.TaskId, e.DependsOnTaskId }).IsUnique();
         });
 
         modelBuilder.Entity<JobSchedule>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(256).IsRequired();
             entity.Property(e => e.CronExpression).HasMaxLength(128).IsRequired();
             entity.Property(e => e.TimeZone).HasMaxLength(64);
             entity.Property(e => e.Parameters).HasColumnType("jsonb").HasConversion(DictJsonConverter);
+            entity.HasIndex(e => new { e.JobId, e.Name }).IsUnique();
         });
 
         modelBuilder.Entity<NodePoolConfig>(entity =>

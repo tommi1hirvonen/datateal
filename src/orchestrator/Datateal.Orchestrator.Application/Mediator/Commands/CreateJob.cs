@@ -1,5 +1,6 @@
 using Datateal.Core.Mediator;
 using Datateal.Core.Orchestration;
+using Datateal.Orchestrator.Application.Engine;
 using Datateal.Orchestrator.Application.Validation;
 using Datateal.Orchestrator.Core.Entities;
 using Datateal.Orchestrator.Core.Enums;
@@ -13,9 +14,11 @@ public record CreateJobRequest(
     string? Description,
     Guid? FolderId,
     int MaxConcurrentRuns,
-    Guid? OwnerUserId,
+    bool IsEnabled = true,
+    Guid? OwnerUserId = null,
     List<CreateJobTaskRequest>? Tasks = null,
-    List<CreateJobParameterRequest>? Parameters = null) : IRequest<Job>;
+    List<CreateJobParameterRequest>? Parameters = null,
+    List<CreateJobScheduleRequest>? Schedules = null) : IRequest<Job>;
 
 public record CreateJobTaskRequest(
     string Name,
@@ -34,7 +37,9 @@ public record CreateTaskDependencyRequest(string DependsOnTaskName, DependencyCo
 
 public record CreateJobParameterRequest(string Name, string? DefaultValue, bool IsRequired, string? Description);
 
-internal class CreateJobHandler(IJobRepository jobRepository) : IRequestHandler<CreateJobRequest, Job>
+public record CreateJobScheduleRequest(string Name, string CronExpression, bool IsEnabled, string? TimeZone, Dictionary<string, string>? Parameters);
+
+internal class CreateJobHandler(IJobRepository jobRepository, SchedulesManager schedulesManager) : IRequestHandler<CreateJobRequest, Job>
 {
     public async Task<Job> Handle(CreateJobRequest request, CancellationToken cancellationToken)
     {
@@ -62,6 +67,7 @@ internal class CreateJobHandler(IJobRepository jobRepository) : IRequestHandler<
             Description = request.Description,
             FolderId = request.FolderId,
             MaxConcurrentRuns = request.MaxConcurrentRuns,
+            IsEnabled = request.IsEnabled,
             OwnerUserId = request.OwnerUserId,
             CreatedByUserId = request.OwnerUserId,
             CreatedAt = DateTime.UtcNow,
@@ -79,6 +85,20 @@ internal class CreateJobHandler(IJobRepository jobRepository) : IRequestHandler<
                 DefaultValue = p.DefaultValue,
                 IsRequired = p.IsRequired,
                 Description = p.Description,
+            });
+        }
+
+        foreach (var schedule in request.Schedules ?? [])
+        {
+            job.Schedules.Add(new JobSchedule
+            {
+                Id = Guid.NewGuid(),
+                JobId = job.Id,
+                Name = schedule.Name,
+                CronExpression = schedule.CronExpression,
+                IsEnabled = schedule.IsEnabled,
+                TimeZone = schedule.TimeZone,
+                Parameters = schedule.Parameters,
             });
         }
 
@@ -155,6 +175,13 @@ internal class CreateJobHandler(IJobRepository jobRepository) : IRequestHandler<
 
         DagValidator.Validate(job.Tasks);
 
-        return await jobRepository.CreateJobAsync(job, cancellationToken);
+        var created = await jobRepository.CreateJobAsync(job, cancellationToken);
+        if (request.Schedules is not null)
+        {
+            foreach (var schedule in created.Schedules)
+                await schedulesManager.AddScheduleAsync(schedule, cancellationToken);
+        }
+
+        return created;
     }
 }

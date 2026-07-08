@@ -22,6 +22,7 @@
     <Project Path="shared/Datateal.Auth/Datateal.Auth.csproj" />
     <Project Path="shared/Datateal.Auth.Dev/Datateal.Auth.Dev.csproj" />
     <Project Path="shared/Datateal.Auth.EntraId/Datateal.Auth.EntraId.csproj" />
+    <Project Path="shared/Datateal.Deployment/Datateal.Deployment.csproj" />
   </Folder>
   <Folder Name="/ui/server/">
       <Project Path="ui/server/Datateal.Ui.Server.Application/Datateal.Ui.Server.Application.csproj" />

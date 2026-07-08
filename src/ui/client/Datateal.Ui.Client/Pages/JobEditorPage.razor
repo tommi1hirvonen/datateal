@@ -218,6 +218,7 @@
                         </AuthorizeView>
                     </div>
                     <Table TItem="ScheduleDto" DataSource="_job.Schedules" Size="@TableSize.Small" PageSize="int.MaxValue" PaginationPosition="none">
+                        <PropertyColumn Property="c => c.Name" Title="Name" />
                         <PropertyColumn Property="c => c.CronExpression" Title="Cron Expression">
                             <code>@context.CronExpression</code>
                             @{
@@ -315,6 +316,11 @@
                BodyStyle="display: flex; flex-direction: column; padding: 0; overflow: hidden;">
             <div style="flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
                 <Form Model="@_scheduleForm" Layout="FormLayout.Vertical" ValidateOnChange="true">
+                    <FormItem Label="Name">
+                        <Input @bind-Value="context.Name"
+                               BindOnInput
+                               Placeholder="E.g. daily_run" />
+                    </FormItem>
                     <FormItem Label="Cron Expression" Rules="@_cronRules">
                         <Input @bind-Value="context.Cron"
                                BindOnInput
@@ -370,7 +376,7 @@
             <div class="drawer-footer">
                 <Button OnClick="() => _showScheduleModal = false">Cancel</Button>
                 <Button Type="@ButtonType.Primary" OnClick="ConfirmSchedule"
-                        Disabled="@(string.IsNullOrWhiteSpace(_scheduleForm.Cron) || ValidationHelper.ValidateCronExpression(_scheduleForm.Cron) is not null || GetMissingRequiredScheduleParams().Count > 0)">Save</Button>
+                        Disabled="@(string.IsNullOrWhiteSpace(_scheduleForm.Name) || string.IsNullOrWhiteSpace(_scheduleForm.Cron) || ValidationHelper.ValidateCronExpression(_scheduleForm.Cron) is not null || GetMissingRequiredScheduleParams().Count > 0)">Save</Button>
             </div>
         </Drawer>
 
@@ -883,6 +889,7 @@
         _editingScheduleId = schedule.Id;
         _scheduleForm = new ScheduleFormModel
         {
+            Name = schedule.Name,
             Cron = schedule.CronExpression,
             TimeZone = schedule.TimeZone,
             Parameters = schedule.Parameters is { Count: > 0 }
@@ -932,12 +939,12 @@
             if (_editingScheduleId.HasValue)
             {
                 await JobService.UpdateScheduleAsync(Id, _editingScheduleId.Value,
-                    new UpdateScheduleRequest(_scheduleForm.Cron.Trim(), true, tz, parameters?.Count > 0 ? parameters : null));
+                    new UpdateScheduleRequest(_scheduleForm.Name.Trim(), _scheduleForm.Cron.Trim(), true, tz, parameters?.Count > 0 ? parameters : null));
             }
             else
             {
                 await JobService.CreateScheduleAsync(Id,
-                    new CreateScheduleRequest(_scheduleForm.Cron.Trim(), true, tz, parameters?.Count > 0 ? parameters : null));
+                    new CreateScheduleRequest(_scheduleForm.Name.Trim(), _scheduleForm.Cron.Trim(), true, tz, parameters?.Count > 0 ? parameters : null));
             }
             _showScheduleModal = false;
             await RefreshJobAsync();
@@ -954,7 +961,7 @@
         try
         {
             await JobService.UpdateScheduleAsync(Id, schedule.Id,
-                new UpdateScheduleRequest(schedule.CronExpression, enabled, schedule.TimeZone, schedule.Parameters));
+                new UpdateScheduleRequest(schedule.Name, schedule.CronExpression, enabled, schedule.TimeZone, schedule.Parameters));
             await RefreshJobAsync();
             MessageService.Success("Job updated");
         }

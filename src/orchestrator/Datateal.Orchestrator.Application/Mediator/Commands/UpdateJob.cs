@@ -1,5 +1,6 @@
 using Datateal.Core.Mediator;
 using Datateal.Core.Orchestration;
+using Datateal.Orchestrator.Application.Engine;
 using Datateal.Orchestrator.Application.Validation;
 using Datateal.Orchestrator.Core.Entities;
 using Datateal.Orchestrator.Core.Enums;
@@ -17,7 +18,8 @@ public record UpdateJobRequest(
     bool IsEnabled,
     Guid? OwnerUserId,
     List<UpdateJobTaskRequest>? Tasks = null,
-    List<UpdateJobParameterRequest>? Parameters = null) : IRequest<Job?>;
+    List<UpdateJobParameterRequest>? Parameters = null,
+    List<UpdateJobScheduleRequest>? Schedules = null) : IRequest<Job?>;
 
 public record UpdateJobTaskRequest(
     string Name,
@@ -36,7 +38,9 @@ public record UpdateJobDependencyRequest(string DependsOnTaskName, DependencyCon
 
 public record UpdateJobParameterRequest(string Name, string? DefaultValue, bool IsRequired, string? Description);
 
-internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<UpdateJobRequest, Job?>
+public record UpdateJobScheduleRequest(string Name, string CronExpression, bool IsEnabled, string? TimeZone, Dictionary<string, string>? Parameters);
+
+internal class UpdateJobHandler(IJobRepository jobRepository, SchedulesManager schedulesManager) : IRequestHandler<UpdateJobRequest, Job?>
 {
     public async Task<Job?> Handle(UpdateJobRequest request, CancellationToken cancellationToken)
     {
@@ -167,6 +171,31 @@ internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<
             DagValidator.Validate(existing.Tasks);
         }
 
-        return await jobRepository.UpdateJobAsync(existing, cancellationToken);
+        if (request.Schedules is not null)
+        {
+            existing.Schedules.Clear();
+            foreach (var schedule in request.Schedules)
+            {
+                existing.Schedules.Add(new JobSchedule
+                {
+                    JobId = existing.Id,
+                    Name = schedule.Name,
+                    CronExpression = schedule.CronExpression,
+                    IsEnabled = schedule.IsEnabled,
+                    TimeZone = schedule.TimeZone,
+                    Parameters = schedule.Parameters,
+                });
+            }
+        }
+
+        var updated = await jobRepository.UpdateJobAsync(existing, cancellationToken);
+        if (updated is not null && request.Schedules is not null)
+        {
+            await schedulesManager.RemoveJobAsync(updated.Id, cancellationToken);
+            foreach (var schedule in updated.Schedules)
+                await schedulesManager.AddScheduleAsync(schedule, cancellationToken);
+        }
+
+        return updated;
     }
 }

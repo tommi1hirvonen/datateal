@@ -358,6 +358,16 @@ namespace Datateal.Data.Migrations
 
                     b.HasIndex("WorkspaceId");
 
+                    b.HasIndex("WorkspaceId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Folders_WorkspaceId_Name_Root")
+                        .HasFilter("\"ParentId\" IS NULL");
+
+                    b.HasIndex("WorkspaceId", "ParentId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Folders_WorkspaceId_ParentId_Name")
+                        .HasFilter("\"ParentId\" IS NOT NULL");
+
                     b.ToTable("Folders");
                 });
 
@@ -557,7 +567,8 @@ namespace Datateal.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("JobId");
+                    b.HasIndex("JobId", "Name")
+                        .IsUnique();
 
                     b.ToTable("JobParameters");
                 });
@@ -646,6 +657,11 @@ namespace Datateal.Data.Migrations
                     b.Property<Guid>("JobId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<string>("Parameters")
                         .HasColumnType("jsonb");
 
@@ -655,7 +671,8 @@ namespace Datateal.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("JobId");
+                    b.HasIndex("JobId", "Name")
+                        .IsUnique();
 
                     b.ToTable("JobSchedules");
                 });
@@ -784,7 +801,8 @@ namespace Datateal.Data.Migrations
 
                     b.HasIndex("DependsOnTaskId");
 
-                    b.HasIndex("TaskId");
+                    b.HasIndex("TaskId", "DependsOnTaskId")
+                        .IsUnique();
 
                     b.ToTable("TaskDependencies");
                 });

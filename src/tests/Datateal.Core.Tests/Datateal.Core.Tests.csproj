@@ -16,6 +16,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\shared\Datateal.Core\Datateal.Core.csproj" />
     <ProjectReference Include="..\..\shared\Datateal.Data\Datateal.Data.csproj" />
+    <ProjectReference Include="..\..\shared\Datateal.Deployment\Datateal.Deployment.csproj" />
+    <ProjectReference Include="..\..\orchestrator\Datateal.Orchestrator.Application\Datateal.Orchestrator.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

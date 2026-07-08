@@ -33,6 +33,7 @@ public static class ServiceExtensions
             // YAML import/export
             services.AddScoped<YamlJobSerializer>();
             services.AddScoped<YamlJobImporter>();
+            services.AddScoped<JobModelMapper>();
 
             return services;
         }

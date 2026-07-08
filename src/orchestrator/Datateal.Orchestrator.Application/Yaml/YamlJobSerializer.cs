@@ -8,12 +8,12 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace Datateal.Orchestrator.Application.Yaml;
 
 /// <summary>
-/// Converts a <see cref="Job"/> entity into YAML text.
+/// Converts a <see cref="Job"/> entity into YAML text using snake_case keys.
 /// </summary>
 public class YamlJobSerializer(IWorkspaceReader workspaceReader, IJobRepository jobRepository)
 {
     private static readonly ISerializer Serializer = new SerializerBuilder()
-        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
         .Build();
 
@@ -80,13 +80,13 @@ public class YamlJobSerializer(IWorkspaceReader workspaceReader, IJobRepository 
                     yamlTask.Parameters = nb.Parameters;
                     break;
                 case SqlQueryTask sq:
-                    yamlTask.Type = "sqlQuery";
+                    yamlTask.Type = "sql_query";
                     yamlTask.QueryPath = await workspaceReader.ResolveQueryPathByIdAsync(sq.QueryId, ct);
                     yamlTask.NodePoolRef = sq.NodePoolRef;
                     yamlTask.Parameters = sq.Parameters;
                     break;
                 case SubJobTask sj:
-                    yamlTask.Type = "subJob";
+                    yamlTask.Type = "sub_job";
                     var subJob = await jobRepository.GetJobAsync(sj.SubJobId, ct);
                     yamlTask.JobName = subJob?.Name;
                     yamlTask.Parameters = sj.Parameters;
@@ -100,11 +100,11 @@ public class YamlJobSerializer(IWorkspaceReader workspaceReader, IJobRepository 
                     Task = taskNameById.TryGetValue(dep.DependsOnTaskId, out var name) ? name : dep.DependsOnTaskId.ToString(),
                     Condition = dep.Condition switch
                     {
-                        DependencyCondition.OnSuccess => "onSuccess",
-                        DependencyCondition.OnFailure => "onFailure",
-                        DependencyCondition.OnCompletion => "onCompletion",
-                        DependencyCondition.OnSkip => "onSkip",
-                        _ => "onSuccess",
+                        DependencyCondition.OnSuccess => "on_success",
+                        DependencyCondition.OnFailure => "on_failure",
+                        DependencyCondition.OnCompletion => "on_completion",
+                        DependencyCondition.OnSkip => "on_skip",
+                        _ => "on_success",
                     },
                 });
             }
@@ -117,6 +117,7 @@ public class YamlJobSerializer(IWorkspaceReader workspaceReader, IJobRepository 
         {
             model.Schedules.Add(new YamlScheduleModel
             {
+                Name = s.Name,
                 Cron = s.CronExpression,
                 TimeZone = s.TimeZone,
                 Parameters = s.Parameters,

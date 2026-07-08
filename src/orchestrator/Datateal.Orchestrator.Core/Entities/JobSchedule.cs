@@ -11,6 +11,8 @@ public class JobSchedule
     [JsonIgnore]
     public Job? Job { get; set; }
 
+    /// <summary>Natural key within a job. Used for stable YAML-based addressability.</summary>
+    public required string Name { get; set; }
     public required string CronExpression { get; set; }
     public bool IsEnabled { get; set; } = true;
     public string? TimeZone { get; set; }

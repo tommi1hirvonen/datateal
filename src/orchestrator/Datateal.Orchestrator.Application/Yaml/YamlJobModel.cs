@@ -1,7 +1,10 @@
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
+
 namespace Datateal.Orchestrator.Application.Yaml;
 
 /// <summary>
-/// Root YAML model for job import/export.
+/// Root YAML model for job import/export. Uses snake_case keys.
 /// </summary>
 public class YamlJobModel
 {
@@ -33,6 +36,7 @@ public class YamlNodePoolModel
 public class YamlTaskModel
 {
     public string Name { get; set; } = "";
+    /// <summary><c>notebook</c>, <c>sql_query</c>, or <c>sub_job</c>.</summary>
     public string Type { get; set; } = "";
     public string? NotebookPath { get; set; }
     public string? QueryPath { get; set; }
@@ -48,11 +52,13 @@ public class YamlTaskModel
 public class YamlDependencyModel
 {
     public string Task { get; set; } = "";
-    public string Condition { get; set; } = "onSuccess";
+    /// <summary><c>on_success</c>, <c>on_failure</c>, <c>on_completion</c>, <c>on_skip</c>.</summary>
+    public string Condition { get; set; } = "on_success";
 }
 
 public class YamlScheduleModel
 {
+    public string Name { get; set; } = "";
     public string Cron { get; set; } = "";
     public string? TimeZone { get; set; }
     public Dictionary<string, string>? Parameters { get; set; }

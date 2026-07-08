@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\Datateal.Ui.Shared\Datateal.Ui.Shared.csproj" />
     <ProjectReference Include="..\..\..\shared\Datateal.Auth\Datateal.Auth.csproj" />
     <ProjectReference Include="..\..\..\shared\Datateal.Data\Datateal.Data.csproj" />
+    <ProjectReference Include="..\..\..\shared\Datateal.Deployment\Datateal.Deployment.csproj" />
   </ItemGroup>
 
 </Project>

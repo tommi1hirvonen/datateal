@@ -59,6 +59,7 @@ app.MapDefaultEndpoints();
 
 var api = app.MapGroup(string.Empty).RequireAuthorization();
 api.MapJobEndpoints();
+api.MapJobDeployEndpoints();
 api.MapRunEndpoints();
 api.MapNodePoolEndpoints();
 api.MapAdminEndpoints();

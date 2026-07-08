@@ -42,6 +42,8 @@ builder.Services.AddHttpClient<IApiTokenService, ApiTokenService>(
     client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 builder.Services.AddHttpClient<IWorkspaceManagementService, WorkspaceManagementService>(
     client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
+builder.Services.AddHttpClient<IDeploymentService, DeploymentService>(
+    client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 
 builder.Services.AddScoped<IThemeService, ThemeService>();
 builder.Services.AddScoped<IRecentItemsService, RecentItemsService>();
