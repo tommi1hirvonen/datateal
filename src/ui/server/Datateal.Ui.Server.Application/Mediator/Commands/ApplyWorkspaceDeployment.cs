@@ -5,7 +5,7 @@ using Datateal.Ui.Server.Core.Deployment;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
-public record ApplyWorkspaceDeploymentRequest(Guid WorkspaceId, Bundle Bundle) : IRequest<ChangeSet>;
+public record ApplyWorkspaceDeploymentRequest(Guid WorkspaceId, Bundle Bundle, string? ActingUserId) : IRequest<ChangeSet>;
 
 internal sealed class ApplyWorkspaceDeploymentHandler(
     IWorkspaceDeploymentService deploymentService,
@@ -21,6 +21,7 @@ internal sealed class ApplyWorkspaceDeploymentHandler(
             httpClientFactory,
             request.WorkspaceId,
             request.Bundle.Jobs,
+            request.ActingUserId,
             cancellationToken);
 
         return DeploymentChangeSetMerger.Merge(workspaceChanges, jobChanges);

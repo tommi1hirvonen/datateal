@@ -47,7 +47,8 @@ public class DeploymentController(IMediator mediator) : ControllerBase
         ExecuteChangeSetAsync(async () =>
         {
             var bundle = await ReadBundleAsync(ct);
-            return await mediator.SendAsync(new PlanWorkspaceDeploymentRequest(workspaceId, bundle), ct);
+            var actingUserId = User.FindFirst(DatatealClaimTypes.UserId)?.Value;
+            return await mediator.SendAsync(new PlanWorkspaceDeploymentRequest(workspaceId, bundle, actingUserId), ct);
         });
 
     [HttpPost("workspaces/{workspaceId:guid}/deployment/apply")]
@@ -56,7 +57,8 @@ public class DeploymentController(IMediator mediator) : ControllerBase
         ExecuteChangeSetAsync(async () =>
         {
             var bundle = await ReadBundleAsync(ct);
-            return await mediator.SendAsync(new ApplyWorkspaceDeploymentRequest(workspaceId, bundle), ct);
+            var actingUserId = User.FindFirst(DatatealClaimTypes.UserId)?.Value;
+            return await mediator.SendAsync(new ApplyWorkspaceDeploymentRequest(workspaceId, bundle, actingUserId), ct);
         });
 
     [HttpGet("workspaces/{workspaceId:guid}/deployment/export")]

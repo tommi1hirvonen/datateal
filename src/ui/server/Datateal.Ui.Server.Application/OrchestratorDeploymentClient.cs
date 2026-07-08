@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Datateal.Auth;
 using Datateal.Deployment.Diff;
 using Datateal.Deployment.Models;
 using Datateal.Deployment.Serialization;
@@ -11,15 +12,17 @@ internal static class OrchestratorDeploymentClient
         IHttpClientFactory httpClientFactory,
         Guid workspaceId,
         List<JobModel> jobs,
+        string? actingUserId,
         CancellationToken ct) =>
-        PostJobsAsync(httpClientFactory, workspaceId, "plan", jobs, ct);
+        PostJobsAsync(httpClientFactory, workspaceId, "plan", jobs, actingUserId, ct);
 
     public static Task<ChangeSet> ApplyJobsAsync(
         IHttpClientFactory httpClientFactory,
         Guid workspaceId,
         List<JobModel> jobs,
+        string? actingUserId,
         CancellationToken ct) =>
-        PostJobsAsync(httpClientFactory, workspaceId, "apply", jobs, ct);
+        PostJobsAsync(httpClientFactory, workspaceId, "apply", jobs, actingUserId, ct);
 
     public static async Task<List<JobModel>> ExportJobsAsync(
         IHttpClientFactory httpClientFactory,
@@ -45,10 +48,17 @@ internal static class OrchestratorDeploymentClient
         Guid workspaceId,
         string action,
         List<JobModel> jobs,
+        string? actingUserId,
         CancellationToken ct)
     {
         var client = httpClientFactory.CreateClient("Orchestrator");
-        using var response = await client.PostAsJsonAsync($"/api/workspaces/{workspaceId}/jobs/{action}", jobs, ct);
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/workspaces/{workspaceId}/jobs/{action}")
+        {
+            Content = JsonContent.Create(jobs),
+        };
+        if (actingUserId is not null)
+            request.Headers.TryAddWithoutValidation(DatatealHeaders.ActingUser, actingUserId);
+        using var response = await client.SendAsync(request, ct);
         await EnsureSuccessAsync(response, ct);
         return (await response.Content.ReadFromJsonAsync<ChangeSet>(ct))!;
     }
