@@ -25,6 +25,14 @@ public class CatalogModel
     /// Workspaces that can access this catalog (empty = use AccessibleFromAllWorkspaces).
     /// </summary>
     public List<string>? WorkspaceAccess { get; set; }
+
+    // Unmanaged catalog credentials
+    /// <summary>
+    /// Password for the catalog's Postgres metadata database. Required when creating a new
+    /// unmanaged catalog; optional on updates (omit to preserve the existing password).
+    /// Never included in exported bundles.
+    /// </summary>
+    public string? CatalogPassword { get; set; }
 }
 
 /// <summary>Workspace resource definition.</summary>

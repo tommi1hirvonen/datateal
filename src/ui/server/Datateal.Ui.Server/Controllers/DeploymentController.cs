@@ -7,6 +7,7 @@ using Datateal.Ui.Server.Application.Mediator.Queries;
 using Datateal.Ui.Shared.Deployment;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace Datateal.Ui.Server.Controllers;
 
@@ -20,8 +21,8 @@ public class DeploymentController(IMediator mediator) : ControllerBase
     public Task<ActionResult<ChangeSetDto>> PlanAdmin(CancellationToken ct) =>
         ExecuteChangeSetAsync(async () =>
         {
-            var bundle = await ReadBundleAsync(ct);
-            return await mediator.SendAsync(new PlanAdminDeploymentRequest(bundle), ct);
+            var (bundle, env) = await ReadBundleAsync(ct);
+            return await mediator.SendAsync(new PlanAdminDeploymentRequest(bundle, env), ct);
         });
 
     [HttpPost("deployments/admin/apply")]
@@ -29,8 +30,8 @@ public class DeploymentController(IMediator mediator) : ControllerBase
     public Task<ActionResult<ChangeSetDto>> ApplyAdmin(CancellationToken ct) =>
         ExecuteChangeSetAsync(async () =>
         {
-            var bundle = await ReadBundleAsync(ct);
-            return await mediator.SendAsync(new ApplyAdminDeploymentRequest(bundle), ct);
+            var (bundle, env) = await ReadBundleAsync(ct);
+            return await mediator.SendAsync(new ApplyAdminDeploymentRequest(bundle, env), ct);
         });
 
     [HttpGet("deployments/admin/export")]
@@ -46,9 +47,9 @@ public class DeploymentController(IMediator mediator) : ControllerBase
     public Task<ActionResult<ChangeSetDto>> PlanWorkspace(Guid workspaceId, CancellationToken ct) =>
         ExecuteChangeSetAsync(async () =>
         {
-            var bundle = await ReadBundleAsync(ct);
+            var (bundle, env) = await ReadBundleAsync(ct);
             var actingUserId = User.FindFirst(DatatealClaimTypes.UserId)?.Value;
-            return await mediator.SendAsync(new PlanWorkspaceDeploymentRequest(workspaceId, bundle, actingUserId), ct);
+            return await mediator.SendAsync(new PlanWorkspaceDeploymentRequest(workspaceId, bundle, actingUserId, env), ct);
         });
 
     [HttpPost("workspaces/{workspaceId:guid}/deployment/apply")]
@@ -56,9 +57,9 @@ public class DeploymentController(IMediator mediator) : ControllerBase
     public Task<ActionResult<ChangeSetDto>> ApplyWorkspace(Guid workspaceId, CancellationToken ct) =>
         ExecuteChangeSetAsync(async () =>
         {
-            var bundle = await ReadBundleAsync(ct);
+            var (bundle, env) = await ReadBundleAsync(ct);
             var actingUserId = User.FindFirst(DatatealClaimTypes.UserId)?.Value;
-            return await mediator.SendAsync(new ApplyWorkspaceDeploymentRequest(workspaceId, bundle, actingUserId), ct);
+            return await mediator.SendAsync(new ApplyWorkspaceDeploymentRequest(workspaceId, bundle, actingUserId, env), ct);
         });
 
     [HttpGet("workspaces/{workspaceId:guid}/deployment/export")]
@@ -69,9 +70,10 @@ public class DeploymentController(IMediator mediator) : ControllerBase
             "application/zip",
             "datateal-bundle.zip");
 
-    private async Task<Bundle> ReadBundleAsync(CancellationToken ct)
+    private async Task<(Bundle Bundle, IReadOnlyDictionary<string, string>? Env)> ReadBundleAsync(CancellationToken ct)
     {
         byte[] bytes;
+        IReadOnlyDictionary<string, string>? env = null;
 
         if (Request.HasFormContentType)
         {
@@ -84,6 +86,12 @@ public class DeploymentController(IMediator mediator) : ControllerBase
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms, ct);
             bytes = ms.ToArray();
+
+            if (form.TryGetValue("env", out var envJson) && !string.IsNullOrWhiteSpace(envJson))
+            {
+                env = JsonSerializer.Deserialize<Dictionary<string, string>>(envJson.ToString())
+                    ?? throw new InvalidOperationException("The 'env' field must be a JSON object mapping variable names to string values.");
+            }
         }
         else
         {
@@ -95,7 +103,7 @@ public class DeploymentController(IMediator mediator) : ControllerBase
         if (bytes.Length == 0)
             throw new InvalidOperationException("Bundle upload was empty.");
 
-        return BundleReader.ReadZip(bytes);
+        return (BundleReader.ReadZip(bytes), env);
     }
 
     private static ChangeSetDto ToDto(ChangeSet changeSet) =>

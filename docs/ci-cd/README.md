@@ -135,8 +135,8 @@ curl -X GET "https://datateal.example.com/api/deployments/admin/export" \
 
 Bundle YAML can include `${var.NAME}` and `${env.NAME}` tokens resolved at deploy time:
 
-- `${var.NAME}` — resolved from the `variables` map in `manifest.yml`.
-- `${env.NAME}` — resolved from the deploying process's environment variables (ideal for CI/CD secret injection).
+- `${var.NAME}` — resolved from the `variables` map in `manifest.yml`. Use for non-sensitive, environment-specific values (paths, region names, feature flags).
+- `${env.NAME}` — resolved from the `env` dictionary passed in the deployment request. Use for secrets that should never appear in source control.
 
 ```yaml
 # manifest.yml
@@ -151,7 +151,76 @@ variables:
 
 # resources/environment/secrets.yml
 - key: db_password
-  value: ${env.DB_PASSWORD}    # injected from GitHub Actions secret
+  value: ${env.DB_PASSWORD}    # caller supplies DB_PASSWORD in the deploy request
+```
+
+---
+
+## Secrets in deployments
+
+### How `${env.NAME}` works
+
+`${env.NAME}` tokens are resolved from the `env` JSON object passed as a form field alongside the bundle ZIP. This means secret values stay in your CI/CD system (GitHub Actions secrets, Azure Key Vault, etc.) and are never stored in source control or on the Datateal server.
+
+**Passing env vars in the request (multipart form):**
+
+```bash
+curl -X POST ".../deployment/apply" \
+  -H "Authorization: $TOKEN" \
+  -F "bundle=@bundle.zip" \
+  -F 'env={"DB_PASSWORD":"secret","PARTNER_API_KEY":"key123"}'
+```
+
+If no `env` field is provided (raw ZIP body or form without `env`), any `${env.NAME}` token in the bundle will cause a validation error at plan/apply time.
+
+### Workspace secrets (`secrets.yml`)
+
+Workspace secrets are sensitive values injected into notebook and query kernel environments as `os.environ['KEY']`. They are encrypted at rest.
+
+```yaml
+# resources/environment/secrets.yml
+
+- key: db_password
+  value: ${env.DB_PASSWORD}
+
+- key: api_key_partner
+  value: ${env.PARTNER_API_KEY}
+```
+
+**Behaviour by case:**
+
+| Scenario                                | What happens                                             |
+| --------------------------------------- | -------------------------------------------------------- |
+| Secret already exists, `value` omitted  | NoChange — existing encrypted value is preserved         |
+| Secret already exists, `value` provided | Updated with the new value                               |
+| New secret, `value` provided            | Created with the provided value                          |
+| New secret, `value` omitted             | **Plan/apply error** — value is required for new secrets |
+
+Secrets are **never exported** — the export endpoint returns the key and description only, with the value omitted.
+
+### Unmanaged catalog connection credentials
+
+All unmanaged catalog fields support `${var.NAME}` and `${env.NAME}` substitution. The `catalog_password` field is a bundle field and follows the same semantics as workspace secrets:
+
+| Scenario                                      | Behaviour                                                              |
+| --------------------------------------------- | ---------------------------------------------------------------------- |
+| New catalog, `catalog_password` provided      | Created with the provided password                                     |
+| New catalog, `catalog_password` omitted       | **Plan/apply error** — password is required for new unmanaged catalogs |
+| Existing catalog, `catalog_password` provided | Password updated to the provided value                                 |
+| Existing catalog, `catalog_password` omitted  | Password left unchanged                                                |
+
+`catalog_password` is **never exported** — the export endpoint omits it entirely.
+
+```yaml
+# resources/catalogs/partner_data.catalog.yml
+type: unmanaged
+name: partner_data
+catalog_host: ${env.PARTNER_DB_HOST}
+catalog_database: ducklake_partner
+catalog_user: datateal_reader
+# Required when creating a new catalog. Omit on subsequent deploys to preserve the stored password.
+catalog_password: ${env.PARTNER_DB_PASSWORD}
+data_path: abfss://partner@${var.adls_account}.dfs.core.windows.net/ducklake
 ```
 
 ---
@@ -181,6 +250,11 @@ accessible_from_all_workspaces: false
 workspace_access:
   - Sales (Prod)
   - Sales (Dev)
+catalog_host: partner-db.internal
+catalog_database: ducklake_partner
+catalog_user: datateal_reader
+catalog_password: ${env.PARTNER_DB_PASSWORD} # required for new catalogs; omit to preserve existing
+data_path: abfss://partner@${var.adls_account}.dfs.core.windows.net/ducklake
 ```
 
 **`catalog-access.yml`** is a flat list of per-user access entries — it controls which catalogs individual users can reach, independent of workspace access:
@@ -215,6 +289,8 @@ files/
 
 ## GitHub Actions example
 
+Bundle secrets are passed as the `env` form field — a JSON object built from GitHub Actions secrets. No secrets are stored in the bundle or on the Datateal server.
+
 ```yaml
 name: Deploy Datateal workspace
 
@@ -235,19 +311,27 @@ jobs:
       - name: Plan deployment
         run: |
           curl -sf -X POST "${{ vars.DATATEAL_URL }}/api/workspaces/${{ vars.WORKSPACE_ID }}/deployment/plan" \
-            -H "Authorization: Bearer ${{ secrets.DATATEAL_TOKEN }}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @bundle.zip | jq .
+            -H "Authorization: ${{ secrets.DATATEAL_TOKEN }}" \
+            -F "bundle=@bundle.zip" \
+            -F "env={\"DB_PASSWORD\":\"${{ secrets.DB_PASSWORD }}\",\"PARTNER_API_KEY\":\"${{ secrets.PARTNER_API_KEY }}\"}" \
+            | jq .
 
       - name: Apply deployment
         run: |
           curl -sf -X POST "${{ vars.DATATEAL_URL }}/api/workspaces/${{ vars.WORKSPACE_ID }}/deployment/apply" \
-            -H "Authorization: Bearer ${{ secrets.DATATEAL_TOKEN }}" \
-            -H "Content-Type: application/octet-stream" \
-            -H "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" \
-            --data-binary @bundle.zip | jq .
-        env:
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+            -H "Authorization: ${{ secrets.DATATEAL_TOKEN }}" \
+            -F "bundle=@bundle.zip" \
+            -F "env={\"DB_PASSWORD\":\"${{ secrets.DB_PASSWORD }}\",\"PARTNER_API_KEY\":\"${{ secrets.PARTNER_API_KEY }}\"}" \
+            | jq .
+```
+
+If your bundle contains no `${env.*}` tokens you can omit the `env` field and send the ZIP directly:
+
+```bash
+curl -sf -X POST ".../deployment/apply" \
+  -H "Authorization: $TOKEN" \
+  -H "Content-Type: application/octet-stream" \
+  --data-binary @bundle.zip | jq .
 ```
 
 ---

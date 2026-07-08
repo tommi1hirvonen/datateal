@@ -8,6 +8,7 @@ using Datateal.Deployment.Models;
 using Datateal.Deployment.Serialization;
 using Datateal.Ui.Server.Core.Catalogs;
 using Datateal.Ui.Server.Core.Deployment;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -16,13 +17,15 @@ namespace Datateal.Ui.Server.Infrastructure.Deployment;
 internal sealed class AdminDeploymentService(
     DatatealDbContext db,
     ICatalogDatabaseService catalogDatabaseService,
-    IOptions<CatalogSettings> catalogSettings) : IAdminDeploymentService
+    IOptions<CatalogSettings> catalogSettings,
+    IDataProtectionProvider dataProtection) : IAdminDeploymentService
 {
-    public Task<ChangeSet> PlanAsync(Bundle bundle, CancellationToken ct = default) =>
-        ProcessAsync(bundle, dryRun: true, ct);
+    private readonly IDataProtector _protector = dataProtection.CreateProtector("Datateal.Catalogs");
+    public Task<ChangeSet> PlanAsync(Bundle bundle, IReadOnlyDictionary<string, string>? env = null, CancellationToken ct = default) =>
+        ProcessAsync(bundle, dryRun: true, env, ct);
 
-    public Task<ChangeSet> ApplyAsync(Bundle bundle, CancellationToken ct = default) =>
-        ProcessAsync(bundle, dryRun: false, ct);
+    public Task<ChangeSet> ApplyAsync(Bundle bundle, IReadOnlyDictionary<string, string>? env = null, CancellationToken ct = default) =>
+        ProcessAsync(bundle, dryRun: false, env, ct);
 
     public async Task<Bundle> ExportAsync(CancellationToken ct = default)
     {
@@ -76,7 +79,7 @@ internal sealed class AdminDeploymentService(
         };
     }
 
-    private async Task<ChangeSet> ProcessAsync(Bundle bundle, bool dryRun, CancellationToken ct)
+    private async Task<ChangeSet> ProcessAsync(Bundle bundle, bool dryRun, IReadOnlyDictionary<string, string>? env, CancellationToken ct)
     {
         ValidateAdminBundle(bundle);
 
@@ -152,7 +155,7 @@ internal sealed class AdminDeploymentService(
         await strategy.ExecuteAsync(async () =>
         {
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
-            await ApplyChangesAsync(workspaceDiff, catalogDiff, membershipDiff, userAccessDiff, ct);
+            await ApplyChangesAsync(workspaceDiff, catalogDiff, membershipDiff, userAccessDiff, bundle.Manifest.Variables, env, ct);
             await transaction.CommitAsync(ct);
         });
 
@@ -164,6 +167,8 @@ internal sealed class AdminDeploymentService(
         DiffResult<CatalogModel> catalogDiff,
         DiffResult<WorkspaceMembershipModel> membershipDiff,
         DiffResult<UserCatalogAccessModel> userAccessDiff,
+        IReadOnlyDictionary<string, string>? variables,
+        IReadOnlyDictionary<string, string>? env,
         CancellationToken ct)
     {
         var workspaces = await db.Workspaces.ToListAsync(ct);
@@ -210,10 +215,10 @@ internal sealed class AdminDeploymentService(
         }
 
         foreach (var catalog in NormalizeCatalogs(catalogDiff.Creations.Select(entry => entry.Model).ToList()))
-            await UpsertCatalogAsync(catalog, workspaceByName, catalogByName, catalogs, ct);
+            await UpsertCatalogAsync(catalog, workspaceByName, catalogByName, catalogs, variables, env, ct);
 
         foreach (var catalog in NormalizeCatalogs(catalogDiff.Updates.Select(entry => entry.Model).ToList()))
-            await UpsertCatalogAsync(catalog, workspaceByName, catalogByName, catalogs, ct);
+            await UpsertCatalogAsync(catalog, workspaceByName, catalogByName, catalogs, variables, env, ct);
 
         foreach (var membership in NormalizeMemberships(membershipDiff.Creations.Select(entry => entry.Model).ToList()))
             ApplyMembershipModel(membership, workspaceByName, userByEmail, membershipByKey);
@@ -235,11 +240,13 @@ internal sealed class AdminDeploymentService(
         Dictionary<string, Workspace> workspaceByName,
         Dictionary<string, Catalog> catalogByName,
         List<Catalog> catalogs,
+        IReadOnlyDictionary<string, string>? variables,
+        IReadOnlyDictionary<string, string>? env,
         CancellationToken ct)
     {
         if (!catalogByName.TryGetValue(model.Name, out var existing))
         {
-            existing = await CreateCatalogAsync(model, ct);
+            existing = await CreateCatalogAsync(model, variables, env, ct);
             db.Catalogs.Add(existing);
             catalogs.Add(existing);
             catalogByName[existing.Name] = existing;
@@ -258,10 +265,24 @@ internal sealed class AdminDeploymentService(
 
         if (existing is UnmanagedCatalog unmanaged)
         {
-            unmanaged.DataPath = model.DataPath ?? unmanaged.DataPath;
-            unmanaged.CatalogHost = model.CatalogHost ?? unmanaged.CatalogHost;
-            unmanaged.CatalogDatabase = model.CatalogDatabase ?? unmanaged.CatalogDatabase;
-            unmanaged.CatalogUser = model.CatalogUser ?? unmanaged.CatalogUser;
+            unmanaged.DataPath = model.DataPath is not null
+                ? VariableSubstitution.Substitute(model.DataPath, variables, env)
+                : unmanaged.DataPath;
+            unmanaged.CatalogHost = model.CatalogHost is not null
+                ? VariableSubstitution.Substitute(model.CatalogHost, variables, env)
+                : unmanaged.CatalogHost;
+            unmanaged.CatalogDatabase = model.CatalogDatabase is not null
+                ? VariableSubstitution.Substitute(model.CatalogDatabase, variables, env)
+                : unmanaged.CatalogDatabase;
+            unmanaged.CatalogUser = model.CatalogUser is not null
+                ? VariableSubstitution.Substitute(model.CatalogUser, variables, env)
+                : unmanaged.CatalogUser;
+
+            if (model.CatalogPassword is not null)
+            {
+                var resolvedPassword = VariableSubstitution.Substitute(model.CatalogPassword, variables, env);
+                unmanaged.EncryptedCatalogPassword = _protector.Protect(resolvedPassword);
+            }
         }
 
         if (existing.AccessibleFromAllWorkspaces)
@@ -288,7 +309,7 @@ internal sealed class AdminDeploymentService(
         }
     }
 
-    private async Task<Catalog> CreateCatalogAsync(CatalogModel model, CancellationToken ct)
+    private async Task<Catalog> CreateCatalogAsync(CatalogModel model, IReadOnlyDictionary<string, string>? variables, IReadOnlyDictionary<string, string>? env, CancellationToken ct)
     {
         var now = DateTime.UtcNow;
         if (string.Equals(model.Type, "managed", StringComparison.OrdinalIgnoreCase))
@@ -318,15 +339,22 @@ internal sealed class AdminDeploymentService(
             Id = Guid.CreateVersion7(),
             Name = model.Name,
             AccessibleFromAllWorkspaces = model.AccessibleFromAllWorkspaces ?? true,
-            DataPath = model.DataPath ?? throw new InvalidOperationException(
-                $"Unmanaged catalog '{model.Name}' is missing required field 'data_path'."),
-            CatalogHost = model.CatalogHost ?? throw new InvalidOperationException(
-                $"Unmanaged catalog '{model.Name}' is missing required field 'catalog_host'."),
+            DataPath = VariableSubstitution.Substitute(
+                model.DataPath ?? throw new InvalidOperationException($"Unmanaged catalog '{model.Name}' is missing required field 'data_path'."),
+                variables, env),
+            CatalogHost = VariableSubstitution.Substitute(
+                model.CatalogHost ?? throw new InvalidOperationException($"Unmanaged catalog '{model.Name}' is missing required field 'catalog_host'."),
+                variables, env),
             CatalogPort = 5432,
-            CatalogDatabase = model.CatalogDatabase ?? throw new InvalidOperationException(
-                $"Unmanaged catalog '{model.Name}' is missing required field 'catalog_database'."),
-            CatalogUser = model.CatalogUser ?? throw new InvalidOperationException(
-                $"Unmanaged catalog '{model.Name}' is missing required field 'catalog_user'."),
+            CatalogDatabase = VariableSubstitution.Substitute(
+                model.CatalogDatabase ?? throw new InvalidOperationException($"Unmanaged catalog '{model.Name}' is missing required field 'catalog_database'."),
+                variables, env),
+            CatalogUser = VariableSubstitution.Substitute(
+                model.CatalogUser ?? throw new InvalidOperationException($"Unmanaged catalog '{model.Name}' is missing required field 'catalog_user'."),
+                variables, env),
+            EncryptedCatalogPassword = model.CatalogPassword is not null
+                ? _protector.Protect(VariableSubstitution.Substitute(model.CatalogPassword, variables, env))
+                : null,
             CreatedAt = now,
             UpdatedAt = now,
         };

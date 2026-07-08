@@ -5,8 +5,8 @@ namespace Datateal.Deployment.Serialization;
 /// <summary>
 /// Resolves <c>${var.NAME}</c> and <c>${env.NAME}</c> tokens in string values.
 /// <list type="bullet">
-///   <item><c>${var.NAME}</c> — looks up <paramref name="variables"/> dictionary.</item>
-///   <item><c>${env.NAME}</c> — looks up the process environment.</item>
+///   <item><c>${var.NAME}</c> — looks up <paramref name="variables"/> dictionary (from <c>manifest.yml</c>).</item>
+///   <item><c>${env.NAME}</c> — looks up <paramref name="env"/> dictionary (passed explicitly by the caller at deploy time).</item>
 /// </list>
 /// Unresolved references throw <see cref="DeploymentVariableException"/>.
 /// </summary>
@@ -19,7 +19,10 @@ public static class VariableSubstitution
     /// Substitutes tokens in a single string value.
     /// Returns the original value if it contains no tokens.
     /// </summary>
-    public static string Substitute(string value, IReadOnlyDictionary<string, string>? variables)
+    public static string Substitute(
+        string value,
+        IReadOnlyDictionary<string, string>? variables,
+        IReadOnlyDictionary<string, string>? env = null)
     {
         if (value is null || !value.Contains("${")) return value!;
 
@@ -39,11 +42,12 @@ public static class VariableSubstitution
             }
 
             // kind == "env"
-            var envVal = Environment.GetEnvironmentVariable(name);
-            if (envVal is not null) return envVal;
+            if (env is not null && env.TryGetValue(name, out var envVal))
+                return envVal;
 
             throw new DeploymentVariableException(
-                $"Environment variable '${{env.{name}}}' ('{name}') is not set in the deployment environment.");
+                $"Environment variable '${{env.{name}}}' ('{name}') was not supplied. " +
+                "Pass it in the 'env' field of the deployment request.");
         });
     }
 
@@ -53,10 +57,11 @@ public static class VariableSubstitution
     /// </summary>
     public static Dictionary<string, string>? SubstituteDict(
         Dictionary<string, string>? dict,
-        IReadOnlyDictionary<string, string>? variables)
+        IReadOnlyDictionary<string, string>? variables,
+        IReadOnlyDictionary<string, string>? env = null)
     {
         if (dict is null) return null;
-        return dict.ToDictionary(kv => kv.Key, kv => Substitute(kv.Value, variables));
+        return dict.ToDictionary(kv => kv.Key, kv => Substitute(kv.Value, variables, env));
     }
 }
 

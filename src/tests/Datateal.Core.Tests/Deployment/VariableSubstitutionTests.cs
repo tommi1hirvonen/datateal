@@ -32,16 +32,22 @@ public class VariableSubstitutionTests
     [Fact]
     public void EnvToken_Resolved()
     {
-        System.Environment.SetEnvironmentVariable("DATATEAL_TEST_VAR", "test_value");
-        try
-        {
-            var result = VariableSubstitution.Substitute("${env.DATATEAL_TEST_VAR}", null);
-            Assert.Equal("test_value", result);
-        }
-        finally
-        {
-            System.Environment.SetEnvironmentVariable("DATATEAL_TEST_VAR", null);
-        }
+        var env = new Dictionary<string, string> { ["DB_PASSWORD"] = "secret123" };
+        Assert.Equal("secret123", VariableSubstitution.Substitute("${env.DB_PASSWORD}", null, env));
+    }
+
+    [Fact]
+    public void EnvToken_MissingFromDict_Throws()
+    {
+        Assert.Throws<DeploymentVariableException>(() =>
+            VariableSubstitution.Substitute("${env.MISSING}", null, new Dictionary<string, string>()));
+    }
+
+    [Fact]
+    public void EnvToken_NullDict_Throws()
+    {
+        Assert.Throws<DeploymentVariableException>(() =>
+            VariableSubstitution.Substitute("${env.DB_PASSWORD}", null, null));
     }
 
     [Fact]
@@ -49,15 +55,6 @@ public class VariableSubstitutionTests
     {
         Assert.Throws<DeploymentVariableException>(() =>
             VariableSubstitution.Substitute("${var.missing}", new Dictionary<string, string>()));
-    }
-
-    [Fact]
-    public void UnresolvedEnvToken_Throws()
-    {
-        // Use an env var name that is extremely unlikely to exist
-        var uniqueName = $"DATATEAL_NONEXISTENT_{Guid.NewGuid():N}";
-        Assert.Throws<DeploymentVariableException>(() =>
-            VariableSubstitution.Substitute($"${{env.{uniqueName}}}", null));
     }
 
     [Fact]

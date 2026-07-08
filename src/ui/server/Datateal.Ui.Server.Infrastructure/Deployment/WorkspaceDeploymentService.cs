@@ -20,11 +20,11 @@ internal sealed class WorkspaceDeploymentService(
 {
     private readonly IDataProtector _secretProtector = dataProtection.CreateProtector("Datateal.Secrets");
 
-    public Task<ChangeSet> PlanAsync(Guid workspaceId, Bundle bundle, CancellationToken ct = default) =>
-        ProcessAsync(workspaceId, bundle, dryRun: true, ct);
+    public Task<ChangeSet> PlanAsync(Guid workspaceId, Bundle bundle, IReadOnlyDictionary<string, string>? env = null, CancellationToken ct = default) =>
+        ProcessAsync(workspaceId, bundle, dryRun: true, env, ct);
 
-    public Task<ChangeSet> ApplyAsync(Guid workspaceId, Bundle bundle, CancellationToken ct = default) =>
-        ProcessAsync(workspaceId, bundle, dryRun: false, ct);
+    public Task<ChangeSet> ApplyAsync(Guid workspaceId, Bundle bundle, IReadOnlyDictionary<string, string>? env = null, CancellationToken ct = default) =>
+        ProcessAsync(workspaceId, bundle, dryRun: false, env, ct);
 
     public async Task<Bundle> ExportAsync(Guid workspaceId, CancellationToken ct = default)
     {
@@ -121,7 +121,7 @@ internal sealed class WorkspaceDeploymentService(
         };
     }
 
-    private async Task<ChangeSet> ProcessAsync(Guid workspaceId, Bundle bundle, bool dryRun, CancellationToken ct)
+    private async Task<ChangeSet> ProcessAsync(Guid workspaceId, Bundle bundle, bool dryRun, IReadOnlyDictionary<string, string>? env, CancellationToken ct)
     {
         ValidateWorkspaceBundle(bundle);
 
@@ -249,7 +249,7 @@ internal sealed class WorkspaceDeploymentService(
         await strategy.ExecuteAsync(async () =>
         {
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
-            await ApplyChangesAsync(workspaceId, bundle, folderDiff, notebookDiff, queryDiff, nodePoolDiff, variableDiff, secretDiff, wheelDiff, ct);
+            await ApplyChangesAsync(workspaceId, bundle, folderDiff, notebookDiff, queryDiff, nodePoolDiff, variableDiff, secretDiff, wheelDiff, env, ct);
             await transaction.CommitAsync(ct);
         });
 
@@ -266,6 +266,7 @@ internal sealed class WorkspaceDeploymentService(
         DiffResult<EnvironmentVariableModel> variableDiff,
         DiffResult<SecretModel> secretDiff,
         DiffResult<WheelPackageModel> wheelDiff,
+        IReadOnlyDictionary<string, string>? env,
         CancellationToken ct)
     {
         var folders = await db.Folders.Where(f => f.WorkspaceId == workspaceId).ToListAsync(ct);
@@ -305,8 +306,8 @@ internal sealed class WorkspaceDeploymentService(
 
         await db.SaveChangesAsync(ct);
 
-        ApplyEnvironmentVariables(workspaceId, bundle.Manifest.Variables, variableDiff, variables, variableByKey);
-        ApplySecrets(workspaceId, bundle.Manifest.Variables, secretDiff, secrets, secretByKey);
+        ApplyEnvironmentVariables(workspaceId, bundle.Manifest.Variables, variableDiff, variables, variableByKey, env);
+        ApplySecrets(workspaceId, bundle.Manifest.Variables, secretDiff, secrets, secretByKey, env);
         ApplyWheelPackages(workspaceId, bundle, wheelDiff, wheelPackages, wheelByName);
         await ApplyNodePools(workspaceId, nodePoolDiff, nodePools, nodePoolByName, wheelByName, variableByKey, secretByKey, ct);
 
@@ -455,7 +456,8 @@ internal sealed class WorkspaceDeploymentService(
         IReadOnlyDictionary<string, string>? deploymentVariables,
         DiffResult<EnvironmentVariableModel> variableDiff,
         List<EnvironmentVariable> variables,
-        Dictionary<string, EnvironmentVariable> variableByKey)
+        Dictionary<string, EnvironmentVariable> variableByKey,
+        IReadOnlyDictionary<string, string>? env)
     {
         foreach (var variable in NormalizeVariables(variableDiff.Creations.Select(entry => entry.Model).ToList()))
         {
@@ -464,7 +466,7 @@ internal sealed class WorkspaceDeploymentService(
                 Id = Guid.CreateVersion7(),
                 WorkspaceId = workspaceId,
                 Key = variable.Key,
-                Value = VariableSubstitution.Substitute(variable.Value, deploymentVariables),
+                Value = VariableSubstitution.Substitute(variable.Value, deploymentVariables, env),
                 Description = variable.Description,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
@@ -479,7 +481,7 @@ internal sealed class WorkspaceDeploymentService(
             if (!variableByKey.TryGetValue(variable.Key, out var existing))
                 continue;
 
-            existing.Value = VariableSubstitution.Substitute(variable.Value, deploymentVariables);
+            existing.Value = VariableSubstitution.Substitute(variable.Value, deploymentVariables, env);
             existing.Description = variable.Description;
             existing.UpdatedAt = DateTime.UtcNow;
         }
@@ -490,7 +492,8 @@ internal sealed class WorkspaceDeploymentService(
         IReadOnlyDictionary<string, string>? deploymentVariables,
         DiffResult<SecretModel> secretDiff,
         List<WorkspaceSecret> secrets,
-        Dictionary<string, WorkspaceSecret> secretByKey)
+        Dictionary<string, WorkspaceSecret> secretByKey,
+        IReadOnlyDictionary<string, string>? env)
     {
         foreach (var secret in NormalizeSecrets(secretDiff.Creations.Select(entry => entry.Model).ToList()))
         {
@@ -502,7 +505,7 @@ internal sealed class WorkspaceDeploymentService(
                 WorkspaceId = workspaceId,
                 Key = secret.Key,
                 Description = secret.Description,
-                EncryptedValue = _secretProtector.Protect(VariableSubstitution.Substitute(rawValue, deploymentVariables)),
+                EncryptedValue = _secretProtector.Protect(VariableSubstitution.Substitute(rawValue, deploymentVariables, env)),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
             };
@@ -520,7 +523,7 @@ internal sealed class WorkspaceDeploymentService(
             if (secret.Value is not null)
             {
                 existing.EncryptedValue = _secretProtector.Protect(
-                    VariableSubstitution.Substitute(secret.Value, deploymentVariables));
+                    VariableSubstitution.Substitute(secret.Value, deploymentVariables, env));
             }
             existing.UpdatedAt = DateTime.UtcNow;
         }

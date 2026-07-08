@@ -5,7 +5,7 @@ using Datateal.Ui.Server.Core.Deployment;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
-public record ApplyWorkspaceDeploymentRequest(Guid WorkspaceId, Bundle Bundle, string? ActingUserId) : IRequest<ChangeSet>;
+public record ApplyWorkspaceDeploymentRequest(Guid WorkspaceId, Bundle Bundle, string? ActingUserId, IReadOnlyDictionary<string, string>? Env = null) : IRequest<ChangeSet>;
 
 internal sealed class ApplyWorkspaceDeploymentHandler(
     IWorkspaceDeploymentService deploymentService,
@@ -13,7 +13,7 @@ internal sealed class ApplyWorkspaceDeploymentHandler(
 {
     public async Task<ChangeSet> Handle(ApplyWorkspaceDeploymentRequest request, CancellationToken cancellationToken)
     {
-        var workspaceChanges = await deploymentService.ApplyAsync(request.WorkspaceId, request.Bundle, cancellationToken);
+        var workspaceChanges = await deploymentService.ApplyAsync(request.WorkspaceId, request.Bundle, request.Env, cancellationToken);
         if (request.Bundle.Jobs.Count == 0)
             return workspaceChanges;
 

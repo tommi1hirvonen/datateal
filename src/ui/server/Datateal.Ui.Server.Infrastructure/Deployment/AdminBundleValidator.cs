@@ -19,6 +19,8 @@ internal static class AdminBundleValidator
     {
         var errors = new List<string>();
 
+        var existingCatalogSet = new HashSet<string>(existingCatalogNames, StringComparer.OrdinalIgnoreCase);
+
         // ── Required fields ────────────────────────────────────────────────────
 
         foreach (var workspace in bundle.Workspaces)
@@ -47,6 +49,12 @@ internal static class AdminBundleValidator
                     errors.Add($"Unmanaged catalog '{catalog.Name}' is missing required field 'catalog_database'.");
                 if (string.IsNullOrWhiteSpace(catalog.CatalogUser))
                     errors.Add($"Unmanaged catalog '{catalog.Name}' is missing required field 'catalog_user'.");
+
+                // Password is required when creating a new catalog; optional on updates (preserves existing).
+                var isNew = !string.IsNullOrWhiteSpace(catalog.Name) && !existingCatalogSet.Contains(catalog.Name);
+                if (isNew && string.IsNullOrWhiteSpace(catalog.CatalogPassword))
+                    errors.Add($"Unmanaged catalog '{catalog.Name}' is new and requires 'catalog_password'. " +
+                               "Use ${env.VAR_NAME} to inject it from your CI/CD pipeline.");
             }
         }
 
