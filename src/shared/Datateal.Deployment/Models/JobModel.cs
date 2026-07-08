@@ -11,7 +11,6 @@ public class JobModel
     public int MaxConcurrentRuns { get; set; } = 1;
     public bool IsEnabled { get; set; } = true;
     public List<JobParameterModel> Parameters { get; set; } = [];
-    public List<JobNodePoolModel> NodePools { get; set; } = [];
     public List<JobTaskModel> Tasks { get; set; } = [];
     public List<JobScheduleModel> Schedules { get; set; } = [];
 }
@@ -21,17 +20,6 @@ public class JobParameterModel
     public string Name { get; set; } = "";
     public string? DefaultValue { get; set; }
     public bool Required { get; set; }
-    public string? Description { get; set; }
-}
-
-/// <summary>
-/// Inline node pool declaration inside a job YAML. Always creates a Job-type pool.
-/// </summary>
-public class JobNodePoolModel
-{
-    public string Name { get; set; } = "";
-    public string VmSize { get; set; } = "";
-    public string? KernelRequirements { get; set; }
     public string? Description { get; set; }
 }
 

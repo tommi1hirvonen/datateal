@@ -37,18 +37,6 @@ internal sealed class JobModelMapper(
                     Description = parameter.Description,
                 })
                 .ToList(),
-            NodePools = job.Tasks
-                .Select(task => task switch
-                {
-                    NotebookTask notebook => notebook.NodePoolRef,
-                    SqlQueryTask query => query.NodePoolRef,
-                    _ => null,
-                })
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                .Select(name => new JobNodePoolModel { Name = name! })
-                .ToList(),
             Tasks = [],
             Schedules = job.Schedules
                 .OrderBy(schedule => schedule.Name, StringComparer.OrdinalIgnoreCase)

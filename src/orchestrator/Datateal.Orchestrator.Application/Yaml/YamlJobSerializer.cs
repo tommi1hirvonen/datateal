@@ -38,23 +38,6 @@ public class YamlJobSerializer(IWorkspaceReader workspaceReader, IJobRepository 
             });
         }
 
-        // Collect distinct node pool refs used by tasks
-        var nodePoolRefs = job.Tasks
-            .Select(t => t switch
-            {
-                NotebookTask nb => nb.NodePoolRef,
-                SqlQueryTask sq => sq.NodePoolRef,
-                _ => null,
-            })
-            .Where(r => r is not null)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        foreach (var refName in nodePoolRefs)
-        {
-            model.NodePools.Add(new YamlNodePoolModel { Name = refName! });
-        }
-
         // Build task-id-to-name lookup for dependency resolution
         var taskNameById = job.Tasks.ToDictionary(t => t.Id, t => t.Name);
 

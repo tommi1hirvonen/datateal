@@ -14,8 +14,7 @@ namespace Datateal.Orchestrator.Application.Yaml;
 /// </summary>
 public class YamlJobImporter(
     IWorkspaceReader workspaceReader,
-    IJobRepository jobRepository,
-    INodePoolConfigRepository nodePoolConfigRepository)
+    IJobRepository jobRepository)
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
@@ -34,28 +33,6 @@ public class YamlJobImporter(
         var nameConflict = await jobRepository.GetJobByNameAsync(model.Name, workspaceId, ct);
         if (nameConflict is not null)
             throw new JobNameConflictException(model.Name);
-
-        // Create or update node pool configs
-        foreach (var pool in model.NodePools)
-        {
-            if (string.IsNullOrWhiteSpace(pool.Name))
-                throw new InvalidOperationException("Node pool name is required.");
-
-            var existing = await nodePoolConfigRepository.GetByNameAsync(pool.Name, workspaceId, ct);
-            if (existing is null)
-            {
-                await nodePoolConfigRepository.CreateAsync(new JobNodePoolConfig
-                {
-                    WorkspaceId = workspaceId,
-                    Name = pool.Name,
-                    VmSize = string.IsNullOrWhiteSpace(pool.VmSize) ? "Standard_D2s_v3" : pool.VmSize,
-                    KernelRequirements = pool.KernelRequirements,
-                    Description = pool.Description,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                }, ct);
-            }
-        }
 
         var job = new Job
         {

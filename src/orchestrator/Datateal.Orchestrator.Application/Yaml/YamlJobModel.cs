@@ -12,7 +12,6 @@ public class YamlJobModel
     public string? Description { get; set; }
     public int MaxConcurrentRuns { get; set; } = 1;
     public List<YamlParameterModel> Parameters { get; set; } = [];
-    public List<YamlNodePoolModel> NodePools { get; set; } = [];
     public List<YamlTaskModel> Tasks { get; set; } = [];
     public List<YamlScheduleModel> Schedules { get; set; } = [];
 }
@@ -22,14 +21,6 @@ public class YamlParameterModel
     public string Name { get; set; } = "";
     public string? DefaultValue { get; set; }
     public bool Required { get; set; }
-    public string? Description { get; set; }
-}
-
-public class YamlNodePoolModel
-{
-    public string Name { get; set; } = "";
-    public string VmSize { get; set; } = "";
-    public string? KernelRequirements { get; set; }
     public string? Description { get; set; }
 }
 
