@@ -127,11 +127,11 @@ curl -X GET "https://datateal.example.com/api/deployments/admin/export" \
 
 Bundle YAML can include `${var.NAME}` and `${env.NAME}` tokens resolved at deploy time:
 
-- `${var.NAME}` — resolved from the `variables` map in `datateal.yml`.
+- `${var.NAME}` — resolved from the `variables` map in `manifest.yml`.
 - `${env.NAME}` — resolved from the deploying process's environment variables (ideal for CI/CD secret injection).
 
 ```yaml
-# datateal.yml
+# manifest.yml
 scope: workspace
 target_workspace: Sales (Prod)
 variables:
@@ -150,12 +150,12 @@ variables:
 
 ## Bundle format
 
-A bundle is a **ZIP file** containing a specific directory layout. The root `datateal.yml` determines the scope; all other files are discovered by path convention.
+A bundle is a **ZIP file** containing a specific directory layout. The root `manifest.yml` determines the scope; all other files are discovered by path convention.
 
 ### Admin bundle layout
 
 ```
-datateal.yml
+manifest.yml
 resources/
   catalogs/<name>.catalog.yml
   workspaces/<name>.workspace.yml
@@ -167,7 +167,7 @@ resources/
 ### Workspace bundle layout
 
 ```
-datateal.yml
+manifest.yml
 resources/
   node_pools/<name>.nodepool.yml
   jobs/<name>.job.yml

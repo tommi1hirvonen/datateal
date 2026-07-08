@@ -102,6 +102,6 @@ public class BundleIoTests
 
         ms.Position = 0;
         var ex = Assert.Throws<InvalidOperationException>(() => BundleReader.ReadZip(ms));
-        Assert.Contains("datateal.yml", ex.Message);
+        Assert.Contains("manifest.yml", ex.Message);
     }
 }

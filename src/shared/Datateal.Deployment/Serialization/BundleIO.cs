@@ -67,8 +67,8 @@ public static class BundleReader
         }
 
         // Read and validate manifest
-        if (!files.TryGetValue("datateal.yml", out var manifestBytes))
-            throw new InvalidOperationException("Bundle is missing 'datateal.yml' manifest.");
+        if (!files.TryGetValue("manifest.yml", out var manifestBytes))
+            throw new InvalidOperationException("Bundle is missing 'manifest.yml'.");
 
         var manifest = BundleYaml.Deserialize<BundleManifest>(
             System.Text.Encoding.UTF8.GetString(manifestBytes));
@@ -215,7 +215,7 @@ public static class BundleWriter
         void Write(string path, string text) { WriteEntry(archive, path, text); written.Add(path); }
         void WriteRaw(string path, byte[] bytes) { WriteEntry(archive, path, bytes); written.Add(path); }
 
-        Write("datateal.yml", BundleYaml.Serialize(bundle.Manifest));
+        Write("manifest.yml", BundleYaml.Serialize(bundle.Manifest));
 
         if (bundle.Manifest.Scope.Equals("admin", StringComparison.OrdinalIgnoreCase))
             WriteAdminResources(archive, bundle, Write);

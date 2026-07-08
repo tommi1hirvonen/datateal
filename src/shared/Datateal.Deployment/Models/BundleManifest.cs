@@ -1,7 +1,7 @@
 namespace Datateal.Deployment.Models;
 
 /// <summary>
-/// Top-level <c>datateal.yml</c> manifest that identifies the bundle scope and target.
+/// Top-level <c>manifest.yml</c> that identifies the bundle scope and target.
 /// </summary>
 public class BundleManifest
 {
