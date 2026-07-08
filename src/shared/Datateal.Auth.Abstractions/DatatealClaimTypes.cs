@@ -11,6 +11,19 @@ public static class DatatealClaimTypes
     /// provisioned application user.
     /// </summary>
     public const string UserId = "datateal:user_id";
+
+    /// <summary>
+    /// Identifies how the principal authenticated. When present with the value
+    /// <see cref="AuthMethodApiToken"/>, the principal was authenticated by an API token and
+    /// its claims are authoritative — claims transformation must not augment them.
+    /// </summary>
+    public const string AuthMethod = "datateal:auth_method";
+
+    /// <summary>Value of <see cref="AuthMethod"/> for API-token authenticated principals.</summary>
+    public const string AuthMethodApiToken = "api_token";
+
+    /// <summary>The id of the <c>ApiToken</c> used to authenticate the request (audit/telemetry).</summary>
+    public const string TokenId = "datateal:token_id";
 }
 
 /// <summary>

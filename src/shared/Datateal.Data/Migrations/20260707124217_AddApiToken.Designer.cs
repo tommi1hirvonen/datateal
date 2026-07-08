@@ -3,6 +3,7 @@ using System;
 using Datateal.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Datateal.Data.Migrations
 {
     [DbContext(typeof(DatatealDbContext))]
-    partial class DatatealDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260707124217_AddApiToken")]
+    partial class AddApiToken
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -26,9 +29,6 @@ namespace Datateal.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ActingUserId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -280,6 +280,10 @@ namespace Datateal.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<bool>("HasAllCatalogAccess")
                         .HasColumnType("boolean");
 
@@ -293,21 +297,16 @@ namespace Datateal.Data.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("UserType")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("ExternalId")
+                        .IsUnique()
+                        .HasFilter("\"ExternalId\" IS NOT NULL");
+
                     b.ToTable("AppUsers");
-
-                    b.HasDiscriminator<string>("UserType").HasValue("AppUser");
-
-                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Datateal.Core.Users.UserCatalogAccess", b =>
@@ -907,32 +906,6 @@ namespace Datateal.Data.Migrations
                         .HasColumnType("text");
 
                     b.HasDiscriminator().HasValue("Unmanaged");
-                });
-
-            modelBuilder.Entity("Datateal.Core.Users.ServiceAccount", b =>
-                {
-                    b.HasBaseType("Datateal.Core.Users.AppUser");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)");
-
-                    b.HasDiscriminator().HasValue("ServiceAccount");
-                });
-
-            modelBuilder.Entity("Datateal.Core.Users.UserAccount", b =>
-                {
-                    b.HasBaseType("Datateal.Core.Users.AppUser");
-
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.HasIndex("ExternalId")
-                        .IsUnique()
-                        .HasFilter("\"ExternalId\" IS NOT NULL");
-
-                    b.HasDiscriminator().HasValue("UserAccount");
                 });
 
             modelBuilder.Entity("Datateal.Core.Workspace.Notebook", b =>

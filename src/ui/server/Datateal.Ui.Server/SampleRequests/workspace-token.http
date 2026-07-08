@@ -1,0 +1,204 @@
+# Workspace-Scoped Token Tests
+#
+# Tests endpoints using workspace-scoped API tokens. A workspace token's claims are
+# constrained to a single workspace — it cannot see or act on other workspaces.
+#
+# Generate these tokens via the UI → API Tokens page or via token-management.http.
+#
+# Fill in:
+#   @workspaceReaderToken     — Workspace token with WorkspaceReader role
+#   @workspaceContributorToken — Workspace token with WorkspaceContributor + EnvironmentManager roles
+#   @workspaceId              — The workspace GUID this token belongs to
+#   @otherWorkspaceId         — Any other workspace GUID (for isolation tests)
+
+@baseUrl                    = https://localhost:7179
+@workspaceReaderToken       = dtl_REPLACE_ME
+@workspaceContributorToken  = dtl_REPLACE_ME
+@workspaceId                = 00000000-0000-0000-0000-000000000000
+@otherWorkspaceId           = 11111111-1111-1111-1111-111111111111
+
+# ── WorkspaceReader: read-only access ─────────────────────────────────────
+
+###
+# List workspaces — workspace token only sees its own workspace
+# Expected: 200 OK — array with just the one workspace this token belongs to
+
+GET {{baseUrl}}/api/workspaces
+X-Datateal-Api-Token: {{workspaceReaderToken}}
+
+###
+# Get the token's own workspace
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}
+X-Datateal-Api-Token: {{workspaceReaderToken}}
+
+###
+# List workspace items (WorkspaceReader satisfies WorkspaceRead policy)
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/items
+X-Datateal-Api-Token: {{workspaceReaderToken}}
+
+###
+# Search workspace items
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/items/search?q=test
+X-Datateal-Api-Token: {{workspaceReaderToken}}
+
+###
+# WorkspaceReader cannot create a folder (requires WorkspaceManage policy)
+# Expected: 403 Forbidden
+
+POST {{baseUrl}}/api/workspaces/{{workspaceId}}/items/folders
+X-Datateal-Api-Token: {{workspaceReaderToken}}
+Content-Type: application/json
+
+{
+  "name": "Should Fail Folder"
+}
+
+###
+# WorkspaceReader cannot create a notebook (requires WorkspaceManage policy)
+# Expected: 403 Forbidden
+
+POST {{baseUrl}}/api/workspaces/{{workspaceId}}/items/notebooks
+X-Datateal-Api-Token: {{workspaceReaderToken}}
+Content-Type: application/json
+
+{
+  "title": "Should Fail Notebook",
+  "content": "{}"
+}
+
+###
+# WorkspaceReader cannot access environment (requires EnvironmentManage policy)
+# Expected: 403 Forbidden
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/environment/variables
+X-Datateal-Api-Token: {{workspaceReaderToken}}
+
+# ── WorkspaceContributor + EnvironmentManager: read/write access ───────────
+
+###
+# List workspace items with Contributor token
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/items
+X-Datateal-Api-Token: {{workspaceContributorToken}}
+
+###
+# Create a notebook (WorkspaceContributor satisfies WorkspaceManage policy)
+# Expected: 201 Created — save the returned id to @notebookId below
+
+POST {{baseUrl}}/api/workspaces/{{workspaceId}}/items/notebooks
+X-Datateal-Api-Token: {{workspaceContributorToken}}
+Content-Type: application/json
+
+{
+  "title": "API Token Test Notebook",
+  "content": "{\"cells\":[]}"
+}
+
+###
+# Get the created notebook (fill in id from the 201 above)
+# Expected: 200 OK
+
+@notebookId = 00000000-0000-0000-0000-000000000000
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/items/notebooks/{{notebookId}}
+X-Datateal-Api-Token: {{workspaceContributorToken}}
+
+###
+# Create a query
+# Expected: 201 Created
+
+POST {{baseUrl}}/api/workspaces/{{workspaceId}}/items/queries
+X-Datateal-Api-Token: {{workspaceContributorToken}}
+Content-Type: application/json
+
+{
+  "title": "API Token Test Query",
+  "content": "SELECT 1"
+}
+
+###
+# EnvironmentManager role allows reading environment variables
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/environment/variables
+X-Datateal-Api-Token: {{workspaceContributorToken}}
+
+###
+# EnvironmentManager role allows creating environment variables
+# Expected: 201 Created
+
+POST {{baseUrl}}/api/workspaces/{{workspaceId}}/environment/variables
+X-Datateal-Api-Token: {{workspaceContributorToken}}
+Content-Type: application/json
+
+{
+  "key": "API_TOKEN_TEST_VAR",
+  "value": "hello",
+  "description": "Created via workspace API token"
+}
+
+###
+# EnvironmentManager role allows reading secrets
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/environment/secrets
+X-Datateal-Api-Token: {{workspaceContributorToken}}
+
+# ── Workspace isolation: token cannot access other workspaces ──────────────
+
+###
+# Workspace token cannot GET another workspace
+# Expected: 403 Forbidden
+
+GET {{baseUrl}}/api/workspaces/{{otherWorkspaceId}}
+X-Datateal-Api-Token: {{workspaceReaderToken}}
+
+###
+# Workspace token cannot list items in another workspace
+# Expected: 403 Forbidden (WorkspaceRead policy not satisfied for otherWorkspaceId)
+
+GET {{baseUrl}}/api/workspaces/{{otherWorkspaceId}}/items
+X-Datateal-Api-Token: {{workspaceReaderToken}}
+
+###
+# Workspace token cannot manage another workspace's environment
+# Expected: 403 Forbidden
+
+GET {{baseUrl}}/api/workspaces/{{otherWorkspaceId}}/environment/variables
+X-Datateal-Api-Token: {{workspaceContributorToken}}
+
+###
+# Workspace token cannot manage tokens (requires tenant Admin role)
+# Expected: 403 Forbidden
+
+GET {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{workspaceContributorToken}}
+
+###
+# Workspace token cannot create a workspace (requires tenant Admin role)
+# Expected: 403 Forbidden
+
+POST {{baseUrl}}/api/workspaces
+X-Datateal-Api-Token: {{workspaceContributorToken}}
+Content-Type: application/json
+
+{
+  "name": "Should Fail",
+  "description": "Workspace tokens cannot create workspaces"
+}
+
+# ── Bearer header variant ──────────────────────────────────────────────────
+
+###
+# Same list items request using Authorization: Bearer header
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/workspaces/{{workspaceId}}/items
+Authorization: Bearer {{workspaceReaderToken}}

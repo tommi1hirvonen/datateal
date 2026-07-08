@@ -23,6 +23,12 @@ public class AppClaimsTransformation(
         if (principal.Identity is not ClaimsIdentity identity || !identity.IsAuthenticated)
             return principal;
 
+        // API-token principals carry an authoritative, pre-scoped claim set. Never augment them
+        // with the token owner's memberships/roles — doing so would break token isolation (e.g. a
+        // workspace-scoped token owned by an admin must not gain the Admin role).
+        if (identity.HasClaim(DatatealClaimTypes.AuthMethod, DatatealClaimTypes.AuthMethodApiToken))
+            return principal;
+
         var isDevRolesOverride = identity.AuthenticationType == DevAuthenticationOptions.SchemeName
             && identity.HasClaim(DevAuthenticationOptions.RolesOverrideClaim, "true");
 
@@ -48,14 +54,15 @@ public class AppClaimsTransformation(
         }
 
         // Look up user in database by ExternalId first, then email.
-        // Use AsNoTracking so this read does not pollute the scoped DbContext's change
-        // tracker, which could interfere with later repository operations in the same request.
+        // Only UserAccount instances participate in the interactive login flow — ServiceAccounts
+        // have no ExternalId and cannot be matched here. Use AsNoTracking so this read does not
+        // pollute the scoped DbContext's change tracker.
         var appUser = externalId is not null
-            ? await dbContext.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.ExternalId == externalId)
+            ? await dbContext.UserAccounts.AsNoTracking().FirstOrDefaultAsync(u => u.ExternalId == externalId)
             : null;
 
         appUser ??= email is not null
-            ? await dbContext.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email)
+            ? await dbContext.UserAccounts.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email)
             : null;
 
         if (appUser is null)
@@ -71,7 +78,7 @@ public class AppClaimsTransformation(
         // Use ExecuteUpdateAsync to avoid tracking a stale entity.
         if (appUser.ExternalId is null && externalId is not null)
         {
-            await dbContext.AppUsers
+            await dbContext.UserAccounts
                 .Where(u => u.Id == appUser.Id)
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(u => u.ExternalId, externalId)

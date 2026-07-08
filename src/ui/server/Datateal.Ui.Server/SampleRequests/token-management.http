@@ -1,0 +1,189 @@
+# Token Management
+# Manage API tokens via the REST API.
+#
+# Prerequisites:
+#   - Authenticate as an Admin user in the UI first, then use that session cookie,
+#     OR supply an existing Admin token (with the Admin role) in @adminToken.
+#   - Only Admin-role principals can call these endpoints.
+#
+# Fill in:
+#   @adminToken  — an existing Admin API token with the Admin role (dtl_...) to bootstrap
+#                  management via API; leave blank and use cookie auth from the browser session
+#                  if you prefer to test token creation interactively.
+
+@baseUrl   = https://localhost:7179
+@adminToken = dtl_REPLACE_ME
+
+###
+# List all tokens (Admin only)
+# Expected: 200 OK — array of ApiTokenDto
+
+GET {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminToken}}
+
+###
+# List tokens — Bearer header variant
+# Expected: 200 OK
+
+GET {{baseUrl}}/api/tokens
+Authorization: Bearer {{adminToken}}
+
+###
+# Create an Admin-scoped token with the Admin role
+# Expected: 201 Created — CreateApiTokenResult with one-time plaintext secret
+# Copy the returned `secret` value into admin-token.http → @adminRoleToken
+
+POST {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "CI Admin Token",
+  "scopeType": "Admin",
+  "roles": ["Admin"]
+}
+
+###
+# Create an Admin-scoped token with the CatalogContributor role only
+# Expected: 201 Created
+# Copy the returned `secret` into admin-token.http → @catalogContributorToken
+
+POST {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Catalog Contributor Token",
+  "scopeType": "Admin",
+  "roles": ["CatalogContributor"]
+}
+
+###
+# Create a Workspace-scoped token with WorkspaceReader role
+# Expected: 201 Created
+# Replace the workspaceId below with a real workspace GUID from your local environment.
+# Copy the returned `secret` into workspace-token.http → @workspaceReaderToken
+
+@workspaceIdForTokenCreation = 00000000-0000-0000-0000-000000000000
+
+POST {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Workspace Reader Token",
+  "scopeType": "Workspace",
+  "workspaceId": "{{workspaceIdForTokenCreation}}",
+  "roles": ["WorkspaceReader"]
+}
+
+###
+# Create a Workspace-scoped token with WorkspaceContributor + EnvironmentManager
+# Expected: 201 Created
+# Copy the returned `secret` into workspace-token.http → @workspaceContributorToken
+
+POST {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Workspace Contributor Token",
+  "scopeType": "Workspace",
+  "workspaceId": "{{workspaceIdForTokenCreation}}",
+  "roles": ["WorkspaceContributor", "EnvironmentManager"]
+}
+
+###
+# Create a token with an expiry
+# Expected: 201 Created
+
+POST {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Short-lived Token",
+  "scopeType": "Admin",
+  "roles": ["Admin"],
+  "validTo": "2099-12-31T23:59:59Z"
+}
+
+###
+# Validation: missing name → 400 Bad Request
+
+POST {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "",
+  "scopeType": "Admin",
+  "roles": ["Admin"]
+}
+
+###
+# Validation: tenant-global role on a workspace-scoped token → 400 Bad Request
+
+POST {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Bad Token",
+  "scopeType": "Workspace",
+  "workspaceId": "{{workspaceIdForTokenCreation}}",
+  "roles": ["Admin"]
+}
+
+###
+# Validation: per-workspace role on an admin-scoped token → 400 Bad Request
+
+POST {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Bad Token 2",
+  "scopeType": "Admin",
+  "roles": ["WorkspaceReader"]
+}
+
+###
+# Validation: expiry in the past → 400 Bad Request
+
+POST {{baseUrl}}/api/tokens
+X-Datateal-Api-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Expired Token",
+  "scopeType": "Admin",
+  "roles": ["Admin"],
+  "validTo": "2000-01-01T00:00:00Z"
+}
+
+###
+# Revoke a token by ID
+# Expected: 204 No Content
+# Replace with an actual token ID from the GET /api/tokens response above.
+
+@tokenIdToRevoke = 00000000-0000-0000-0000-000000000000
+
+POST {{baseUrl}}/api/tokens/{{tokenIdToRevoke}}/revoke
+X-Datateal-Api-Token: {{adminToken}}
+
+###
+# Revoke a non-existent token
+# Expected: 404 Not Found
+
+POST {{baseUrl}}/api/tokens/ffffffff-ffff-ffff-ffff-ffffffffffff/revoke
+X-Datateal-Api-Token: {{adminToken}}
+
+###
+# Delete a token by ID
+# Expected: 204 No Content
+
+@tokenIdToDelete = 00000000-0000-0000-0000-000000000000
+
+DELETE {{baseUrl}}/api/tokens/{{tokenIdToDelete}}
+X-Datateal-Api-Token: {{adminToken}}

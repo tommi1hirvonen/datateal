@@ -40,6 +40,7 @@ else
     builder.Services.AddEntraIdAuthentication();
 builder.Services.AddDatatealWebAppAuthentication(builder.Configuration);
 builder.Services.AddAuthorization(DatatealAuthorizationPolicies.Configure);
+builder.Services.AddDatatealApiTokenAuthentication();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IActiveWorkspaceAccessor, HttpActiveWorkspaceAccessor>();
 builder.Services.AddScoped<IAuthorizationHandler, WorkspaceScopedRoleHandler>();
@@ -85,10 +86,17 @@ else
     app.UseHsts();
 }
 
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+// Only apply status-code page re-execution for non-API routes. API 403/404 responses must
+// not be re-executed through the Blazor pipeline because UseAntiforgery() would reject the
+// re-executed POST/PUT/DELETE (it sees no antiforgery token) and return 400 instead of the
+// original 403/404.
+app.UseWhen(
+    ctx => !ctx.Request.Path.StartsWithSegments("/api"),
+    branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+app.UseDatatealApiTokenAuthentication();
 app.UseAuthorization();
 
 app.UseAntiforgery();

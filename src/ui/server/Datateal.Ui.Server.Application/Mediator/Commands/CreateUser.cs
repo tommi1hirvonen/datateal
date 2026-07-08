@@ -17,7 +17,7 @@ internal class CreateUserHandler(IUserRepository repository) : IRequestHandler<C
 
         var userId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
-        var user = new AppUser
+        var user = new UserAccount
         {
             Id = userId,
             Email = request.Email,
@@ -44,9 +44,15 @@ internal class CreateUserHandler(IUserRepository repository) : IRequestHandler<C
 
 internal static class UserDtoMapper
 {
-    internal static AppUserDto ToDto(AppUser user) =>
+    internal static AppUserDto ToDto(UserAccount user) =>
         new(user.Id, user.Email, user.ExternalId, user.DisplayName,
             user.IsEnabled, user.HasAllCatalogAccess, user.Roles,
             user.CatalogAccessList.Select(a => new UserCatalogAccessDto(a.Id, a.CatalogId, a.Catalog?.Name ?? "")).ToList(),
             user.CreatedAt, user.UpdatedAt);
+
+    internal static ServiceAccountDto ToServiceAccountDto(ServiceAccount account) =>
+        new(account.Id, account.Email, account.DisplayName, account.Description,
+            account.IsEnabled, account.HasAllCatalogAccess, account.Roles,
+            account.CatalogAccessList.Select(a => new UserCatalogAccessDto(a.Id, a.CatalogId, a.Catalog?.Name ?? "")).ToList(),
+            account.CreatedAt, account.UpdatedAt);
 }

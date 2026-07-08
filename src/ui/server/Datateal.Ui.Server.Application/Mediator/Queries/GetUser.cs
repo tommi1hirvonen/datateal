@@ -1,3 +1,4 @@
+using Datateal.Core.Users;
 using Datateal.Core.Mediator;
 using Datateal.Ui.Server.Core.Repositories;
 using Datateal.Ui.Shared.Users;
@@ -11,6 +12,6 @@ internal class GetUserHandler(IUserRepository repository) : IRequestHandler<GetU
     public async Task<AppUserDto?> Handle(GetUserRequest request, CancellationToken cancellationToken)
     {
         var user = await repository.GetByIdAsync(request.Id, cancellationToken);
-        return user is not null ? Commands.UserDtoMapper.ToDto(user) : null;
+        return user is UserAccount ua ? Commands.UserDtoMapper.ToDto(ua) : null;
     }
 }

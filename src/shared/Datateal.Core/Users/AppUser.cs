@@ -1,23 +1,19 @@
 namespace Datateal.Core.Users;
 
 /// <summary>
-/// An application user. Users are managed in the app; authentication is delegated
-/// to an external identity provider (e.g., Entra ID).
+/// Abstract base for all application identities. Concrete subtypes are
+/// <see cref="UserAccount"/> (interactive, IdP-bound) and <see cref="ServiceAccount"/>
+/// (admin-created, non-interactive). The EF TPH discriminator column is <c>UserType varchar(32)</c>.
 /// </summary>
-public class AppUser
+public abstract class AppUser
 {
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Primary identifier for admin user management (email/UPN).
+    /// Primary identifier for admin management (email/UPN for user accounts;
+    /// a descriptive label for service accounts).
     /// </summary>
     public required string Email { get; set; }
-
-    /// <summary>
-    /// External identity provider object ID (e.g., Entra ID OID).
-    /// Populated on first successful login for stable future lookups.
-    /// </summary>
-    public string? ExternalId { get; set; }
 
     public required string DisplayName { get; set; }
 
@@ -28,8 +24,8 @@ public class AppUser
     public DateTime UpdatedAt { get; set; }
 
     /// <summary>
-    /// If true, the user can access all catalogs (present and future).
-    /// Admin and CatalogContributor users have implicit access regardless of this flag.
+    /// If true, the identity can access all catalogs (present and future).
+    /// Admin and CatalogContributor roles have implicit access regardless of this flag.
     /// </summary>
     public bool HasAllCatalogAccess { get; set; }
 
@@ -40,7 +36,7 @@ public class AppUser
 
     /// <summary>
     /// Explicit catalog access grants (only relevant when <see cref="HasAllCatalogAccess"/> is false
-    /// and the user is not Admin or CatalogContributor).
+    /// and the identity does not hold Admin or CatalogContributor roles).
     /// </summary>
     public List<UserCatalogAccess> CatalogAccessList { get; set; } = [];
 }

@@ -43,6 +43,7 @@ public static class ServiceExtensions
         services.AddScoped<ICatalogMetadataService, CatalogMetadataService>();
         services.AddScoped<IInteractivePoolRepository, InteractivePoolRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IApiTokenRepository, ApiTokenRepository>();
         services.AddSingleton<IAiProviderFactory, AiProviderFactory>();
     }
 }
