@@ -44,11 +44,23 @@ internal class JobRepository(DatatealDbContext db) : IJobRepository
         job.CreatedAt = DateTime.UtcNow;
         job.UpdatedAt = DateTime.UtcNow;
         foreach (var p in job.Parameters) p.Id = Guid.CreateVersion7();
+
+        // Build the old→new mapping first so DependsOnTaskId cross-references can be
+        // updated in the same pass. Reassigning t.Id without this causes the FK on
+        // TaskDependencies.DependsOnTaskId to point at the old (now non-existent) task IDs.
+        var oldToNew = job.Tasks.ToDictionary(t => t.Id, _ => Guid.CreateVersion7());
         foreach (var t in job.Tasks)
         {
-            t.Id = Guid.CreateVersion7();
-            foreach (var d in t.Dependencies) d.Id = Guid.CreateVersion7();
+            var newId = oldToNew[t.Id];
+            t.Id = newId;
+            foreach (var d in t.Dependencies)
+            {
+                d.Id = Guid.CreateVersion7();
+                d.TaskId = newId;
+                d.DependsOnTaskId = oldToNew[d.DependsOnTaskId];
+            }
         }
+
         foreach (var s in job.Schedules) s.Id = Guid.CreateVersion7();
 
         db.Jobs.Add(job);
