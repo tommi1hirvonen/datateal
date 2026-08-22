@@ -8,7 +8,7 @@ using Datateal.Deployment.Serialization;
 
 namespace Datateal.Ui.Server.Application;
 
-internal static class OrchestratorDeploymentClient
+public static class OrchestratorDeploymentClient
 {
     // The orchestrator serializes enums as strings; match that here for response deserialization.
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)

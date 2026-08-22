@@ -49,5 +49,6 @@ public static class ServiceExtensions
         services.AddScoped<IWorkspaceDeploymentService, WorkspaceDeploymentService>();
         services.AddScoped<IAdminDeploymentService, AdminDeploymentService>();
         services.AddSingleton<IAiProviderFactory, AiProviderFactory>();
+        services.AddHostedService<DeploymentRecoveryBackgroundService>();
     }
 }

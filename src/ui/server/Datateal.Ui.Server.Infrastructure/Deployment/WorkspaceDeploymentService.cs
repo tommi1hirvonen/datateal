@@ -1,4 +1,5 @@
 using System.Text;
+using Datateal.Core.Deployment;
 using Datateal.Core.Environment;
 using Datateal.Core.RuntimePackages;
 using Datateal.Core.Workspace;
@@ -119,6 +120,155 @@ internal sealed class WorkspaceDeploymentService(
             WheelPackages = wheelPackages.Select(wheelMapper.ToModel).ToList(),
             Files = bundleFiles,
         };
+    }
+
+    public async Task<WorkspaceDeploymentSnapshot> CreateSnapshotAsync(Guid workspaceId, CancellationToken ct = default)
+    {
+        var bundle = await ExportAsync(workspaceId, ct);
+        var encryptedSecrets = await db.Secrets
+            .AsNoTracking()
+            .Where(s => s.WorkspaceId == workspaceId)
+            .ToDictionaryAsync(s => s.Key, s => s.EncryptedValue, StringComparer.OrdinalIgnoreCase, ct);
+
+        return new WorkspaceDeploymentSnapshot(bundle, encryptedSecrets);
+    }
+
+    public async Task RestoreSnapshotAsync(Guid workspaceId, WorkspaceDeploymentSnapshot snapshot, CancellationToken ct = default)
+    {
+        var bundle = snapshot.Bundle;
+        ValidateWorkspaceBundle(bundle);
+
+        var workspace = await db.Workspaces
+            .AsNoTracking()
+            .FirstOrDefaultAsync(w => w.Id == workspaceId, ct)
+            ?? throw new InvalidOperationException($"Workspace '{workspaceId}' was not found.");
+
+        ValidateBundleFiles(bundle);
+
+        var folders = await db.Folders
+            .AsNoTracking()
+            .Where(f => f.WorkspaceId == workspaceId)
+            .ToListAsync(ct);
+        var items = await db.WorkspaceItems
+            .AsNoTracking()
+            .Where(i => i.WorkspaceId == workspaceId)
+            .ToListAsync(ct);
+        var nodePools = await db.NodePoolConfigs
+            .AsNoTracking()
+            .Where(p => p.WorkspaceId == workspaceId)
+            .ToListAsync(ct);
+        var variables = await db.EnvironmentVariables
+            .AsNoTracking()
+            .Where(v => v.WorkspaceId == workspaceId)
+            .ToListAsync(ct);
+        var secrets = await db.Secrets
+            .AsNoTracking()
+            .Where(s => s.WorkspaceId == workspaceId)
+            .ToListAsync(ct);
+        var wheelPackages = await db.WheelPackages
+            .AsNoTracking()
+            .Where(w => w.WorkspaceId == workspaceId)
+            .ToListAsync(ct);
+
+        var folderMapper = new WorkspaceFolderMapper();
+        var notebookMapper = new WorkspaceNotebookMapper();
+        var queryMapper = new WorkspaceQueryMapper();
+        var nodePoolMapper = new WorkspaceNodePoolMapper();
+        var variableMapper = new WorkspaceEnvironmentVariableMapper();
+        var secretMapper = new WorkspaceSecretMapper();
+        var wheelMapper = new WorkspaceWheelPackageMapper();
+
+        notebookMapper.LoadDesired(bundle);
+        queryMapper.LoadDesired(bundle);
+        wheelMapper.LoadDesired(bundle);
+
+        var folderPaths = DeploymentPathHelpers.BuildFolderPathMap(folders);
+        var wheelNamesById = wheelPackages.ToDictionary(w => w.Id, w => w.Name);
+        var variableNamesById = variables.ToDictionary(v => v.Id, v => v.Key);
+        var secretNamesById = secrets.ToDictionary(s => s.Id, s => s.Key);
+
+        var currentNotebookModels = items
+            .OfType<Notebook>()
+            .Select(notebook => notebookMapper.ToModel(notebook, DeploymentPathHelpers.GetItemPath(notebook, folderPaths)))
+            .ToList();
+        var currentQueryModels = items
+            .OfType<Query>()
+            .Select(query => queryMapper.ToModel(query, DeploymentPathHelpers.GetItemPath(query, folderPaths)))
+            .ToList();
+        var currentFolderModels = folders
+            .Select(folder => folderMapper.ToModel(folder, folderPaths[folder.Id]))
+            .ToList();
+        var currentNodePoolModels = nodePools
+            .Select(pool => nodePoolMapper.ToModel(pool, wheelNamesById, variableNamesById, secretNamesById))
+            .ToList();
+        var currentVariableModels = variables.Select(variableMapper.ToModel).ToList();
+        var currentSecretModels = secrets.Select(secretMapper.ToModel).ToList();
+        var currentWheelModels = wheelPackages.Select(wheelMapper.ToModel).ToList();
+
+        var folderDiff = DiffEngine.Diff(folderMapper, NormalizeFolders(bundle.Folders), currentFolderModels, allowDeletes: true);
+        var notebookDiff = DiffEngine.Diff(notebookMapper, NormalizeNotebooks(bundle.Notebooks), currentNotebookModels, allowDeletes: true);
+        var queryDiff = DiffEngine.Diff(queryMapper, NormalizeQueries(bundle.Queries), currentQueryModels, allowDeletes: true);
+        var nodePoolDiff = DiffEngine.Diff(nodePoolMapper, NormalizeNodePools(bundle.NodePools), currentNodePoolModels, allowDeletes: true);
+        var variableDiff = DiffEngine.Diff(variableMapper, NormalizeVariables(bundle.EnvironmentVariables), currentVariableModels, allowDeletes: true);
+        var secretDiff = DiffEngine.Diff(secretMapper, NormalizeSecrets(bundle.Secrets), currentSecretModels, allowDeletes: true);
+        var wheelDiff = DiffEngine.Diff(wheelMapper, NormalizeWheelPackages(bundle.WheelPackages), currentWheelModels, allowDeletes: true);
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            await ApplyChangesAsync(workspaceId, bundle, folderDiff, notebookDiff, queryDiff, nodePoolDiff, variableDiff, secretDiff, wheelDiff, env: null, snapshot.EncryptedSecretsByKey, ct);
+            await transaction.CommitAsync(ct);
+        });
+    }
+
+    public async Task<Guid> CreateDeploymentLogAsync(
+        Guid workspaceId,
+        DeploymentScope scope,
+        string targetBundleJson,
+        string snapshotJson,
+        string? issuedByUserId = null,
+        string? issuedByDisplayName = null,
+        CancellationToken ct = default)
+    {
+        var log = DeploymentLog.Create(workspaceId, scope, targetBundleJson, snapshotJson, issuedByUserId, issuedByDisplayName);
+        db.DeploymentLogs.Add(log);
+        await db.SaveChangesAsync(ct);
+        return log.Id;
+    }
+
+    public async Task UpdateDeploymentLogStatusAsync(
+        Guid logId,
+        DeploymentStatus status,
+        string? failureReason = null,
+        CancellationToken ct = default)
+    {
+        var log = await db.DeploymentLogs.FirstOrDefaultAsync(l => l.Id == logId, ct)
+            ?? throw new InvalidOperationException($"Deployment log '{logId}' was not found.");
+
+        switch (status)
+        {
+            case DeploymentStatus.ApplyingUi:
+                log.TransitionToApplyingUi();
+                break;
+            case DeploymentStatus.ApplyingJobs:
+                log.TransitionToApplyingJobs();
+                break;
+            case DeploymentStatus.Completed:
+                log.TransitionToCompleted();
+                break;
+            case DeploymentStatus.RollingBack:
+                log.TransitionToRollingBack(failureReason ?? "Rollback initiated.");
+                break;
+            case DeploymentStatus.RolledBack:
+                log.TransitionToRolledBack();
+                break;
+            case DeploymentStatus.Failed:
+                log.TransitionToFailed(failureReason ?? "Deployment operation failed.");
+                break;
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     private async Task<ChangeSet> ProcessAsync(Guid workspaceId, Bundle bundle, bool dryRun, IReadOnlyDictionary<string, string>? env, CancellationToken ct)
@@ -249,7 +399,7 @@ internal sealed class WorkspaceDeploymentService(
         await strategy.ExecuteAsync(async () =>
         {
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
-            await ApplyChangesAsync(workspaceId, bundle, folderDiff, notebookDiff, queryDiff, nodePoolDiff, variableDiff, secretDiff, wheelDiff, env, ct);
+            await ApplyChangesAsync(workspaceId, bundle, folderDiff, notebookDiff, queryDiff, nodePoolDiff, variableDiff, secretDiff, wheelDiff, env, secretEncryptedValuesOverride: null, ct);
             await transaction.CommitAsync(ct);
         });
 
@@ -267,6 +417,7 @@ internal sealed class WorkspaceDeploymentService(
         DiffResult<SecretModel> secretDiff,
         DiffResult<WheelPackageModel> wheelDiff,
         IReadOnlyDictionary<string, string>? env,
+        IReadOnlyDictionary<string, string>? secretEncryptedValuesOverride,
         CancellationToken ct)
     {
         var folders = await db.Folders.Where(f => f.WorkspaceId == workspaceId).ToListAsync(ct);
@@ -307,7 +458,7 @@ internal sealed class WorkspaceDeploymentService(
         await db.SaveChangesAsync(ct);
 
         ApplyEnvironmentVariables(workspaceId, bundle.Manifest.Variables, variableDiff, variables, variableByKey, env);
-        ApplySecrets(workspaceId, bundle.Manifest.Variables, secretDiff, secrets, secretByKey, env);
+        ApplySecrets(workspaceId, bundle.Manifest.Variables, secretDiff, secrets, secretByKey, env, secretEncryptedValuesOverride);
         ApplyWheelPackages(workspaceId, bundle, wheelDiff, wheelPackages, wheelByName);
         await ApplyNodePools(workspaceId, nodePoolDiff, nodePools, nodePoolByName, wheelByName, variableByKey, secretByKey, ct);
 
@@ -493,19 +644,30 @@ internal sealed class WorkspaceDeploymentService(
         DiffResult<SecretModel> secretDiff,
         List<WorkspaceSecret> secrets,
         Dictionary<string, WorkspaceSecret> secretByKey,
-        IReadOnlyDictionary<string, string>? env)
+        IReadOnlyDictionary<string, string>? env,
+        IReadOnlyDictionary<string, string>? secretEncryptedValuesOverride)
     {
         foreach (var secret in NormalizeSecrets(secretDiff.Creations.Select(entry => entry.Model).ToList()))
         {
-            var rawValue = secret.Value ?? throw new InvalidOperationException(
-                $"Secret '{secret.Key}' must provide a value when it does not already exist.");
+            string encryptedValue;
+            if (secretEncryptedValuesOverride is not null && secretEncryptedValuesOverride.TryGetValue(secret.Key, out var preEncrypted))
+            {
+                encryptedValue = preEncrypted;
+            }
+            else
+            {
+                var rawValue = secret.Value ?? throw new InvalidOperationException(
+                    $"Secret '{secret.Key}' must provide a value when it does not already exist.");
+                encryptedValue = _secretProtector.Protect(VariableSubstitution.Substitute(rawValue, deploymentVariables, env));
+            }
+
             var entity = new WorkspaceSecret
             {
                 Id = Guid.CreateVersion7(),
                 WorkspaceId = workspaceId,
                 Key = secret.Key,
                 Description = secret.Description,
-                EncryptedValue = _secretProtector.Protect(VariableSubstitution.Substitute(rawValue, deploymentVariables, env)),
+                EncryptedValue = encryptedValue,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
             };
@@ -520,7 +682,11 @@ internal sealed class WorkspaceDeploymentService(
                 continue;
 
             existing.Description = secret.Description;
-            if (secret.Value is not null)
+            if (secretEncryptedValuesOverride is not null && secretEncryptedValuesOverride.TryGetValue(secret.Key, out var preEncrypted))
+            {
+                existing.EncryptedValue = preEncrypted;
+            }
+            else if (secret.Value is not null)
             {
                 existing.EncryptedValue = _secretProtector.Protect(
                     VariableSubstitution.Substitute(secret.Value, deploymentVariables, env));

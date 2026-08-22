@@ -1,5 +1,8 @@
+using System.Runtime.CompilerServices;
 using Datateal.Deployment.Models;
 using Datateal.Deployment.Serialization;
+
+[assembly: InternalsVisibleTo("Datateal.Core.Tests")]
 
 namespace Datateal.Ui.Server.Infrastructure.Deployment;
 
@@ -100,34 +103,14 @@ internal static class WorkspaceBundleValidator
 
         // ── Cross-reference checks ─────────────────────────────────────────────
 
-        // Build available sets: bundle resources + existing workspace resources
-        var availableNotebooks = BuildSet(
-            bundle.Notebooks.Select(n => n.Path.Trim('/')),
-            existingNotebookPaths);
-
-        var availableQueries = BuildSet(
-            bundle.Queries.Select(q => q.Path.Trim('/')),
-            existingQueryPaths);
-
-        var availableNodePools = BuildSet(
-            bundle.NodePools.Select(p => p.Name),
-            existingNodePoolNames);
-
-        var availableVariables = BuildSet(
-            bundle.EnvironmentVariables.Select(v => v.Key),
-            existingEnvironmentVariableKeys);
-
-        var availableSecrets = BuildSet(
-            bundle.Secrets.Select(s => s.Key),
-            existingSecretKeys);
-
-        var availableWheels = BuildSet(
-            bundle.WheelPackages.Select(w => w.Name),
-            existingWheelPackageNames);
-
-        var availableJobs = BuildSet(
-            bundle.Jobs.Select(j => j.Name),
-            existingJobNames);
+        // Build available sets from target bundle state (since workspace scope reconciles all resources with allowDeletes: true)
+        var availableNotebooks = BuildSet(bundle.Notebooks.Select(n => n.Path.Trim('/')));
+        var availableQueries = BuildSet(bundle.Queries.Select(q => q.Path.Trim('/')));
+        var availableNodePools = BuildSet(bundle.NodePools.Select(p => p.Name));
+        var availableVariables = BuildSet(bundle.EnvironmentVariables.Select(v => v.Key));
+        var availableSecrets = BuildSet(bundle.Secrets.Select(s => s.Key));
+        var availableWheels = BuildSet(bundle.WheelPackages.Select(w => w.Name));
+        var availableJobs = BuildSet(bundle.Jobs.Select(j => j.Name));
 
         foreach (var pool in bundle.NodePools)
         {
@@ -184,8 +167,8 @@ internal static class WorkspaceBundleValidator
                 string.Join("\n", errors.Select((e, i) => $"  {i + 1}. {e}")));
     }
 
-    private static HashSet<string> BuildSet(IEnumerable<string> bundleValues, IEnumerable<string> existingValues) =>
-        new(bundleValues.Concat(existingValues).Where(v => !string.IsNullOrWhiteSpace(v)),
+    private static HashSet<string> BuildSet(IEnumerable<string> bundleValues) =>
+        new(bundleValues.Where(v => !string.IsNullOrWhiteSpace(v)),
             StringComparer.OrdinalIgnoreCase);
 
     private static string NormalizeTaskType(string type) =>
