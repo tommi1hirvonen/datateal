@@ -74,15 +74,18 @@ public class TaskExecutor(
         NotebookTaskRun taskRun, NotebookTask task, NodeManager nodeManager,
         Dictionary<string, string>? jobRunParameters, TaskScopeContext ctx, CancellationToken ct)
     {
-        var content = await ctx.Workspace.GetNotebookContentAsync(task.NotebookId, ct)
+        var notebookId = await ctx.Workspace.ResolveNotebookIdByPathAsync(ctx.WorkspaceId, task.NotebookPath, ct)
             ?? throw new InvalidOperationException(
-                $"Notebook {task.NotebookId} not found in workspace.");
+                $"Notebook '{task.NotebookPath}' was not found in this workspace. It may have been moved, renamed, or deleted.");
+
+        var content = await ctx.Workspace.GetNotebookContentAsync(notebookId, ct)
+            ?? throw new InvalidOperationException(
+                $"Notebook '{task.NotebookPath}' was not found in this workspace. It may have been moved, renamed, or deleted.");
 
         var cells = ParseNotebookCells(content.Content);
 
         // Determine this notebook's folder path for %run relative path resolution
-        var notebookAbsPath = await ctx.Workspace.ResolveNotebookPathByIdAsync(task.NotebookId, ct);
-        var notebookFolderPath = notebookAbsPath is not null ? GetFolderPath(notebookAbsPath) : "";
+        var notebookFolderPath = GetFolderPath(task.NotebookPath);
 
         var resolvedParameters = ResolveParameters(task.Parameters, jobRunParameters);
 
@@ -128,7 +131,7 @@ public class TaskExecutor(
         try
         {
             // Attach DuckLake catalogs if configured
-            await SetupCatalogsForWorkspaceItemAsync(task.NotebookId, nodeName, kernelId, ctx, ct);
+            await SetupCatalogsForWorkspaceItemAsync(notebookId, nodeName, kernelId, ctx, ct);
 
             for (var i = 0; i < cells.Count; i++)
             {
@@ -216,9 +219,13 @@ public class TaskExecutor(
         SqlQueryTaskRun taskRun, SqlQueryTask task, NodeManager nodeManager,
         Dictionary<string, string>? jobRunParameters, TaskScopeContext ctx, CancellationToken ct)
     {
-        var content = await ctx.Workspace.GetQueryContentAsync(task.QueryId, ct)
+        var queryId = await ctx.Workspace.ResolveQueryIdByPathAsync(ctx.WorkspaceId, task.QueryPath, ct)
             ?? throw new InvalidOperationException(
-                $"Query {task.QueryId} not found in workspace.");
+                $"Query '{task.QueryPath}' was not found in this workspace. It may have been moved, renamed, or deleted.");
+
+        var content = await ctx.Workspace.GetQueryContentAsync(queryId, ct)
+            ?? throw new InvalidOperationException(
+                $"Query '{task.QueryPath}' was not found in this workspace. It may have been moved, renamed, or deleted.");
 
         logger.LogInformation("Executing SQL query '{Title}'", content.Title);
 
@@ -246,7 +253,7 @@ public class TaskExecutor(
         try
         {
             // Attach DuckLake catalogs if configured
-            await SetupCatalogsForWorkspaceItemAsync(task.QueryId, nodeName, kernelId, ctx, ct);
+            await SetupCatalogsForWorkspaceItemAsync(queryId, nodeName, kernelId, ctx, ct);
 
             runCell.Status = "Running";
             runCell.StartedAt = DateTime.UtcNow;
@@ -499,9 +506,10 @@ public class TaskExecutor(
                         : c.Source)
                     .Where(s => !string.IsNullOrWhiteSpace(s)));
 
-                // Recurse using the referenced notebook's folder as the new base
-                var refAbsPath = await workspaceReader.ResolveNotebookPathByIdAsync(notebookId.Value, ct);
-                var refFolderPath = refAbsPath is not null ? GetFolderPath(refAbsPath) : baseFolderPath;
+                // Recurse using the referenced notebook's own folder as the new base. We already
+                // have its resolved absolute path from the lookup above, so no extra round trip
+                // back from id to path is needed.
+                var refFolderPath = GetFolderPath(absolutePath);
                 cellCode = await ExpandRunMagicAsync(cellCode, refFolderPath, visited, depth + 1, workspaceReader, workspaceId, ct);
 
                 visited.Remove(notebookId.Value);

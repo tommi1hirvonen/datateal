@@ -10,8 +10,8 @@ public class EditableTask
     public string RetryInterval { get; set; } = "00:00:30";
     public string? Timeout { get; set; }
 
-    public Guid? NotebookId { get; set; }
-    public Guid? QueryId { get; set; }
+    public string? NotebookPath { get; set; }
+    public string? QueryPath { get; set; }
     public Guid? SubJobId { get; set; }
 
     public string? NodePoolRef { get; set; }

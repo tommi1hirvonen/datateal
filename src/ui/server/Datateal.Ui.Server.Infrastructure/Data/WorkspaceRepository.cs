@@ -1,12 +1,57 @@
 using Datateal.Core.Workspace;
 using Datateal.Data;
+using Datateal.Orchestrator.Core.Entities;
 using Datateal.Ui.Server.Core.Repositories;
+using Datateal.Ui.Server.Infrastructure.Deployment;
 using Microsoft.EntityFrameworkCore;
 
 namespace Datateal.Ui.Server.Infrastructure.Data;
 
 internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
 {
+    /// <summary>
+    /// Builds a path (and item type) for every notebook/query in the workspace, keyed by item id.
+    /// Used to snapshot "before" and "after" paths around a folder move, so any job task
+    /// referencing an affected item by its old path can be repointed to the new one.
+    /// </summary>
+    private async Task<Dictionary<Guid, (string Path, WorkspaceItemType Type)>> BuildAllItemPathsAsync(
+        Guid workspaceId, CancellationToken cancellationToken)
+    {
+        var folders = await db.Folders.AsNoTracking().Where(f => f.WorkspaceId == workspaceId).ToListAsync(cancellationToken);
+        var items = await db.WorkspaceItems.AsNoTracking().Where(i => i.WorkspaceId == workspaceId).ToListAsync(cancellationToken);
+        var folderPaths = DeploymentPathHelpers.BuildFolderPathMap(folders);
+        return items.ToDictionary(i => i.Id, i => (DeploymentPathHelpers.GetItemPath(i, folderPaths), i.ItemType));
+    }
+
+    /// <summary>
+    /// Repoints any orchestrator job task referencing <paramref name="oldPath"/> (for the given
+    /// item type, scoped to the workspace) to <paramref name="newPath"/>. Job tasks
+    /// (<see cref="NotebookTask.NotebookPath"/> / <see cref="SqlQueryTask.QueryPath"/>) reference
+    /// notebooks/queries by path rather than id, so a rename/move must be propagated here or the
+    /// reference silently goes stale. Uses a bulk <c>ExecuteUpdateAsync</c> to avoid change-tracker
+    /// reconciliation concerns, consistent with other bulk-update paths in this codebase.
+    /// </summary>
+    private async Task RepointJobTaskPathAsync(
+        Guid workspaceId, WorkspaceItemType itemType, string oldPath, string newPath, CancellationToken cancellationToken)
+    {
+        if (string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase)) return;
+
+        if (itemType == WorkspaceItemType.Notebook)
+        {
+            await db.JobTasks
+                .OfType<NotebookTask>()
+                .Where(t => t.Job!.WorkspaceId == workspaceId && t.NotebookPath == oldPath)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.NotebookPath, newPath), cancellationToken);
+        }
+        else
+        {
+            await db.JobTasks
+                .OfType<SqlQueryTask>()
+                .Where(t => t.Job!.WorkspaceId == workspaceId && t.QueryPath == oldPath)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.QueryPath, newPath), cancellationToken);
+        }
+    }
+
     // ── Folders ──────────────────────────────────────────────────────────
 
     public async Task<IReadOnlyList<Folder>> GetFoldersInAsync(Guid workspaceId, Guid? parentId, CancellationToken cancellationToken = default)
@@ -57,14 +102,45 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
 
     public async Task<Folder?> UpdateFolderAsync(Guid workspaceId, Guid id, string name, Guid? parentId, CancellationToken cancellationToken = default)
     {
-        var folder = await db.Folders
+        var exists = await db.Folders
+            .AsNoTracking()
             .Where(f => f.WorkspaceId == workspaceId)
-            .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
-        if (folder is null) return null;
+            .AnyAsync(f => f.Id == id, cancellationToken);
+        if (!exists) return null;
 
-        folder.Name = name;
-        folder.ParentId = parentId;
-        await db.SaveChangesAsync(cancellationToken);
+        // Snapshot every item's path before the move — renaming/moving a folder can shift the
+        // path of every notebook/query nested under it (recursively), each of which may be
+        // referenced by a job task that needs repointing afterward.
+        var oldPaths = await BuildAllItemPathsAsync(workspaceId, cancellationToken);
+
+        Folder? folder = null;
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+            folder = await db.Folders
+                .Where(f => f.WorkspaceId == workspaceId)
+                .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
+            if (folder is null) return;
+
+            folder.Name = name;
+            folder.ParentId = parentId;
+            await db.SaveChangesAsync(cancellationToken);
+
+            var newPaths = await BuildAllItemPathsAsync(workspaceId, cancellationToken);
+            foreach (var (itemId, old) in oldPaths)
+            {
+                if (newPaths.TryGetValue(itemId, out var updated) &&
+                    !string.Equals(updated.Path, old.Path, StringComparison.OrdinalIgnoreCase))
+                {
+                    await RepointJobTaskPathAsync(workspaceId, old.Type, old.Path, updated.Path, cancellationToken);
+                }
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        });
+
         return folder;
     }
 
@@ -178,17 +254,44 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
 
     public async Task<Notebook?> UpdateNotebookAsync(Guid workspaceId, Guid id, string title, string content, Guid? folderId, CancellationToken cancellationToken = default)
     {
-        var notebook = await db.WorkspaceItems
+        var existing = await db.WorkspaceItems
+            .AsNoTracking()
             .Where(i => i.WorkspaceId == workspaceId)
             .OfType<Notebook>()
             .FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
-        if (notebook is null) return null;
+        if (existing is null) return null;
 
-        notebook.Title = title;
-        notebook.Content = content;
-        notebook.FolderId = folderId;
-        notebook.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
+        var oldFolderPaths = DeploymentPathHelpers.BuildFolderPathMap(
+            await db.Folders.AsNoTracking().Where(f => f.WorkspaceId == workspaceId).ToListAsync(cancellationToken));
+        var oldPath = DeploymentPathHelpers.GetItemPath(existing, oldFolderPaths);
+
+        Notebook? notebook = null;
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+            notebook = await db.WorkspaceItems
+                .Where(i => i.WorkspaceId == workspaceId)
+                .OfType<Notebook>()
+                .FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+            if (notebook is null) return;
+
+            notebook.Title = title;
+            notebook.Content = content;
+            notebook.FolderId = folderId;
+            notebook.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(cancellationToken);
+
+            var newFolderPaths = DeploymentPathHelpers.BuildFolderPathMap(
+                await db.Folders.AsNoTracking().Where(f => f.WorkspaceId == workspaceId).ToListAsync(cancellationToken));
+            var newPath = DeploymentPathHelpers.GetItemPath(notebook, newFolderPaths);
+
+            await RepointJobTaskPathAsync(workspaceId, WorkspaceItemType.Notebook, oldPath, newPath, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        });
+
         return notebook;
     }
 
@@ -256,24 +359,51 @@ internal class WorkspaceRepository(DatatealDbContext db) : IWorkspaceRepository
         string? lastResultJson,
         CancellationToken cancellationToken = default)
     {
-        var query = await db.WorkspaceItems
+        var existing = await db.WorkspaceItems
+            .AsNoTracking()
             .Where(i => i.WorkspaceId == workspaceId)
             .OfType<Query>()
             .FirstOrDefaultAsync(q => q.Id == id, cancellationToken);
-        if (query is null) return null;
+        if (existing is null) return null;
 
-        query.Title = title;
-        query.Content = content;
-        query.FolderId = folderId;
-        query.UpdatedAt = DateTime.UtcNow;
-        if (lastExecutedAt.HasValue)
+        var oldFolderPaths = DeploymentPathHelpers.BuildFolderPathMap(
+            await db.Folders.AsNoTracking().Where(f => f.WorkspaceId == workspaceId).ToListAsync(cancellationToken));
+        var oldPath = DeploymentPathHelpers.GetItemPath(existing, oldFolderPaths);
+
+        Query? query = null;
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            query.LastResultStatus = lastResultStatus;
-            query.LastDurationMs = lastDurationMs;
-            query.LastExecutedAt = lastExecutedAt;
-            query.LastResultJson = lastResultJson;
-        }
-        await db.SaveChangesAsync(cancellationToken);
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+            query = await db.WorkspaceItems
+                .Where(i => i.WorkspaceId == workspaceId)
+                .OfType<Query>()
+                .FirstOrDefaultAsync(q => q.Id == id, cancellationToken);
+            if (query is null) return;
+
+            query.Title = title;
+            query.Content = content;
+            query.FolderId = folderId;
+            query.UpdatedAt = DateTime.UtcNow;
+            if (lastExecutedAt.HasValue)
+            {
+                query.LastResultStatus = lastResultStatus;
+                query.LastDurationMs = lastDurationMs;
+                query.LastExecutedAt = lastExecutedAt;
+                query.LastResultJson = lastResultJson;
+            }
+            await db.SaveChangesAsync(cancellationToken);
+
+            var newFolderPaths = DeploymentPathHelpers.BuildFolderPathMap(
+                await db.Folders.AsNoTracking().Where(f => f.WorkspaceId == workspaceId).ToListAsync(cancellationToken));
+            var newPath = DeploymentPathHelpers.GetItemPath(query, newFolderPaths);
+
+            await RepointJobTaskPathAsync(workspaceId, WorkspaceItemType.Query, oldPath, newPath, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        });
+
         return query;
     }
 

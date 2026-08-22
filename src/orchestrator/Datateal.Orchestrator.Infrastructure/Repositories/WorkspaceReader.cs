@@ -27,12 +27,6 @@ internal class WorkspaceReader(DatatealDbContext db) : IWorkspaceReader
     public async Task<Guid?> ResolveQueryIdByPathAsync(Guid workspaceId, string path, CancellationToken ct)
         => await ResolveItemIdByPathAsync<Query>(db, workspaceId, path, ct);
 
-    public async Task<string?> ResolveNotebookPathByIdAsync(Guid id, CancellationToken ct)
-        => await ResolveItemPathByIdAsync<Notebook>(db, id, ct);
-
-    public async Task<string?> ResolveQueryPathByIdAsync(Guid id, CancellationToken ct)
-        => await ResolveItemPathByIdAsync<Query>(db, id, ct);
-
     public async Task<IReadOnlyList<string>> GetWorkspaceItemCatalogNamesAsync(Guid itemId, CancellationToken ct)
     {
         var catalogNames = await db.WorkspaceItems
@@ -71,34 +65,4 @@ internal class WorkspaceReader(DatatealDbContext db) : IWorkspaceReader
             .FirstOrDefaultAsync(ct);
     }
 
-    private static async Task<string?> ResolveItemPathByIdAsync<T>(DatatealDbContext db, Guid id, CancellationToken ct)
-        where T : WorkspaceItem
-    {
-        var item = await db.WorkspaceItems
-            .OfType<T>()
-            .Where(i => i.Id == id)
-            .Select(i => new { i.Title, i.FolderId })
-            .FirstOrDefaultAsync(ct);
-
-        if (item is null) return null;
-
-        var pathParts = new List<string> { item.Title };
-        var folderId = item.FolderId;
-
-        while (folderId is not null)
-        {
-            var folder = await db.Folders
-                .Where(f => f.Id == folderId)
-                .Select(f => new { f.Name, f.ParentId })
-                .FirstOrDefaultAsync(ct);
-
-            if (folder is null) break;
-
-            pathParts.Add(folder.Name);
-            folderId = folder.ParentId;
-        }
-
-        pathParts.Reverse();
-        return "/" + string.Join("/", pathParts);
-    }
 }

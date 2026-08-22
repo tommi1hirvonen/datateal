@@ -1,6 +1,5 @@
 using Datateal.Orchestrator.Core.Entities;
 using Datateal.Orchestrator.Core.Enums;
-using Datateal.Orchestrator.Core.Interfaces;
 using Datateal.Orchestrator.Core.Repositories;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -10,7 +9,7 @@ namespace Datateal.Orchestrator.Application.Yaml;
 /// <summary>
 /// Converts a <see cref="Job"/> entity into YAML text using snake_case keys.
 /// </summary>
-public class YamlJobSerializer(IWorkspaceReader workspaceReader, IJobRepository jobRepository)
+public class YamlJobSerializer(IJobRepository jobRepository)
 {
     private static readonly ISerializer Serializer = new SerializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
@@ -58,13 +57,13 @@ public class YamlJobSerializer(IWorkspaceReader workspaceReader, IJobRepository 
             {
                 case NotebookTask nb:
                     yamlTask.Type = "notebook";
-                    yamlTask.NotebookPath = await workspaceReader.ResolveNotebookPathByIdAsync(nb.NotebookId, ct);
+                    yamlTask.NotebookPath = nb.NotebookPath;
                     yamlTask.NodePoolRef = nb.NodePoolRef;
                     yamlTask.Parameters = nb.Parameters;
                     break;
                 case SqlQueryTask sq:
                     yamlTask.Type = "sql_query";
-                    yamlTask.QueryPath = await workspaceReader.ResolveQueryPathByIdAsync(sq.QueryId, ct);
+                    yamlTask.QueryPath = sq.QueryPath;
                     yamlTask.NodePoolRef = sq.NodePoolRef;
                     yamlTask.Parameters = sq.Parameters;
                     break;

@@ -81,7 +81,7 @@ public class YamlJobImporter(
                     MaxRetries = t.MaxRetries,
                     RetryInterval = ParseTimeSpan(t.RetryInterval, TimeSpan.FromSeconds(30)),
                     Timeout = ParseNullableTimeSpan(t.Timeout),
-                    NotebookId = await ResolveNotebookAsync(workspaceId, t.NotebookPath, ct),
+                    NotebookPath = await ResolveNotebookAsync(workspaceId, t.NotebookPath, ct),
                     NodePoolRef = string.IsNullOrWhiteSpace(t.NodePoolRef)
                         ? throw new InvalidOperationException($"NodePoolRef is required for notebook task '{t.Name}'.")
                         : t.NodePoolRef,
@@ -95,7 +95,7 @@ public class YamlJobImporter(
                     MaxRetries = t.MaxRetries,
                     RetryInterval = ParseTimeSpan(t.RetryInterval, TimeSpan.FromSeconds(30)),
                     Timeout = ParseNullableTimeSpan(t.Timeout),
-                    QueryId = await ResolveQueryAsync(workspaceId, t.QueryPath, ct),
+                    QueryPath = await ResolveQueryAsync(workspaceId, t.QueryPath, ct),
                     NodePoolRef = string.IsNullOrWhiteSpace(t.NodePoolRef)
                         ? throw new InvalidOperationException($"NodePoolRef is required for SQL query task '{t.Name}'.")
                         : t.NodePoolRef,
@@ -169,24 +169,24 @@ public class YamlJobImporter(
         return job;
     }
 
-    private async Task<Guid> ResolveNotebookAsync(Guid workspaceId, string? path, CancellationToken ct)
+    private async Task<string> ResolveNotebookAsync(Guid workspaceId, string? path, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(path))
             throw new InvalidOperationException("Notebook path is required for notebook tasks.");
 
-        var id = await workspaceReader.ResolveNotebookIdByPathAsync(workspaceId, path, ct)
+        _ = await workspaceReader.ResolveNotebookIdByPathAsync(workspaceId, path, ct)
             ?? throw new InvalidOperationException($"Notebook not found at path: '{path}'.");
-        return id;
+        return path;
     }
 
-    private async Task<Guid> ResolveQueryAsync(Guid workspaceId, string? path, CancellationToken ct)
+    private async Task<string> ResolveQueryAsync(Guid workspaceId, string? path, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(path))
             throw new InvalidOperationException("Query path is required for SQL query tasks.");
 
-        var id = await workspaceReader.ResolveQueryIdByPathAsync(workspaceId, path, ct)
+        _ = await workspaceReader.ResolveQueryIdByPathAsync(workspaceId, path, ct)
             ?? throw new InvalidOperationException($"Query not found at path: '{path}'.");
-        return id;
+        return path;
     }
 
     private async Task<Guid> ResolveSubJobAsync(Guid workspaceId, string? jobName, CancellationToken ct)

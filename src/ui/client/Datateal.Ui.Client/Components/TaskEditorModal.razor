@@ -46,8 +46,8 @@
                         <div>
                             <label style="display: block; margin-bottom: 4px; font-weight: 500;">Notebook <span style="color: #ff4d4f;">*</span></label>
                             <WorkspaceItemPicker ItemType="Notebook"
-                                                 @bind-SelectedId="_notebookId" />
-                            @if (_notebookId is null)
+                                                 @bind-SelectedPath="_notebookPath" />
+                            @if (_notebookPath is null)
                             {
                                 <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">A notebook must be selected.</div>
                             }
@@ -81,8 +81,8 @@
                         <div>
                             <label style="display: block; margin-bottom: 4px; font-weight: 500;">Query <span style="color: #ff4d4f;">*</span></label>
                             <WorkspaceItemPicker ItemType="Query"
-                                                 @bind-SelectedId="_queryId" />
-                            @if (_queryId is null)
+                                                 @bind-SelectedPath="_queryPath" />
+                            @if (_queryPath is null)
                             {
                                 <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">A query must be selected.</div>
                             }
@@ -263,8 +263,8 @@
     private int _maxRetries;
     private string _retryInterval = "00:00:30";
     private string? _timeout;
-    private Guid? _notebookId;
-    private Guid? _queryId;
+    private string? _notebookPath;
+    private string? _queryPath;
     private Guid? _subJobId;
     private string? _nodePoolRef;
     private List<EditableTaskParameter> _parameters = [];
@@ -308,8 +308,8 @@
                 _maxRetries = Task.MaxRetries;
                 _retryInterval = Task.RetryInterval;
                 _timeout = Task.Timeout;
-                _notebookId = Task.NotebookId;
-                _queryId = Task.QueryId;
+                _notebookPath = Task.NotebookPath;
+                _queryPath = Task.QueryPath;
                 _subJobId = Task.SubJobId;
                 _nodePoolRef = Task.NodePoolRef;
                 _parameters = Task.Parameters
@@ -329,8 +329,8 @@
                 _maxRetries = 0;
                 _retryInterval = "00:00:30";
                 _timeout = null;
-                _notebookId = null;
-                _queryId = null;
+                _notebookPath = null;
+                _queryPath = null;
                 _subJobId = null;
                 _subJobParameters = [];
                 _nodePoolRef = null;
@@ -343,8 +343,8 @@
 
     private void OnTaskTypeChanged()
     {
-        _notebookId = null;
-        _queryId = null;
+        _notebookPath = null;
+        _queryPath = null;
         _subJobId = null;
         _nodePoolRef = null;
         _subJobParameters = [];
@@ -357,8 +357,8 @@
     {
         if (string.IsNullOrWhiteSpace(_name)) return true;
         if (IsDuplicateName()) return true;
-        if (_taskType == TaskType.Notebook && _notebookId is null) return true;
-        if (_taskType == TaskType.SqlQuery && _queryId is null) return true;
+        if (_taskType == TaskType.Notebook && _notebookPath is null) return true;
+        if (_taskType == TaskType.SqlQuery && _queryPath is null) return true;
         if (_taskType == TaskType.SubJob && _subJobId is null) return true;
         if ((_taskType == TaskType.Notebook || _taskType == TaskType.SqlQuery) && _nodePoolRef is null) return true;
         if (ValidationHelper.ValidateTimeSpan(_retryInterval, required: true) is not null) return true;
@@ -420,8 +420,8 @@
             MaxRetries = _maxRetries,
             RetryInterval = _retryInterval,
             Timeout = _timeout,
-            NotebookId = _notebookId,
-            QueryId = _queryId,
+            NotebookPath = _notebookPath,
+            QueryPath = _queryPath,
             SubJobId = _subJobId,
             NodePoolRef = _nodePoolRef,
             Parameters = _parameters.Where(p => !string.IsNullOrWhiteSpace(p.Key)).OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase).ToList(),

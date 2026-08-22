@@ -97,9 +97,22 @@ Scheduling uses Quartz.NET (`SchedulesManager`, a singleton `BackgroundService`)
 
 **Parameter validation**: `TriggerJobHandler.BuildEffectiveParameters` merges caller overrides with `DefaultValue` from the job schema. Any `IsRequired` parameter still missing after the merge causes an `InvalidOperationException` — the run is never created.
 
+## Notebook/query task references
+
+`NotebookTask.NotebookPath` / `SqlQueryTask.QueryPath` store a **workspace-relative path**, not a
+persisted id — mirroring how `NodePoolRef` already resolves pool names fresh at every use. The path
+is resolved to a live workspace item id via `IWorkspaceReader.ResolveNotebookIdByPathAsync`/
+`ResolveQueryIdByPathAsync` on every read: job save (`CreateJob`/`UpdateJob`), YAML import/export,
+trigger-time catalog access checks (`TriggerJobHandler.EnsureOwnerCatalogAccessAsync`), and task
+execution (`TaskExecutor`). This keeps the reference stable across workspace bundle deployments,
+which recreate the underlying notebook/query row (with a new id) whenever a bundle moves or renames
+one — a plain path→id lookup at each use never goes stale the way a stored id would.
+
 ## YAML import
 
-`YamlJobImporter` resolves workspace paths to IDs at import time. IDs are stored; paths are not. If an item is later moved or renamed, the stored ID still resolves correctly.
+`YamlJobImporter` validates that referenced notebook/query paths resolve to a live workspace item
+at import time (same as job creation), but stores the **path** itself on the task, not a resolved id
+— see "Notebook/query task references" above.
 
 ## Adding new features
 

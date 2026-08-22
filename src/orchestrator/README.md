@@ -91,11 +91,11 @@ Declares a named parameter with an optional default value and a required flag. A
 
 Base class for the task DAG nodes. Shared properties: `Name`, `MaxRetries`, `RetryInterval`, `Timeout`, and `Dependencies`. Stored with TPH discrimination and serialised polymorphically via `[JsonDerivedType]`.
 
-| Concrete type  | Executes                                                                                                              |
-| -------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `NotebookTask` | A workspace notebook identified by `NotebookId`. Requires `NodePoolRef`.                                              |
-| `SqlQueryTask` | A workspace SQL query file identified by `QueryId`. Requires `NodePoolRef`.                                           |
-| `SubJobTask`   | Another job identified by `SubJobId`. No node or kernel involved; waits for the child run to reach a terminal status. |
+| Concrete type  | Executes                                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `NotebookTask` | A workspace notebook identified by `NotebookPath` (resolved to a live item fresh on every use). Requires `NodePoolRef`.    |
+| `SqlQueryTask` | A workspace SQL query file identified by `QueryPath` (resolved to a live item fresh on every use). Requires `NodePoolRef`. |
+| `SubJobTask`   | Another job identified by `SubJobId`. No node or kernel involved; waits for the child run to reach a terminal status.      |
 
 ### `TaskDependency`
 

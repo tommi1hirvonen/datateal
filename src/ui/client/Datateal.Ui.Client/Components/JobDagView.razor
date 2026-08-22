@@ -70,10 +70,10 @@
 
     private string ResolveItemName(EditableTask task)
     {
-        if (task.NotebookId.HasValue && ItemNameLookup.TryGetValue(task.NotebookId.Value, out var nb))
-            return nb;
-        if (task.QueryId.HasValue && ItemNameLookup.TryGetValue(task.QueryId.Value, out var q))
-            return q;
+        if (!string.IsNullOrEmpty(task.NotebookPath))
+            return task.NotebookPath;
+        if (!string.IsNullOrEmpty(task.QueryPath))
+            return task.QueryPath;
         if (task.SubJobId.HasValue && ItemNameLookup.TryGetValue(task.SubJobId.Value, out var sj))
             return sj;
         return "";

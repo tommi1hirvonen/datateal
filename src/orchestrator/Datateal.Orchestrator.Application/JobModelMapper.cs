@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Datateal.Core.Orchestration;
 using Datateal.Deployment.Diff;
@@ -7,6 +8,8 @@ using Datateal.Orchestrator.Core.Entities;
 using Datateal.Orchestrator.Core.Enums;
 using Datateal.Orchestrator.Core.Interfaces;
 using Datateal.Orchestrator.Core.Repositories;
+
+[assembly: InternalsVisibleTo("Datateal.Core.Tests")]
 
 namespace Datateal.Orchestrator.Application;
 
@@ -81,12 +84,12 @@ internal sealed class JobModelMapper(
             {
                 case NotebookTask notebook:
                     taskModel.Type = "notebook";
-                    taskModel.NotebookPath = TrimSlashes(await workspaceReader.ResolveNotebookPathByIdAsync(notebook.NotebookId, ct));
+                    taskModel.NotebookPath = TrimSlashes(notebook.NotebookPath);
                     taskModel.NodePoolRef = notebook.NodePoolRef;
                     break;
                 case SqlQueryTask query:
                     taskModel.Type = "sql_query";
-                    taskModel.QueryPath = TrimSlashes(await workspaceReader.ResolveQueryPathByIdAsync(query.QueryId, ct));
+                    taskModel.QueryPath = TrimSlashes(query.QueryPath);
                     taskModel.NodePoolRef = query.NodePoolRef;
                     break;
                 case SubJobTask subJob:
@@ -204,18 +207,20 @@ internal sealed class JobModelMapper(
                     ParseCondition(dependency.Condition)))
                 .ToList();
 
-            Guid? notebookId = null;
-            Guid? queryId = null;
+            string? notebookPath = null;
+            string? queryPath = null;
             Guid? subJobId = null;
 
             switch (taskType)
             {
                 case TaskType.Notebook:
-                    notebookId = await workspaceReader.ResolveNotebookIdByPathAsync(workspaceId, TrimSlashes(task.NotebookPath) ?? string.Empty, ct)
+                    notebookPath = TrimSlashes(task.NotebookPath) ?? string.Empty;
+                    _ = await workspaceReader.ResolveNotebookIdByPathAsync(workspaceId, notebookPath, ct)
                         ?? throw new InvalidOperationException($"Notebook '{task.NotebookPath}' was not found.");
                     break;
                 case TaskType.SqlQuery:
-                    queryId = await workspaceReader.ResolveQueryIdByPathAsync(workspaceId, TrimSlashes(task.QueryPath) ?? string.Empty, ct)
+                    queryPath = TrimSlashes(task.QueryPath) ?? string.Empty;
+                    _ = await workspaceReader.ResolveQueryIdByPathAsync(workspaceId, queryPath, ct)
                         ?? throw new InvalidOperationException($"Query '{task.QueryPath}' was not found.");
                     break;
                 case TaskType.SubJob:
@@ -237,8 +242,8 @@ internal sealed class JobModelMapper(
                 task.MaxRetries,
                 retryInterval,
                 timeout,
-                notebookId,
-                queryId,
+                notebookPath,
+                queryPath,
                 subJobId,
                 task.NodePoolRef,
                 parameters,
@@ -250,8 +255,8 @@ internal sealed class JobModelMapper(
                 task.MaxRetries,
                 retryInterval,
                 timeout,
-                notebookId,
-                queryId,
+                notebookPath,
+                queryPath,
                 subJobId,
                 task.NodePoolRef,
                 parameters,

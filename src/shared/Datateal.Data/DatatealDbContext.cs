@@ -374,11 +374,13 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
 
         modelBuilder.Entity<NotebookTask>(entity =>
         {
+            entity.Property(e => e.NotebookPath).HasMaxLength(1024).IsRequired();
             entity.Property(e => e.Parameters).HasColumnType("jsonb").HasConversion(DictJsonConverter);
         });
 
         modelBuilder.Entity<SqlQueryTask>(entity =>
         {
+            entity.Property(e => e.QueryPath).HasMaxLength(1024).IsRequired();
             entity.Property(e => e.Parameters).HasColumnType("jsonb").HasConversion(DictJsonConverter);
         });
 

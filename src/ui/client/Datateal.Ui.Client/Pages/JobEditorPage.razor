@@ -7,7 +7,6 @@
 @using Datateal.Core.Orchestration
 @using System.ComponentModel.DataAnnotations
 @inject IJobService JobService
-@inject IWorkspaceService WorkspaceService
 @inject IRecentItemsService RecentItemsService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
@@ -486,8 +485,8 @@
                     MaxRetries = t.MaxRetries,
                     RetryInterval = t.RetryInterval.ToString(),
                     Timeout = t.Timeout?.ToString(),
-                    NotebookId = t.NotebookId,
-                    QueryId = t.QueryId,
+                    NotebookPath = t.NotebookPath,
+                    QueryPath = t.QueryPath,
                     SubJobId = t.SubJobId,
                     NodePoolRef = t.NodePoolRef,
                     Parameters = t.Parameters?.Select(kv => new EditableTaskParameter { Key = kv.Key, Value = kv.Value }).ToList() ?? [],
@@ -549,9 +548,9 @@
 
         foreach (var t in _editTasks)
         {
-            if (t.TaskType == TaskType.Notebook && t.NotebookId is null)
+            if (t.TaskType == TaskType.Notebook && t.NotebookPath is null)
                 return $"Task '{t.Name}': a notebook must be selected.";
-            if (t.TaskType == TaskType.SqlQuery && t.QueryId is null)
+            if (t.TaskType == TaskType.SqlQuery && t.QueryPath is null)
                 return $"Task '{t.Name}': a query must be selected.";
             if (t.TaskType == TaskType.SubJob && t.SubJobId is null)
                 return $"Task '{t.Name}': a sub-job must be selected.";
@@ -617,8 +616,8 @@
                 t.MaxRetries,
                 TimeSpan.TryParse(t.RetryInterval, out var ri) ? ri : TimeSpan.FromSeconds(30),
                 string.IsNullOrWhiteSpace(t.Timeout) ? null : TimeSpan.TryParse(t.Timeout, out var to) ? to : null,
-                t.NotebookId,
-                t.QueryId,
+                t.NotebookPath,
+                t.QueryPath,
                 t.SubJobId,
                 t.NodePoolRef,
                 t.Parameters.Count > 0 ? t.Parameters.ToDictionary(p => p.Key, p => p.Value) : null,
@@ -686,8 +685,8 @@
                 MaxRetries = t.MaxRetries,
                 RetryInterval = t.RetryInterval.ToString(),
                 Timeout = t.Timeout?.ToString(),
-                NotebookId = t.NotebookId,
-                QueryId = t.QueryId,
+                NotebookPath = t.NotebookPath,
+                QueryPath = t.QueryPath,
                 SubJobId = t.SubJobId,
                 NodePoolRef = t.NodePoolRef,
                 Parameters = t.Parameters?.Select(kv => new EditableTaskParameter { Key = kv.Key, Value = kv.Value }).ToList() ?? [],
@@ -1028,44 +1027,20 @@
             ctx.PreventNavigation();
     }
 
-    // --- Item name lookup for DAG ---
+    // --- Item name lookup for DAG (sub-job references only; notebook/query tasks now
+    // display their own stored path directly, no lookup needed) ---
 
     private async Task<Dictionary<Guid, string>> BuildItemNameLookupAsync()
     {
         var lookup = new Dictionary<Guid, string>();
         try
         {
-            await LoadWorkspaceItemsAsync(null, "", lookup);
-        }
-        catch { /* Non-critical — DAG falls back to showing no item name */ }
-
-        try
-        {
             var jobs = await JobService.GetJobsAsync();
             foreach (var job in jobs)
                 lookup.TryAdd(job.Id, job.Name);
         }
-        catch { /* Non-critical */ }
+        catch { /* Non-critical — DAG falls back to showing no item name */ }
 
         return lookup;
-    }
-
-    private async Task LoadWorkspaceItemsAsync(Guid? folderId, string parentPath, Dictionary<Guid, string> lookup)
-    {
-        var listing = folderId.HasValue
-            ? await WorkspaceService.GetFolderAsync(folderId.Value)
-            : await WorkspaceService.GetRootAsync();
-
-        foreach (var folder in listing.Folders)
-        {
-            var folderPath = string.IsNullOrEmpty(parentPath) ? folder.Name : $"{parentPath}/{folder.Name}";
-            await LoadWorkspaceItemsAsync(folder.Id, folderPath, lookup);
-        }
-
-        foreach (var item in listing.Items)
-        {
-            var itemPath = string.IsNullOrEmpty(parentPath) ? item.Title : $"{parentPath}/{item.Title}";
-            lookup.TryAdd(item.Id, itemPath);
-        }
     }
 }
