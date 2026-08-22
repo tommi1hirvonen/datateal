@@ -19,15 +19,7 @@ internal static class WorkspaceBundleValidator
     private static readonly HashSet<string> ValidTaskTypes =
         new(["notebook", "sql_query", "sql", "sub_job"], StringComparer.OrdinalIgnoreCase);
 
-    public static void Validate(
-        Bundle bundle,
-        IEnumerable<string> existingNotebookPaths,
-        IEnumerable<string> existingQueryPaths,
-        IEnumerable<string> existingNodePoolNames,
-        IEnumerable<string> existingEnvironmentVariableKeys,
-        IEnumerable<string> existingSecretKeys,
-        IEnumerable<string> existingWheelPackageNames,
-        IEnumerable<string> existingJobNames)
+    public static void Validate(Bundle bundle)
     {
         var errors = new List<string>();
 

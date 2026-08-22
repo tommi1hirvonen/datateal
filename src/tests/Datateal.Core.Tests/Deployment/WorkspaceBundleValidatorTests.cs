@@ -44,15 +44,7 @@ public class WorkspaceBundleValidatorTests
         // Even if old_deleted_notebook.py exists in the workspace prior to deployment,
         // it will be deleted by workspace reconciliation because it is not in bundle.Notebooks.
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            WorkspaceBundleValidator.Validate(
-                bundle,
-                existingNotebookPaths: ["old_deleted_notebook.py"],
-                existingQueryPaths: [],
-                existingNodePoolNames: [],
-                existingEnvironmentVariableKeys: [],
-                existingSecretKeys: [],
-                existingWheelPackageNames: [],
-                existingJobNames: []));
+            WorkspaceBundleValidator.Validate(bundle));
 
         Assert.Contains("references notebook 'old_deleted_notebook.py' which does not exist", ex.Message);
     }
@@ -89,14 +81,6 @@ public class WorkspaceBundleValidatorTests
         };
 
         // Should not throw
-        WorkspaceBundleValidator.Validate(
-            bundle,
-            existingNotebookPaths: [],
-            existingQueryPaths: [],
-            existingNodePoolNames: [],
-            existingEnvironmentVariableKeys: [],
-            existingSecretKeys: [],
-            existingWheelPackageNames: [],
-            existingJobNames: []);
+        WorkspaceBundleValidator.Validate(bundle);
     }
 }

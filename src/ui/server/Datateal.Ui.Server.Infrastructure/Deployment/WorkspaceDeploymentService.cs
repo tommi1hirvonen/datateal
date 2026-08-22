@@ -313,12 +313,6 @@ internal sealed class WorkspaceDeploymentService(
             .AsNoTracking()
             .Where(w => w.WorkspaceId == workspaceId)
             .ToListAsync(ct);
-        var existingJobNames = await db.Jobs
-            .AsNoTracking()
-            .Where(j => j.WorkspaceId == workspaceId)
-            .Select(j => j.Name)
-            .ToListAsync(ct);
-
         var folderMapper = new WorkspaceFolderMapper();
         var notebookMapper = new WorkspaceNotebookMapper();
         var queryMapper = new WorkspaceQueryMapper();
@@ -345,15 +339,7 @@ internal sealed class WorkspaceDeploymentService(
             .Select(query => queryMapper.ToModel(query, DeploymentPathHelpers.GetItemPath(query, folderPaths)))
             .ToList();
 
-        WorkspaceBundleValidator.Validate(
-            bundle,
-            existingNotebookPaths: currentNotebookModels.Select(n => n.Path),
-            existingQueryPaths: currentQueryModels.Select(q => q.Path),
-            existingNodePoolNames: nodePools.Select(p => p.Name),
-            existingEnvironmentVariableKeys: variables.Select(v => v.Key),
-            existingSecretKeys: secrets.Select(s => s.Key),
-            existingWheelPackageNames: wheelPackages.Select(w => w.Name),
-            existingJobNames: existingJobNames);
+        WorkspaceBundleValidator.Validate(bundle);
 
         var currentFolderModels = folders
             .Select(folder => folderMapper.ToModel(folder, folderPaths[folder.Id]))
