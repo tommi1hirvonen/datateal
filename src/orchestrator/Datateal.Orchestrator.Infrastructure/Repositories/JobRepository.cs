@@ -1,7 +1,10 @@
+using System.Runtime.CompilerServices;
 using Datateal.Data;
 using Datateal.Orchestrator.Core.Entities;
 using Datateal.Orchestrator.Core.Repositories;
 using Microsoft.EntityFrameworkCore;
+
+[assembly: InternalsVisibleTo("Datateal.Core.Tests")]
 
 namespace Datateal.Orchestrator.Infrastructure.Repositories;
 
@@ -70,12 +73,41 @@ internal class JobRepository(DatatealDbContext db) : IJobRepository
 
     public async Task<Job?> UpdateJobAsync(Job job, CancellationToken cancellationToken = default)
     {
-        // The job entity is already tracked (loaded via GetJobAsync).
-        // Collections were cleared and rebuilt in the handler — EF Core's change tracker
-        // automatically marks orphaned children as Deleted for required cascade relationships,
-        // so no explicit orphan cleanup is needed here.
-        job.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
+        // Capture the pre-update name via a fresh, untracked read (job is already tracked and
+        // mutated in memory at this point, so a tracked query would return the new value —
+        // AsNoTracking bypasses the identity map and hits the database, which still has the old row).
+        var oldName = await db.Jobs
+            .AsNoTracking()
+            .Where(j => j.Id == job.Id)
+            .Select(j => j.Name)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+            // The job entity is already tracked (loaded via GetJobAsync).
+            // Collections were cleared and rebuilt in the handler — EF Core's change tracker
+            // automatically marks orphaned children as Deleted for required cascade relationships,
+            // so no explicit orphan cleanup is needed here.
+            job.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(cancellationToken);
+
+            // Renaming a job leaves any other job's SubJobTask.SubJobName stale unless repointed
+            // here — sub-job tasks reference jobs by name (not id) so the reference survives a
+            // job's entity id staying the same across a rename, but the name itself must be kept
+            // in sync everywhere it's referenced.
+            if (oldName is not null && !string.Equals(oldName, job.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                await db.JobTasks
+                    .OfType<SubJobTask>()
+                    .Where(t => t.Job!.WorkspaceId == job.WorkspaceId && t.SubJobName == oldName)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.SubJobName, job.Name), cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        });
 
         return await GetJobAsync(job.Id, cancellationToken);
     }

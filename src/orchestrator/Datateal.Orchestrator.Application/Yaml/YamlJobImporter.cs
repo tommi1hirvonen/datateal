@@ -109,7 +109,7 @@ public class YamlJobImporter(
                     MaxRetries = t.MaxRetries,
                     RetryInterval = ParseTimeSpan(t.RetryInterval, TimeSpan.FromSeconds(30)),
                     Timeout = ParseNullableTimeSpan(t.Timeout),
-                    SubJobId = await ResolveSubJobAsync(workspaceId, t.JobName, ct),
+                    SubJobName = await ResolveSubJobAsync(workspaceId, t.JobName, ct),
                     Parameters = t.Parameters,
                 },
                 _ => throw new InvalidOperationException($"Unknown task type: '{t.Type}'. Expected 'notebook', 'sql_query', or 'sub_job'."),
@@ -189,14 +189,14 @@ public class YamlJobImporter(
         return path;
     }
 
-    private async Task<Guid> ResolveSubJobAsync(Guid workspaceId, string? jobName, CancellationToken ct)
+    private async Task<string> ResolveSubJobAsync(Guid workspaceId, string? jobName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(jobName))
             throw new InvalidOperationException("Job name is required for sub-job tasks.");
 
-        var subJob = await jobRepository.GetJobByNameAsync(jobName, workspaceId, ct)
+        _ = await jobRepository.GetJobByNameAsync(jobName, workspaceId, ct)
             ?? throw new InvalidOperationException($"Sub-job not found with name: '{jobName}'.");
-        return subJob.Id;
+        return jobName;
     }
 
     private static DependencyCondition ParseCondition(string condition) => condition.ToLowerInvariant() switch

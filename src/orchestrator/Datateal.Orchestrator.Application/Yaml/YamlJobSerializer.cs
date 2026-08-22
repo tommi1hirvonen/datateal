@@ -1,6 +1,5 @@
 using Datateal.Orchestrator.Core.Entities;
 using Datateal.Orchestrator.Core.Enums;
-using Datateal.Orchestrator.Core.Repositories;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -9,14 +8,14 @@ namespace Datateal.Orchestrator.Application.Yaml;
 /// <summary>
 /// Converts a <see cref="Job"/> entity into YAML text using snake_case keys.
 /// </summary>
-public class YamlJobSerializer(IJobRepository jobRepository)
+public class YamlJobSerializer
 {
     private static readonly ISerializer Serializer = new SerializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
         .Build();
 
-    public async Task<string> SerializeAsync(Job job, CancellationToken ct = default)
+    public Task<string> SerializeAsync(Job job, CancellationToken ct = default)
     {
         var model = new YamlJobModel
         {
@@ -69,8 +68,7 @@ public class YamlJobSerializer(IJobRepository jobRepository)
                     break;
                 case SubJobTask sj:
                     yamlTask.Type = "sub_job";
-                    var subJob = await jobRepository.GetJobAsync(sj.SubJobId, ct);
-                    yamlTask.JobName = subJob?.Name;
+                    yamlTask.JobName = sj.SubJobName;
                     yamlTask.Parameters = sj.Parameters;
                     break;
             }
@@ -106,6 +104,6 @@ public class YamlJobSerializer(IJobRepository jobRepository)
             });
         }
 
-        return Serializer.Serialize(model);
+        return Task.FromResult(Serializer.Serialize(model));
     }
 }

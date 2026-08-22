@@ -116,17 +116,17 @@
                         <div>
                             <label style="display: block; margin-bottom: 4px; font-weight: 500;">Job <span style="color: #ff4d4f;">*</span></label>
                             <Select TItem="JobOption"
-                                    TItemValue="Guid?"
+                                    TItemValue="string"
                                     DataSource="_jobOptions"
-                                    @bind-Value="_subJobId"
-                                    @bind-Value:after="OnSubJobIdChangedAsync"
-                                    LabelName="@nameof(JobOption.Label)"
-                                    ValueName="@nameof(JobOption.Value)"
+                                    @bind-Value="_subJobName"
+                                    @bind-Value:after="OnSubJobNameChangedAsync"
+                                    LabelName="@nameof(JobOption.Name)"
+                                    ValueName="@nameof(JobOption.Name)"
                                     EnableSearch
                                     AllowClear
                                     Style="width: 100%;"
                                     Placeholder="Select job" />
-                            @if (_subJobId is null)
+                            @if (_subJobName is null)
                             {
                                 <div style="color: #ff4d4f; font-size: 12px; margin-top: 2px;">A sub-job must be selected.</div>
                             }
@@ -265,7 +265,7 @@
     private string? _timeout;
     private string? _notebookPath;
     private string? _queryPath;
-    private Guid? _subJobId;
+    private string? _subJobName;
     private string? _nodePoolRef;
     private List<EditableTaskParameter> _parameters = [];
     private List<EditableDependency> _dependencies = [];
@@ -290,7 +290,7 @@
             _jobOptions = jobs
                 .Where(j => j.Id != CurrentJobId)
                 .Select(j => new JobOption(j.Id, j.Name))
-                .OrderBy(j => j.Label, NaturalSortComparer.OrdinalIgnoreCase)
+                .OrderBy(j => j.Name, NaturalSortComparer.OrdinalIgnoreCase)
                 .ToList();
         }
         catch { /* Jobs may fail to load */ }
@@ -310,7 +310,7 @@
                 _timeout = Task.Timeout;
                 _notebookPath = Task.NotebookPath;
                 _queryPath = Task.QueryPath;
-                _subJobId = Task.SubJobId;
+                _subJobName = Task.SubJobName;
                 _nodePoolRef = Task.NodePoolRef;
                 _parameters = Task.Parameters
                     .Select(p => new EditableTaskParameter { Key = p.Key, Value = p.Value })
@@ -318,8 +318,8 @@
                     .ToList();
                 _dependencies = Task.Dependencies.Select(d => new EditableDependency { TaskName = d.TaskName, Condition = d.Condition }).ToList();
 
-                if (_taskType == TaskType.SubJob && _subJobId.HasValue)
-                    await LoadSubJobParamsAsync(_subJobId.Value);
+                if (_taskType == TaskType.SubJob && _subJobName is not null)
+                    await LoadSubJobParamsAsync(_subJobName);
             }
             else
             {
@@ -331,7 +331,7 @@
                 _timeout = null;
                 _notebookPath = null;
                 _queryPath = null;
-                _subJobId = null;
+                _subJobName = null;
                 _subJobParameters = [];
                 _nodePoolRef = null;
                 _parameters = [];
@@ -345,7 +345,7 @@
     {
         _notebookPath = null;
         _queryPath = null;
-        _subJobId = null;
+        _subJobName = null;
         _nodePoolRef = null;
         _subJobParameters = [];
     }
@@ -359,7 +359,7 @@
         if (IsDuplicateName()) return true;
         if (_taskType == TaskType.Notebook && _notebookPath is null) return true;
         if (_taskType == TaskType.SqlQuery && _queryPath is null) return true;
-        if (_taskType == TaskType.SubJob && _subJobId is null) return true;
+        if (_taskType == TaskType.SubJob && _subJobName is null) return true;
         if ((_taskType == TaskType.Notebook || _taskType == TaskType.SqlQuery) && _nodePoolRef is null) return true;
         if (ValidationHelper.ValidateTimeSpan(_retryInterval, required: true) is not null) return true;
         if (ValidationHelper.ValidateTimeSpan(_timeout, required: false) is not null) return true;
@@ -368,11 +368,18 @@
         return false;
     }
 
-    private async Task LoadSubJobParamsAsync(Guid subJobId)
+    private async Task LoadSubJobParamsAsync(string subJobName)
     {
         try
         {
-            var detail = await JobService.GetJobAsync(subJobId);
+            var subJobId = _jobOptions.FirstOrDefault(j => string.Equals(j.Name, subJobName, StringComparison.OrdinalIgnoreCase))?.Id;
+            if (subJobId is null)
+            {
+                _subJobParameters = [];
+                return;
+            }
+
+            var detail = await JobService.GetJobAsync(subJobId.Value);
             _subJobParameters = detail?.Parameters?.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList() ?? [];
         }
         catch
@@ -381,15 +388,15 @@
         }
     }
 
-    private async Task OnSubJobIdChangedAsync()
+    private async Task OnSubJobNameChangedAsync()
     {
-        if (_subJobId is null)
+        if (_subJobName is null)
         {
             _subJobParameters = [];
             return;
         }
 
-        await LoadSubJobParamsAsync(_subJobId.Value);
+        await LoadSubJobParamsAsync(_subJobName);
 
         foreach (var p in _subJobParameters.Where(p => p.IsRequired && p.DefaultValue is null))
         {
@@ -422,7 +429,7 @@
             Timeout = _timeout,
             NotebookPath = _notebookPath,
             QueryPath = _queryPath,
-            SubJobId = _subJobId,
+            SubJobName = _subJobName,
             NodePoolRef = _nodePoolRef,
             Parameters = _parameters.Where(p => !string.IsNullOrWhiteSpace(p.Key)).OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase).ToList(),
             Dependencies = _dependencies.Where(d => !string.IsNullOrWhiteSpace(d.TaskName)).ToList(),
@@ -437,5 +444,5 @@
     }
 
     private record NodePoolOption(string Value, string Label, string PoolType, string VmSize);
-    private record JobOption(Guid Value, string Label);
+    private record JobOption(Guid Id, string Name);
 }

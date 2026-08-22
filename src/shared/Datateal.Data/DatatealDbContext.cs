@@ -386,6 +386,7 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
 
         modelBuilder.Entity<SubJobTask>(entity =>
         {
+            entity.Property(e => e.SubJobName).HasMaxLength(256).IsRequired();
             entity.Property(e => e.Parameters).HasColumnType("jsonb").HasConversion(DictJsonConverter);
         });
 

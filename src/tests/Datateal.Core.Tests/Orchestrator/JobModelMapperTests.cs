@@ -9,12 +9,13 @@ using Xunit;
 namespace Datateal.Core.Tests.Orchestrator;
 
 /// <summary>
-/// Regression coverage for the fix that stores <c>NotebookTask</c>/<c>SqlQueryTask</c> references
-/// as a workspace path rather than a persisted Guid id. A workspace bundle deploy that moves or
-/// renames a notebook/query recreates the underlying row with a brand-new id (see
-/// <c>WorkspaceNotebookMapper</c>/<c>WorkspaceQueryMapper</c>, keyed purely by path). Storing a
-/// path instead of an id means a job task's reference is re-resolved fresh on every use instead of
-/// freezing to a specific id that a later rename can silently orphan.
+/// Regression coverage for the fix that stores <c>NotebookTask</c>/<c>SqlQueryTask</c>/<c>SubJobTask</c>
+/// references as a workspace path or job name rather than a persisted Guid id. A workspace bundle
+/// deploy that moves or renames a notebook/query (or a job) recreates the underlying row with a
+/// brand-new id (see <c>WorkspaceNotebookMapper</c>/<c>WorkspaceQueryMapper</c>/<c>JobModelMapper.NaturalKey</c>,
+/// all keyed purely by path/name). Storing a path/name instead of an id means a job task's
+/// reference is re-resolved fresh on every use instead of freezing to a specific id that a later
+/// rename can silently orphan.
 /// </summary>
 public class JobModelMapperTests
 {
@@ -107,6 +108,64 @@ public class JobModelMapperTests
         Assert.Equal("folderB/notebook1", request.Tasks!.Single().NotebookPath);
     }
 
+    [Fact]
+    public async Task ToModelAsync_CopiesSubJobNameDirectly_WithoutResolvingAnyId()
+    {
+        // FakeJobRepository.GetJobAsync always returns null — proving ToModelAsync no longer needs
+        // to look the sub-job up by id (the old code called jobRepository.GetJobAsync(subJob.SubJobId)).
+        var mapper = new JobModelMapper(new ThrowingWorkspaceReader(), new FakeJobRepository(), new FakeNodePoolConfigRepository());
+
+        var job = new Job
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = Guid.NewGuid(),
+            Name = "Orchestrating Job",
+            Tasks = [new SubJobTask { Id = Guid.NewGuid(), Name = "run-child", SubJobName = "Child Job" }],
+        };
+
+        var model = await mapper.ToModelAsync(job, CancellationToken.None);
+
+        Assert.Equal("Child Job", model.Tasks.Single().JobName);
+    }
+
+    [Fact]
+    public async Task ToCreateRequestAsync_Throws_WhenSubJobNameNoLongerExists()
+    {
+        // Simulates a job that still references a sub-job by its old name after that job was
+        // renamed (or deleted).
+        var jobRepository = new FakeJobRepository(); // empty — nothing resolves
+        var mapper = new JobModelMapper(new FakeWorkspaceReader(), jobRepository, new FakeNodePoolConfigRepository());
+        var bundleModel = new JobModel
+        {
+            Name = "Orchestrating Job",
+            Tasks = [new JobTaskModel { Name = "run-child", Type = "sub_job", JobName = "Old Child Job Name" }],
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            mapper.ToCreateRequestAsync(Guid.NewGuid(), Guid.NewGuid(), bundleModel, CancellationToken.None));
+
+        Assert.Contains("Old Child Job Name", ex.Message);
+    }
+
+    [Fact]
+    public async Task ToCreateRequestAsync_StoresNameNotId_ForSubJobTasks()
+    {
+        var workspaceId = Guid.NewGuid();
+        var jobRepository = new FakeJobRepository();
+        jobRepository.JobsByName["Child Job"] = new Job { Id = Guid.NewGuid(), WorkspaceId = workspaceId, Name = "Child Job" };
+        var mapper = new JobModelMapper(new FakeWorkspaceReader(), jobRepository, new FakeNodePoolConfigRepository());
+
+        var bundleModel = new JobModel
+        {
+            Name = "Orchestrating Job",
+            Tasks = [new JobTaskModel { Name = "run-child", Type = "sub_job", JobName = "Child Job" }],
+        };
+
+        var request = await mapper.ToCreateRequestAsync(workspaceId, Guid.NewGuid(), bundleModel, CancellationToken.None);
+
+        Assert.Equal("Child Job", request.Tasks!.Single().SubJobName);
+    }
+
     private static JobModel NotebookJobModel(string notebookPath, string nodePoolRef) => new()
     {
         Name = "ETL Job",
@@ -154,6 +213,8 @@ public class JobModelMapperTests
 
     private sealed class FakeJobRepository : IJobRepository
     {
+        public Dictionary<string, Job> JobsByName { get; } = new(StringComparer.OrdinalIgnoreCase);
+
         public Task<IReadOnlyList<Job>> GetJobsAsync(Guid workspaceId, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<Job>>([]);
 
@@ -164,7 +225,7 @@ public class JobModelMapperTests
             Task.FromResult<Job?>(null);
 
         public Task<Job?> GetJobByNameAsync(string name, Guid workspaceId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<Job?>(null);
+            Task.FromResult(JobsByName.TryGetValue(name, out var job) ? job : null);
 
         public Task<Job> CreateJobAsync(Job job, CancellationToken cancellationToken = default) =>
             Task.FromResult(job);

@@ -32,6 +32,7 @@ public class TaskExecutor(
     private record TaskScopeContext(
         IJobRunRepository Repo,
         IWorkspaceReader Workspace,
+        IJobRepository Jobs,
         ICatalogResolver Catalogs,
         ICatalogAccessAuthorizer CatalogAuthorizer,
         Guid WorkspaceId,
@@ -46,6 +47,7 @@ public class TaskExecutor(
         var ctx = new TaskScopeContext(
             scope.ServiceProvider.GetRequiredService<IJobRunRepository>(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceReader>(),
+            scope.ServiceProvider.GetRequiredService<IJobRepository>(),
             scope.ServiceProvider.GetRequiredService<ICatalogResolver>(),
             scope.ServiceProvider.GetRequiredService<ICatalogAccessAuthorizer>(),
             workspaceId,
@@ -307,16 +309,20 @@ public class TaskExecutor(
     private async Task ExecuteSubJobAsync(SubJobTaskRun taskRun, SubJobTask task,
         Dictionary<string, string>? jobRunParameters, TaskScopeContext ctx, CancellationToken ct)
     {
-        logger.LogInformation("Triggering sub-job {SubJobId} for task '{TaskName}'",
-            task.SubJobId, task.Name);
+        logger.LogInformation("Triggering sub-job '{SubJobName}' for task '{TaskName}'",
+            task.SubJobName, task.Name);
 
         var resolvedParameters = ResolveParameters(task.Parameters, jobRunParameters);
         var parentRun = await ctx.Repo.GetJobRunAsync(taskRun.JobRunId, ct)
             ?? throw new InvalidOperationException($"Parent run {taskRun.JobRunId} not found.");
 
+        var subJob = await ctx.Jobs.GetJobByNameAsync(task.SubJobName, parentRun.WorkspaceId, ct)
+            ?? throw new InvalidOperationException(
+                $"Sub-job '{task.SubJobName}' was not found in this workspace. It may have been renamed or deleted.");
+
         var subRun = await mediator.SendAsync(
-            new TriggerJobRequest(parentRun.WorkspaceId, task.SubJobId, resolvedParameters, JobRunTrigger.SubJob), ct)
-            ?? throw new InvalidOperationException($"Job {task.SubJobId} not found.");
+            new TriggerJobRequest(parentRun.WorkspaceId, subJob.Id, resolvedParameters, JobRunTrigger.SubJob), ct)
+            ?? throw new InvalidOperationException($"Job '{task.SubJobName}' not found.");
 
         // Set parent references
         subRun.ParentRunId = taskRun.JobRunId;

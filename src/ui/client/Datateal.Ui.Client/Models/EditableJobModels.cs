@@ -12,7 +12,7 @@ public class EditableTask
 
     public string? NotebookPath { get; set; }
     public string? QueryPath { get; set; }
-    public Guid? SubJobId { get; set; }
+    public string? SubJobName { get; set; }
 
     public string? NodePoolRef { get; set; }
     public List<EditableTaskParameter> Parameters { get; set; } = [];

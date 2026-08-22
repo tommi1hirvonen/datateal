@@ -97,7 +97,6 @@
             <TabPane Key="tasks" Tab="@($"Tasks ({_editTasks.Count})")">
                 <div style="margin-top: 16px;">
                     <JobDagView Tasks="_editTasks"
-                                ItemNameLookup="_itemNameLookup"
                                 OnEditTaskName="StartEditTaskByName" />
                     <div style="margin-bottom: 8px;">
                         <AuthorizeView Policy="@AuthPolicy.JobManage">
@@ -425,7 +424,6 @@
     // Task & parameter mutable state
     private List<EditableTask> _editTasks = [];
     private List<EditableParameter> _editParams = [];
-    private Dictionary<Guid, string> _itemNameLookup = [];
 
     // Task editor state
     private bool _showTaskDrawer;
@@ -487,7 +485,7 @@
                     Timeout = t.Timeout?.ToString(),
                     NotebookPath = t.NotebookPath,
                     QueryPath = t.QueryPath,
-                    SubJobId = t.SubJobId,
+                    SubJobName = t.SubJobName,
                     NodePoolRef = t.NodePoolRef,
                     Parameters = t.Parameters?.Select(kv => new EditableTaskParameter { Key = kv.Key, Value = kv.Value }).ToList() ?? [],
                     Dependencies = t.Dependencies.Select(d => new EditableDependency { TaskName = d.DependsOnTaskName, Condition = d.Condition }).ToList(),
@@ -504,8 +502,6 @@
                 .ToList();
 
                 _isDirty = false;
-
-                _itemNameLookup = await BuildItemNameLookupAsync();
 
                 await RefreshRunsAsync();
             }
@@ -552,7 +548,7 @@
                 return $"Task '{t.Name}': a notebook must be selected.";
             if (t.TaskType == TaskType.SqlQuery && t.QueryPath is null)
                 return $"Task '{t.Name}': a query must be selected.";
-            if (t.TaskType == TaskType.SubJob && t.SubJobId is null)
+            if (t.TaskType == TaskType.SubJob && t.SubJobName is null)
                 return $"Task '{t.Name}': a sub-job must be selected.";
         }
 
@@ -618,7 +614,7 @@
                 string.IsNullOrWhiteSpace(t.Timeout) ? null : TimeSpan.TryParse(t.Timeout, out var to) ? to : null,
                 t.NotebookPath,
                 t.QueryPath,
-                t.SubJobId,
+                t.SubJobName,
                 t.NodePoolRef,
                 t.Parameters.Count > 0 ? t.Parameters.ToDictionary(p => p.Key, p => p.Value) : null,
                 t.Dependencies.Select(d => new UpdateDependencyRequest(d.TaskName, d.Condition)).ToList()
@@ -687,7 +683,7 @@
                 Timeout = t.Timeout?.ToString(),
                 NotebookPath = t.NotebookPath,
                 QueryPath = t.QueryPath,
-                SubJobId = t.SubJobId,
+                SubJobName = t.SubJobName,
                 NodePoolRef = t.NodePoolRef,
                 Parameters = t.Parameters?.Select(kv => new EditableTaskParameter { Key = kv.Key, Value = kv.Value }).ToList() ?? [],
                 Dependencies = t.Dependencies.Select(d => new EditableDependency { TaskName = d.DependsOnTaskName, Condition = d.Condition }).ToList(),
@@ -1025,22 +1021,5 @@
         var confirmed = await JS.InvokeAsync<bool>("confirm", "You have unsaved changes. Are you sure you want to leave?");
         if (!confirmed)
             ctx.PreventNavigation();
-    }
-
-    // --- Item name lookup for DAG (sub-job references only; notebook/query tasks now
-    // display their own stored path directly, no lookup needed) ---
-
-    private async Task<Dictionary<Guid, string>> BuildItemNameLookupAsync()
-    {
-        var lookup = new Dictionary<Guid, string>();
-        try
-        {
-            var jobs = await JobService.GetJobsAsync();
-            foreach (var job in jobs)
-                lookup.TryAdd(job.Id, job.Name);
-        }
-        catch { /* Non-critical — DAG falls back to showing no item name */ }
-
-        return lookup;
     }
 }

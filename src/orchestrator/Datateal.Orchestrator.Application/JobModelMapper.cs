@@ -94,7 +94,7 @@ internal sealed class JobModelMapper(
                     break;
                 case SubJobTask subJob:
                     taskModel.Type = "sub_job";
-                    taskModel.JobName = (await jobRepository.GetJobAsync(subJob.SubJobId, ct))?.Name;
+                    taskModel.JobName = subJob.SubJobName;
                     break;
             }
 
@@ -209,7 +209,7 @@ internal sealed class JobModelMapper(
 
             string? notebookPath = null;
             string? queryPath = null;
-            Guid? subJobId = null;
+            string? subJobName = null;
 
             switch (taskType)
             {
@@ -224,7 +224,8 @@ internal sealed class JobModelMapper(
                         ?? throw new InvalidOperationException($"Query '{task.QueryPath}' was not found.");
                     break;
                 case TaskType.SubJob:
-                    subJobId = (await jobRepository.GetJobByNameAsync(task.JobName ?? string.Empty, workspaceId, ct))?.Id
+                    subJobName = task.JobName ?? string.Empty;
+                    _ = await jobRepository.GetJobByNameAsync(subJobName, workspaceId, ct)
                         ?? throw new InvalidOperationException($"Sub-job '{task.JobName}' was not found.");
                     break;
             }
@@ -244,7 +245,7 @@ internal sealed class JobModelMapper(
                 timeout,
                 notebookPath,
                 queryPath,
-                subJobId,
+                subJobName,
                 task.NodePoolRef,
                 parameters,
                 createDependencies));
@@ -257,7 +258,7 @@ internal sealed class JobModelMapper(
                 timeout,
                 notebookPath,
                 queryPath,
-                subJobId,
+                subJobName,
                 task.NodePoolRef,
                 parameters,
                 updateDependencies));

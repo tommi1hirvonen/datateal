@@ -30,7 +30,7 @@ public record UpdateJobTaskRequest(
     TimeSpan? Timeout,
     string? NotebookPath,
     string? QueryPath,
-    Guid? SubJobId,
+    string? SubJobName,
     string? NodePoolRef,
     Dictionary<string, string>? Parameters,
     List<UpdateJobDependencyRequest> Dependencies);
@@ -146,7 +146,9 @@ internal class UpdateJobHandler(
                         MaxRetries = t.MaxRetries,
                         RetryInterval = t.RetryInterval,
                         Timeout = t.Timeout,
-                        SubJobId = t.SubJobId ?? throw new InvalidOperationException("SubJobId is required for sub-job tasks."),
+                        SubJobName = string.IsNullOrWhiteSpace(t.SubJobName)
+                            ? throw new InvalidOperationException("SubJobName is required for sub-job tasks.")
+                            : await ResolveSubJobNameAsync(existing.WorkspaceId, t.SubJobName, cancellationToken),
                         Parameters = t.Parameters,
                     },
                     _ => throw new InvalidOperationException($"Unknown task type: {t.TaskType}")
@@ -219,5 +221,12 @@ internal class UpdateJobHandler(
         _ = await workspaceReader.ResolveQueryIdByPathAsync(workspaceId, path, ct)
             ?? throw new InvalidOperationException($"Query '{path}' was not found in this workspace.");
         return path;
+    }
+
+    private async Task<string> ResolveSubJobNameAsync(Guid workspaceId, string name, CancellationToken ct)
+    {
+        _ = await jobRepository.GetJobByNameAsync(name, workspaceId, ct)
+            ?? throw new InvalidOperationException($"Sub-job '{name}' was not found in this workspace.");
+        return name;
     }
 }

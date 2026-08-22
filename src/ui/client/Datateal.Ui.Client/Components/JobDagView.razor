@@ -12,7 +12,6 @@
 
 @code {
     [Parameter] public List<EditableTask> Tasks { get; set; } = [];
-    [Parameter] public Dictionary<Guid, string> ItemNameLookup { get; set; } = [];
     [Parameter] public EventCallback<string> OnEditTaskName { get; set; }
 
     private readonly string _containerId = $"dag-{Guid.NewGuid():N}";
@@ -68,14 +67,14 @@
         await JS.InvokeVoidAsync("dagGraph.update", _containerId, (object)nodes, (object)edges);
     }
 
-    private string ResolveItemName(EditableTask task)
+    private static string ResolveItemName(EditableTask task)
     {
         if (!string.IsNullOrEmpty(task.NotebookPath))
             return task.NotebookPath;
         if (!string.IsNullOrEmpty(task.QueryPath))
             return task.QueryPath;
-        if (task.SubJobId.HasValue && ItemNameLookup.TryGetValue(task.SubJobId.Value, out var sj))
-            return sj;
+        if (!string.IsNullOrEmpty(task.SubJobName))
+            return task.SubJobName;
         return "";
     }
 

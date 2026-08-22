@@ -19,7 +19,7 @@ public record UpdateTaskRequest(
     TimeSpan? Timeout,
     string? NotebookPath,
     string? QueryPath,
-    Guid? SubJobId,
+    string? SubJobName,
     string? NodePoolRef,
     Dictionary<string, string>? Parameters,
     List<UpdateDependencyRequest> Dependencies);
