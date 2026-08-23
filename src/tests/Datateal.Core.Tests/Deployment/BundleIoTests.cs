@@ -34,6 +34,46 @@ public class BundleIoTests
         Assert.Single(readBack.Memberships, m => m.Workspace == "Sales" && m.Members[0].Email == "alice@example.com");
     }
 
+    [Fact]
+    public void AdminBundle_RoundTrip_PreservesRestrictedUserCatalogAccess()
+    {
+        // Regression test: HasAllCatalogAccess = false must survive export/re-import unchanged.
+        // YamlDotNet's global DefaultValuesHandling.OmitDefaults compares against default(bool)
+        // (false), which would otherwise make an explicit `false` indistinguishable from
+        // "omitted" and silently flip back to `true` (unrestricted access) on read-back.
+        var bundle = new Bundle
+        {
+            Manifest = new BundleManifest { Scope = "admin" },
+            UserCatalogAccess =
+            [
+                new UserCatalogAccessModel
+                {
+                    Email = "carol@example.com",
+                    HasAllCatalogAccess = false,
+                    AllowedCatalogs = ["sales_prod"],
+                }
+            ],
+        };
+
+        var zip = BundleWriter.WriteZip(bundle);
+        var readBack = BundleReader.ReadZip(zip);
+
+        var access = Assert.Single(readBack.UserCatalogAccess, a => a.Email == "carol@example.com");
+        Assert.False(access.HasAllCatalogAccess);
+        Assert.Equal(["sales_prod"], access.AllowedCatalogs);
+    }
+
+    [Fact]
+    public void UserCatalogAccessModel_OmittedHasAllCatalogAccess_DefaultsToFalse()
+    {
+        // Fail-closed default: a hand-authored bundle entry that omits has_all_catalog_access
+        // must not grant unrestricted catalog access. This mirrors AppUser.HasAllCatalogAccess's
+        // own (unset = false) default.
+        var model = BundleYaml.Deserialize<UserCatalogAccessModel>("email: carol@example.com\n");
+
+        Assert.False(model.HasAllCatalogAccess);
+    }
+
     // ── Workspace bundle round-trip ───────────────────────────────────────────
 
     [Fact]
@@ -64,6 +104,25 @@ public class BundleIoTests
         Assert.Single(readBack.NodePools, p => p.Name == "default-job-pool" && p.WarmNodes == 1);
         Assert.Single(readBack.EnvironmentVariables, v => v.Key == "DB_HOST");
         Assert.Single(readBack.Secrets, s => s.Key == "DB_PASSWORD");
+    }
+
+    [Fact]
+    public void WorkspaceBundle_RoundTrip_PreservesDisabledJob()
+    {
+        // Regression test: IsEnabled = false must survive export/re-import unchanged, for the
+        // same reason as AdminBundle_RoundTrip_PreservesRestrictedUserCatalogAccess above — a
+        // disabled job must not silently re-enable itself when an unmodified bundle is re-applied.
+        var bundle = new Bundle
+        {
+            Manifest = new BundleManifest { Scope = "workspace", TargetWorkspace = "Sales (Dev)" },
+            Jobs = [new JobModel { Name = "nightly_load", IsEnabled = false }],
+        };
+
+        var zip = BundleWriter.WriteZip(bundle);
+        var readBack = BundleReader.ReadZip(zip);
+
+        var job = Assert.Single(readBack.Jobs, j => j.Name == "nightly_load");
+        Assert.False(job.IsEnabled);
     }
 
     [Fact]

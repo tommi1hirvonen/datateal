@@ -1,3 +1,5 @@
+using YamlDotNet.Serialization;
+
 namespace Datateal.Deployment.Models;
 
 /// <summary>
@@ -9,6 +11,11 @@ public class JobModel
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public int MaxConcurrentRuns { get; set; } = 1;
+    // YamlDotNet's global DefaultValuesHandling.OmitDefaults compares against default(bool)
+    // (false), not this property's meaningful default (true) — without this override, a
+    // disabled job (IsEnabled = false) would serialize with the field omitted, and re-import
+    // would silently re-enable it via the property initializer. Force it to always serialize.
+    [YamlMember(DefaultValuesHandling = DefaultValuesHandling.OmitNull)]
     public bool IsEnabled { get; set; } = true;
     public List<JobParameterModel> Parameters { get; set; } = [];
     public List<JobTaskModel> Tasks { get; set; } = [];

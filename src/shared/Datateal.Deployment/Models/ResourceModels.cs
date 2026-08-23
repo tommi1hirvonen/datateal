@@ -1,3 +1,5 @@
+using YamlDotNet.Serialization;
+
 namespace Datateal.Deployment.Models;
 
 // ── Admin-scope resource models ───────────────────────────────────────────────
@@ -64,7 +66,19 @@ public class WorkspaceMemberEntry
 public class UserCatalogAccessModel
 {
     public string Email { get; set; } = "";
-    public bool HasAllCatalogAccess { get; set; } = true;
+    /// <summary>
+    /// Defaults to <c>false</c> (fail closed): if a bundle entry omits this field and supplies
+    /// no <see cref="AllowedCatalogs"/>, the user gets no catalog access at all. This matches
+    /// <c>AppUser.HasAllCatalogAccess</c>'s own default and requires an explicit opt-in
+    /// (<c>has_all_catalog_access: true</c>) to grant unrestricted access.
+    /// </summary>
+    // Always force serialization (regardless of value) via the YamlMember override below, so
+    // exported bundles are always explicit about this security-relevant flag rather than
+    // relying on YamlDotNet's global DefaultValuesHandling.OmitDefaults (which compares against
+    // default(bool) and would otherwise silently drop it whenever the value equals that CLR
+    // default).
+    [YamlMember(DefaultValuesHandling = DefaultValuesHandling.OmitNull)]
+    public bool HasAllCatalogAccess { get; set; }
     /// <summary>When <c>HasAllCatalogAccess</c> is false, the explicit allow-list.</summary>
     public List<string>? AllowedCatalogs { get; set; }
 }

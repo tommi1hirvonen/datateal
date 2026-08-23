@@ -6,8 +6,8 @@
 #      a catalog. Only meaningful when accessible_from_all_workspaces: false.
 #
 #   2. This file (user_catalog_access) — restricts which catalogs a user can reach.
-#      has_all_catalog_access: true (default) = unrestricted.
-#      has_all_catalog_access: false + allowed_catalogs list = explicit allowlist.
+#      has_all_catalog_access: false (default) = no catalog access unless allowed_catalogs is set.
+#      has_all_catalog_access: true = unrestricted, explicit opt-in required.
 #
 # Admin-scope deployments are upsert-only: entries here are created or updated,
 # users not listed are left untouched.

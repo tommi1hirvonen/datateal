@@ -120,4 +120,29 @@ public class AdminBundleValidatorTests
             existingWorkspaceNames: [],
             existingCatalogNames: []);
     }
+
+    [Fact]
+    public void Validate_Succeeds_WhenManagedCatalogHasNoDataPath()
+    {
+        // Regression test: this mirrors exactly what AdminCatalogMapper.ToModel produces when
+        // exporting a managed catalog (DataPath is always null, since the storage path is
+        // computed server-side from CatalogSettings.BaseDataPath). Re-uploading an unmodified
+        // exported admin bundle must not fail validation.
+        var bundle = new Bundle
+        {
+            Manifest = new BundleManifest { Scope = "admin" },
+            Catalogs =
+            [
+                new CatalogModel { Name = "dev_catalog", Type = "managed" },
+                new CatalogModel { Name = "prod_catalog", Type = "managed" },
+                new CatalogModel { Name = "test_catalog", Type = "managed" },
+            ],
+        };
+
+        // Should not throw
+        AdminBundleValidator.Validate(
+            bundle,
+            existingWorkspaceNames: [],
+            existingCatalogNames: ["dev_catalog", "prod_catalog", "test_catalog"]);
+    }
 }

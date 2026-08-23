@@ -38,12 +38,11 @@ internal static class AdminBundleValidator
             if (!ValidCatalogTypes.Contains(catalogType))
                 errors.Add($"Catalog '{catalog.Name}' has unknown type '{catalog.Type}'. Expected 'managed' or 'unmanaged'.");
 
-            if (string.Equals(catalogType, "managed", StringComparison.OrdinalIgnoreCase))
-            {
-                if (string.IsNullOrWhiteSpace(catalog.DataPath))
-                    errors.Add($"Managed catalog '{catalog.Name}' is missing required field 'data_path'.");
-            }
-            else if (string.Equals(catalogType, "unmanaged", StringComparison.OrdinalIgnoreCase))
+            // Managed catalogs never require 'data_path' — the storage path is always
+            // computed server-side from CatalogSettings.BaseDataPath + the catalog name
+            // (see AdminDeploymentService.CreateCatalogAsync), and exported bundles
+            // intentionally omit it for managed catalogs (see AdminCatalogMapper.ToModel).
+            if (string.Equals(catalogType, "unmanaged", StringComparison.OrdinalIgnoreCase))
             {
                 if (string.IsNullOrWhiteSpace(catalog.CatalogHost))
                     errors.Add($"Unmanaged catalog '{catalog.Name}' is missing required field 'catalog_host'.");
