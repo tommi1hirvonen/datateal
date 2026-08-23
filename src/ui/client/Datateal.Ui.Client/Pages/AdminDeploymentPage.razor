@@ -84,12 +84,26 @@
         </Space>
 
         <Table TItem="ResourceChangeDto" DataSource="_changeSet.Changes" Bordered Size="@TableSize.Small"
-               PageSize="int.MaxValue" PaginationPosition="none">
-            <PropertyColumn Property="c => c.ResourceType" Title="Resource type" Sortable />
-            <PropertyColumn Property="c => c.ResourceName" Title="Resource name" Sortable />
-            <PropertyColumn Property="c => c.ChangeType" Title="Change">
-                <Tag Color="@ChangeColor(context.ChangeType)">@context.ChangeType</Tag>
-            </PropertyColumn>
+               PageSize="int.MaxValue" PaginationPosition="none"
+               RowExpandable="@(row => row.Data.Details is { Count: > 0 })">
+            <ColumnDefinitions>
+                <PropertyColumn Property="c => c.ResourceType" Title="Resource type" Sortable />
+                <PropertyColumn Property="c => c.ResourceName" Title="Resource name" Sortable />
+                <PropertyColumn Property="c => c.ChangeType" Title="Change">
+                    <Tag Color="@ChangeColor(context.ChangeType)">@context.ChangeType</Tag>
+                </PropertyColumn>
+            </ColumnDefinitions>
+            <ExpandTemplate Context="row">
+                @if (row.Data.Details is { Count: > 0 } details)
+                {
+                    <ul style="margin: 0; padding-left: 20px;">
+                        @foreach (var detail in details)
+                        {
+                            <li><code>@detail.Field</code>: @(detail.Before ?? "(none)") &rarr; @(detail.After ?? "(none)")</li>
+                        }
+                    </ul>
+                }
+            </ExpandTemplate>
         </Table>
     </Card>
 }

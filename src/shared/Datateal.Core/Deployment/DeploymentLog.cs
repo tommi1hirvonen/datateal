@@ -7,7 +7,13 @@ namespace Datateal.Core.Deployment;
 public class DeploymentLog
 {
     public Guid Id { get; private set; }
-    public Guid WorkspaceId { get; private set; }
+
+    /// <summary>
+    /// The target workspace, or <c>null</c> for a <see cref="DeploymentScope.Admin"/> log (admin
+    /// deployments are tenant-wide, not scoped to any single workspace).
+    /// </summary>
+    public Guid? WorkspaceId { get; private set; }
+
     public DeploymentScope Scope { get; private set; }
     public DeploymentStatus Status { get; private set; }
     public string TargetBundleJson { get; private set; } = string.Empty;
@@ -32,6 +38,29 @@ public class DeploymentLog
     {
         if (workspaceId == Guid.Empty)
             throw new ArgumentException("Workspace ID cannot be empty.", nameof(workspaceId));
+
+        return CreateCore(workspaceId, scope, targetBundleJson, snapshotJson, issuedByUserId, issuedByDisplayName);
+    }
+
+    /// <summary>
+    /// Creates a tenant-wide <see cref="DeploymentScope.Admin"/> log, which has no associated
+    /// workspace.
+    /// </summary>
+    public static DeploymentLog CreateForAdmin(
+        string targetBundleJson,
+        string snapshotJson,
+        string? issuedByUserId = null,
+        string? issuedByDisplayName = null) =>
+        CreateCore(workspaceId: null, DeploymentScope.Admin, targetBundleJson, snapshotJson, issuedByUserId, issuedByDisplayName);
+
+    private static DeploymentLog CreateCore(
+        Guid? workspaceId,
+        DeploymentScope scope,
+        string targetBundleJson,
+        string snapshotJson,
+        string? issuedByUserId,
+        string? issuedByDisplayName)
+    {
         if (string.IsNullOrWhiteSpace(targetBundleJson))
             throw new ArgumentException("Target bundle JSON cannot be empty.", nameof(targetBundleJson));
         if (string.IsNullOrWhiteSpace(snapshotJson))

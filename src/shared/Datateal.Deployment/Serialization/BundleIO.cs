@@ -67,12 +67,40 @@ public static class BundleReader
     {
         // Index all files by path.
         var files = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        long totalDecompressedBytes = 0;
         foreach (var entry in archive.Entries)
         {
             if (entry.FullName.EndsWith('/')) continue;
             using var stream = entry.Open();
             using var ms = new MemoryStream();
-            stream.CopyTo(ms);
+
+            // Bounded, byte-counted copy (not a trust in entry.Length, which is attacker-controlled
+            // zip central-directory metadata and can be inconsistent with the real decompressed
+            // stream) so a zip-bomb style entry can't exhaust memory before we notice.
+            var buffer = new byte[81920];
+            long entryBytesRead = 0;
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                entryBytesRead += read;
+                if (entryBytesRead > BundleLimits.MaxEntryDecompressedBytes)
+                {
+                    throw new InvalidOperationException(
+                        $"Bundle entry '{entry.FullName}' exceeds the maximum allowed decompressed size of " +
+                        $"{BundleLimits.MaxEntryDecompressedBytes / 1024 / 1024} MB.");
+                }
+
+                totalDecompressedBytes += read;
+                if (totalDecompressedBytes > BundleLimits.MaxTotalDecompressedBytes)
+                {
+                    throw new InvalidOperationException(
+                        $"Bundle exceeds the maximum total decompressed size of " +
+                        $"{BundleLimits.MaxTotalDecompressedBytes / 1024 / 1024} MB.");
+                }
+
+                ms.Write(buffer, 0, read);
+            }
+
             files[entry.FullName] = ms.ToArray();
         }
 

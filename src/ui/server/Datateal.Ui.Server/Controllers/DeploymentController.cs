@@ -39,7 +39,8 @@ public class DeploymentController(IMediator mediator, IAuthorizationService auth
         ExecuteChangeSetAsync(async () =>
         {
             var (bundle, env) = await ReadBundleAsync(ct);
-            return await mediator.SendAsync(new ApplyAdminDeploymentRequest(bundle, env), ct);
+            var actingUserId = User.FindFirst(DatatealClaimTypes.UserId)?.Value;
+            return await mediator.SendAsync(new ApplyAdminDeploymentRequest(bundle, actingUserId, env), ct);
         });
 
     [HttpGet("deployments/admin/export")]
@@ -160,7 +161,8 @@ public class DeploymentController(IMediator mediator, IAuthorizationService auth
                 .Select(change => new ResourceChangeDto(
                     change.ResourceType,
                     change.ResourceName,
-                    change.ChangeType.ToString()))
+                    change.ChangeType.ToString(),
+                    change.Details?.Select(detail => new FieldChangeDto(detail.Field, detail.Before, detail.After)).ToList()))
                 .ToList(),
             new ChangeSetSummaryDto(
                 changeSet.Summary.Create,
@@ -193,6 +195,18 @@ public class DeploymentController(IMediator mediator, IAuthorizationService auth
             })
             {
                 StatusCode = StatusCodes.Status403Forbidden,
+            };
+        }
+        catch (DeploymentOrchestratorUnavailableException ex)
+        {
+            return new ObjectResult(new ProblemDetails
+            {
+                Status = StatusCodes.Status502BadGateway,
+                Title = "Orchestrator unavailable",
+                Detail = ex.Message,
+            })
+            {
+                StatusCode = StatusCodes.Status502BadGateway,
             };
         }
         catch (InvalidOperationException ex)

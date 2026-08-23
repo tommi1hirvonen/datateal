@@ -135,4 +135,67 @@ public class BundleIoTests
         var ex = Assert.Throws<InvalidOperationException>(() => BundleReader.ReadZip(ms));
         Assert.Contains("could not be parsed", ex.Message);
     }
+
+    // ── Zip-bomb decompression caps ───────────────────────────────────────────
+
+    [Fact]
+    public void ReadZip_SingleEntryExceedsPerEntryCap_ThrowsInvalidOperationException()
+    {
+        // Highly-compressible content (all zeros) so the entry is tiny on the wire but decodes to
+        // just over the per-entry cap — the guard must count actual decompressed bytes, not trust
+        // zip metadata.
+        var oversized = new byte[BundleLimits.MaxEntryDecompressedBytes + 1024];
+
+        using var ms = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var entry = archive.CreateEntry("files/wheels/huge.bin", System.IO.Compression.CompressionLevel.Optimal);
+            using var s = entry.Open();
+            s.Write(oversized);
+        }
+
+        ms.Position = 0;
+        var ex = Assert.Throws<InvalidOperationException>(() => BundleReader.ReadZip(ms));
+        Assert.Contains("exceeds the maximum allowed decompressed size", ex.Message);
+    }
+
+    [Fact]
+    public void ReadZip_TotalDecompressedSizeExceedsCap_ThrowsInvalidOperationException()
+    {
+        // Four entries, each individually under the per-entry cap, but summing past the total cap.
+        const int perEntryBytes = 38 * 1024 * 1024;
+        var chunk = new byte[perEntryBytes];
+
+        using var ms = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            for (var i = 0; i < 4; i++)
+            {
+                var entry = archive.CreateEntry($"files/wheels/part{i}.bin", System.IO.Compression.CompressionLevel.Optimal);
+                using var s = entry.Open();
+                s.Write(chunk);
+            }
+        }
+
+        ms.Position = 0;
+        var ex = Assert.Throws<InvalidOperationException>(() => BundleReader.ReadZip(ms));
+        Assert.Contains("exceeds the maximum total decompressed size", ex.Message);
+    }
+
+    [Fact]
+    public void ReadZip_WithinDecompressionCaps_StillReadsSuccessfully()
+    {
+        // Regression guard: an ordinary small bundle must not be affected by the new caps.
+        var bundle = new Bundle
+        {
+            Manifest = new BundleManifest { Scope = "workspace", TargetWorkspace = "Sales" },
+            EnvironmentVariables = [new EnvironmentVariableModel { Key = "DB_HOST", Value = "postgres.example.com" }],
+        };
+
+        var zip = BundleWriter.WriteZip(bundle);
+        var readBack = BundleReader.ReadZip(zip);
+
+        Assert.Equal("workspace", readBack.Manifest.Scope);
+        Assert.Single(readBack.EnvironmentVariables, v => v.Key == "DB_HOST");
+    }
 }

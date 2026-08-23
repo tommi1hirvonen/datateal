@@ -15,6 +15,18 @@ public interface IResourceMapper<TModel>
 
     /// <summary>Returns true if the desired model and the current model represent the same state.</summary>
     bool AreEqual(TModel desired, TModel current);
+
+    /// <summary>
+    /// Optionally returns field-level before/after details for an <see cref="ChangeType.Update"/>
+    /// change between <paramref name="desired"/> and <paramref name="current"/>. Most resource
+    /// types are simple enough that the resource name plus change type is self-explanatory, so the
+    /// default implementation returns <c>null</c>. Resource types that aggregate multiple
+    /// independently-meaningful sub-entries under one natural key (e.g. the list of members within
+    /// a workspace membership entry, or the list of catalogs a user can access) should override
+    /// this to surface exactly which sub-entries changed, since "Update" alone does not say who
+    /// gained or lost access to what.
+    /// </summary>
+    List<FieldChange>? DiffDetails(TModel desired, TModel current) => null;
 }
 
 /// <summary>
@@ -59,6 +71,7 @@ public static class DiffEngine
                     ResourceType = mapper.ResourceType,
                     ResourceName = key,
                     ChangeType = changeType,
+                    Details = changeType == ChangeType.Update ? mapper.DiffDetails(desiredModel, existing) : null,
                 }));
             }
             else

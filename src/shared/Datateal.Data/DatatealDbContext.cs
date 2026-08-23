@@ -482,6 +482,7 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
             entity.HasOne<Datateal.Core.Workspaces.Workspace>()
                 .WithMany()
                 .HasForeignKey(e => e.WorkspaceId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => new { e.WorkspaceId, e.Status });
             entity.HasIndex(e => e.Status);

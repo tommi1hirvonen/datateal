@@ -130,4 +130,64 @@ public class DiffEngineTests
         Assert.Equal(2, result.Changes.Count);
         Assert.All(result.Changes, c => Assert.Equal(ChangeType.Delete, c.ChangeType));
     }
+
+    // ── DiffDetails wiring ────────────────────────────────────────────────────
+
+    private sealed class DetailedItemMapper : IResourceMapper<WorkspaceModel>
+    {
+        public string ResourceType => "workspace";
+        public string NaturalKey(WorkspaceModel m) => m.Name;
+        public bool AreEqual(WorkspaceModel desired, WorkspaceModel current) =>
+            desired.Name == current.Name && desired.Description == current.Description;
+
+        public List<FieldChange>? DiffDetails(WorkspaceModel desired, WorkspaceModel current) =>
+            [new FieldChange { Field = "description", Before = current.Description, After = desired.Description }];
+    }
+
+    private static readonly DetailedItemMapper DetailedMapper = new();
+
+    [Fact]
+    public void DiffDetails_IsAttached_OnlyForUpdateChanges()
+    {
+        var desired = new[]
+        {
+            new WorkspaceModel { Name = "A", Description = "old" }, // unchanged
+            new WorkspaceModel { Name = "B", Description = "new" }, // changed -> Update
+            new WorkspaceModel { Name = "C" },                      // new -> Create
+        };
+        var current = new[]
+        {
+            new WorkspaceModel { Name = "A", Description = "old" },
+            new WorkspaceModel { Name = "B", Description = "old" },
+            new WorkspaceModel { Name = "D" },                      // only in current -> Delete
+        };
+
+        var result = DiffEngine.Diff(DetailedMapper, desired, current, allowDeletes: true);
+
+        var noChange = Assert.Single(result.Changes, c => c.ResourceName == "A");
+        Assert.Null(noChange.Details);
+
+        var update = Assert.Single(result.Changes, c => c.ResourceName == "B");
+        var detail = Assert.Single(update.Details!);
+        Assert.Equal("description", detail.Field);
+        Assert.Equal("old", detail.Before);
+        Assert.Equal("new", detail.After);
+
+        var create = Assert.Single(result.Changes, c => c.ResourceName == "C");
+        Assert.Null(create.Details);
+
+        var delete = Assert.Single(result.Changes, c => c.ResourceName == "D");
+        Assert.Null(delete.Details);
+    }
+
+    [Fact]
+    public void DiffDetails_DefaultsToNull_WhenMapperDoesNotOverrideIt()
+    {
+        var desired = new[] { new WorkspaceModel { Name = "A", Description = "new" } };
+        var current = new[] { new WorkspaceModel { Name = "A", Description = "old" } };
+
+        var result = DiffEngine.Diff(Mapper, desired, current, allowDeletes: false);
+
+        Assert.Null(Assert.Single(result.Changes).Details);
+    }
 }

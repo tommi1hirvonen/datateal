@@ -237,39 +237,12 @@ internal sealed class WorkspaceDeploymentService(
         return log.Id;
     }
 
-    public async Task UpdateDeploymentLogStatusAsync(
+    public Task UpdateDeploymentLogStatusAsync(
         Guid logId,
         DeploymentStatus status,
         string? failureReason = null,
-        CancellationToken ct = default)
-    {
-        var log = await db.DeploymentLogs.FirstOrDefaultAsync(l => l.Id == logId, ct)
-            ?? throw new InvalidOperationException($"Deployment log '{logId}' was not found.");
-
-        switch (status)
-        {
-            case DeploymentStatus.ApplyingUi:
-                log.TransitionToApplyingUi();
-                break;
-            case DeploymentStatus.ApplyingJobs:
-                log.TransitionToApplyingJobs();
-                break;
-            case DeploymentStatus.Completed:
-                log.TransitionToCompleted();
-                break;
-            case DeploymentStatus.RollingBack:
-                log.TransitionToRollingBack(failureReason ?? "Rollback initiated.");
-                break;
-            case DeploymentStatus.RolledBack:
-                log.TransitionToRolledBack();
-                break;
-            case DeploymentStatus.Failed:
-                log.TransitionToFailed(failureReason ?? "Deployment operation failed.");
-                break;
-        }
-
-        await db.SaveChangesAsync(ct);
-    }
+        CancellationToken ct = default) =>
+        DeploymentLogStatusUpdater.UpdateStatusAsync(db, logId, status, failureReason, ct);
 
     private async Task<ChangeSet> ProcessAsync(Guid workspaceId, Bundle bundle, bool dryRun, IReadOnlyDictionary<string, string>? env, CancellationToken ct)
     {

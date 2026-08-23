@@ -1,5 +1,6 @@
 using Datateal.Auth;
 using Datateal.Core.Catalogs;
+using Datateal.Core.Deployment;
 using Datateal.Core.Users;
 using Datateal.Core.Workspaces;
 using Datateal.Data;
@@ -28,6 +29,26 @@ internal sealed class AdminDeploymentService(
 
     public Task<ChangeSet> ApplyAsync(Bundle bundle, IReadOnlyDictionary<string, string>? env = null, CancellationToken ct = default) =>
         ProcessAsync(bundle, dryRun: false, env, ct);
+
+    public async Task<Guid> CreateDeploymentLogAsync(
+        string targetBundleJson,
+        string snapshotJson,
+        string? issuedByUserId = null,
+        string? issuedByDisplayName = null,
+        CancellationToken ct = default)
+    {
+        var log = DeploymentLog.CreateForAdmin(targetBundleJson, snapshotJson, issuedByUserId, issuedByDisplayName);
+        db.DeploymentLogs.Add(log);
+        await db.SaveChangesAsync(ct);
+        return log.Id;
+    }
+
+    public Task UpdateDeploymentLogStatusAsync(
+        Guid logId,
+        DeploymentStatus status,
+        string? failureReason = null,
+        CancellationToken ct = default) =>
+        DeploymentLogStatusUpdater.UpdateStatusAsync(db, logId, status, failureReason, ct);
 
     public async Task<Bundle> ExportAsync(CancellationToken ct = default)
     {
