@@ -58,10 +58,15 @@
                     </Button>
                 </SpaceItem>
                 <SpaceItem>
-                    <Button OnClick="ApplyAsync" Loading="@_busy"
-                            Disabled="@(_busy || _bundleBytes is null)">
-                        <Icon Type="@IconType.Outline.Check" /> Apply
-                    </Button>
+                    <Popconfirm Title="Apply this bundle?"
+                                Description="This may create, update, or delete workspace resources (node pools, notebooks, queries, variables, secrets, wheel packages, jobs). Run Plan first to review the changes."
+                                OnConfirm="ApplyAsync"
+                                OkText="@("Apply")" OkType="ButtonType.Primary"
+                                CancelText="Cancel">
+                        <Button Loading="@_busy" Disabled="@(_busy || _bundleBytes is null)">
+                            <Icon Type="@IconType.Outline.Check" /> Apply
+                        </Button>
+                    </Popconfirm>
                 </SpaceItem>
                 <SpaceItem>
                     <Button OnClick="ExportAsync" Loading="@_exporting" Disabled="@(_busy || _exporting)">

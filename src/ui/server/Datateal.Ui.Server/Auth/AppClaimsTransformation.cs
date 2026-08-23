@@ -61,8 +61,12 @@ public class AppClaimsTransformation(
             ? await dbContext.UserAccounts.AsNoTracking().FirstOrDefaultAsync(u => u.ExternalId == externalId)
             : null;
 
+        // Case-insensitive: email addresses are treated as case-insensitive throughout the app
+        // (see UserRepository.GetByEmailAsync/EmailExistsAsync), so an IdP-asserted email whose
+        // casing differs from a pre-provisioned user's stored casing (e.g. via admin deployment
+        // bundles) still resolves to the same account instead of silently getting no roles.
         appUser ??= email is not null
-            ? await dbContext.UserAccounts.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email)
+            ? await dbContext.UserAccounts.AsNoTracking().FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower())
             : null;
 
         if (appUser is null)

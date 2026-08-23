@@ -27,15 +27,20 @@ internal class UserRepository(DatatealDbContext db) : IUserRepository
                 .ThenInclude(a => a.Catalog)
             .FirstOrDefaultAsync(u => u.Id == id, ct);
 
+    // Email addresses are treated as case-insensitive throughout the app (matching how every
+    // real-world identity provider and mail system treats them), so lookups compare on
+    // lower-invariant values rather than relying on the database column's default (case-sensitive)
+    // collation. See AppClaimsTransformation and CatalogAccessService for the corresponding
+    // login/access-check lookups that must stay consistent with this.
     public Task<AppUser?> GetByEmailAsync(string email, CancellationToken ct = default) =>
         db.AppUsers
             .Include(u => u.CatalogAccessList)
                 .ThenInclude(a => a.Catalog)
-            .FirstOrDefaultAsync(u => u.Email == email, ct);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower(), ct);
 
     public Task<bool> EmailExistsAsync(string email, Guid? excludeId = null, CancellationToken ct = default)
     {
-        var query = db.AppUsers.Where(u => u.Email == email);
+        var query = db.AppUsers.Where(u => u.Email.ToLower() == email.ToLower());
         if (excludeId.HasValue)
             query = query.Where(u => u.Id != excludeId.Value);
         return query.AnyAsync(ct);
