@@ -32,8 +32,8 @@ internal sealed class AdminUserCatalogAccessMapper : IResourceMapper<UserCatalog
         if (desired.HasAllCatalogAccess)
             return true;
 
-        var currentCatalogs = NormalizeCatalogs(current.AllowedCatalogs).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return NormalizeCatalogs(desired.AllowedCatalogs).All(currentCatalogs.Contains);
+        var currentCatalogs = NormalizeCatalogs(current.AllowedCatalogs);
+        return NormalizeCatalogs(desired.AllowedCatalogs).SequenceEqual(currentCatalogs, StringComparer.OrdinalIgnoreCase);
     }
 
     private static List<string> NormalizeCatalogs(List<string>? catalogs) =>

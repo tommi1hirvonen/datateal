@@ -10,6 +10,7 @@ using Datateal.Ui.Server.Core.Catalogs;
 using Datateal.Ui.Server.Core.Deployment;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Datateal.Ui.Server.Infrastructure.Deployment;
@@ -18,7 +19,8 @@ internal sealed class AdminDeploymentService(
     DatatealDbContext db,
     ICatalogDatabaseService catalogDatabaseService,
     IOptions<CatalogSettings> catalogSettings,
-    IDataProtectionProvider dataProtection) : IAdminDeploymentService
+    IDataProtectionProvider dataProtection,
+    ILogger<AdminDeploymentService> logger) : IAdminDeploymentService
 {
     private readonly IDataProtector _protector = dataProtection.CreateProtector("Datateal.Catalogs");
     public Task<ChangeSet> PlanAsync(Bundle bundle, IReadOnlyDictionary<string, string>? env = null, CancellationToken ct = default) =>
@@ -151,13 +153,34 @@ internal sealed class AdminDeploymentService(
         if (dryRun)
             return changeSet;
 
+        // Tracks catalog databases newly created during the current attempt so we can warn
+        // (not roll back — see AdminDeploymentService design notes) if the attempt fails after
+        // one or more were created. CreateDatabaseAsync is idempotent (allowExistingDatabase:
+        // true), so a future successful apply that still includes the catalog will simply reuse
+        // the database rather than leaving a permanently orphaned one.
+        var createdDatabaseNames = new List<string>();
         var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        try
         {
-            await using var transaction = await db.Database.BeginTransactionAsync(ct);
-            await ApplyChangesAsync(workspaceDiff, catalogDiff, membershipDiff, userAccessDiff, bundle.Manifest.Variables, env, ct);
-            await transaction.CommitAsync(ct);
-        });
+            await strategy.ExecuteAsync(async () =>
+            {
+                createdDatabaseNames.Clear();
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await ApplyChangesAsync(workspaceDiff, catalogDiff, membershipDiff, userAccessDiff, bundle.Manifest.Variables, env, ct, createdDatabaseNames);
+                await transaction.CommitAsync(ct);
+            });
+        }
+        catch (Exception ex) when (createdDatabaseNames.Count > 0)
+        {
+            logger.LogWarning(ex,
+                "Admin deployment apply failed after creating {Count} new catalog database(s): {Databases}. " +
+                "These databases were not dropped and remain in Postgres; a future successful apply that " +
+                "still includes the corresponding catalog(s) will reuse them automatically. If a catalog is " +
+                "permanently removed from the bundle instead, the database(s) will be left as an unused " +
+                "(non-sensitive, no application data) residue that may be manually dropped if desired.",
+                createdDatabaseNames.Count, string.Join(", ", createdDatabaseNames));
+            throw;
+        }
 
         return changeSet;
     }
@@ -169,7 +192,8 @@ internal sealed class AdminDeploymentService(
         DiffResult<UserCatalogAccessModel> userAccessDiff,
         IReadOnlyDictionary<string, string>? variables,
         IReadOnlyDictionary<string, string>? env,
-        CancellationToken ct)
+        CancellationToken ct,
+        List<string> createdDatabaseNames)
     {
         var workspaces = await db.Workspaces.ToListAsync(ct);
         var catalogs = await db.Catalogs
@@ -215,10 +239,10 @@ internal sealed class AdminDeploymentService(
         }
 
         foreach (var catalog in NormalizeCatalogs(catalogDiff.Creations.Select(entry => entry.Model).ToList()))
-            await UpsertCatalogAsync(catalog, workspaceByName, catalogByName, catalogs, variables, env, ct);
+            await UpsertCatalogAsync(catalog, workspaceByName, catalogByName, catalogs, variables, env, ct, createdDatabaseNames);
 
         foreach (var catalog in NormalizeCatalogs(catalogDiff.Updates.Select(entry => entry.Model).ToList()))
-            await UpsertCatalogAsync(catalog, workspaceByName, catalogByName, catalogs, variables, env, ct);
+            await UpsertCatalogAsync(catalog, workspaceByName, catalogByName, catalogs, variables, env, ct, createdDatabaseNames);
 
         foreach (var membership in NormalizeMemberships(membershipDiff.Creations.Select(entry => entry.Model).ToList()))
             ApplyMembershipModel(membership, workspaceByName, userByEmail, membershipByKey);
@@ -242,11 +266,12 @@ internal sealed class AdminDeploymentService(
         List<Catalog> catalogs,
         IReadOnlyDictionary<string, string>? variables,
         IReadOnlyDictionary<string, string>? env,
-        CancellationToken ct)
+        CancellationToken ct,
+        List<string> createdDatabaseNames)
     {
         if (!catalogByName.TryGetValue(model.Name, out var existing))
         {
-            existing = await CreateCatalogAsync(model, variables, env, ct);
+            existing = await CreateCatalogAsync(model, variables, env, ct, createdDatabaseNames);
             db.Catalogs.Add(existing);
             catalogs.Add(existing);
             catalogByName[existing.Name] = existing;
@@ -285,37 +310,63 @@ internal sealed class AdminDeploymentService(
             }
         }
 
-        if (existing.AccessibleFromAllWorkspaces)
-            return;
-
         var existingWorkspaceIds = existing.WorkspaceAccessList
             .Select(access => access.WorkspaceId)
             .ToHashSet();
 
-        foreach (var workspaceName in NormalizeNames(model.WorkspaceAccess))
+        if (existing.AccessibleFromAllWorkspaces)
+        {
+            // Access is now unrestricted; drop any stale per-workspace grants so they can't
+            // silently reactivate if this catalog's access is later restricted again.
+            if (existing.WorkspaceAccessList.Count > 0)
+                db.CatalogWorkspaceAccess.RemoveRange(existing.WorkspaceAccessList);
+            return;
+        }
+
+        var desiredWorkspaceNames = NormalizeNames(model.WorkspaceAccess);
+        foreach (var workspaceName in desiredWorkspaceNames)
         {
             if (!workspaceByName.TryGetValue(workspaceName, out var workspace))
                 throw new InvalidOperationException($"Catalog '{model.Name}' references unknown workspace '{workspaceName}'.");
 
             if (existingWorkspaceIds.Add(workspace.Id))
             {
-                existing.WorkspaceAccessList.Add(new CatalogWorkspaceAccess
+                var newAccess = new CatalogWorkspaceAccess
                 {
                     Id = Guid.CreateVersion7(),
                     CatalogId = existing.Id,
                     WorkspaceId = workspace.Id,
-                });
+                };
+                // Add explicitly (rather than relying solely on navigation-collection fixup):
+                // a client-generated, non-default Guid key can otherwise cause EF Core to infer
+                // this is an existing (unchanged/modified) row rather than a new one to insert.
+                db.CatalogWorkspaceAccess.Add(newAccess);
+                existing.WorkspaceAccessList.Add(newAccess);
             }
         }
+
+        var desiredWorkspaceIds = desiredWorkspaceNames
+            .Select(name => workspaceByName[name].Id)
+            .ToHashSet();
+        var staleAccess = existing.WorkspaceAccessList
+            .Where(access => !desiredWorkspaceIds.Contains(access.WorkspaceId))
+            .ToList();
+        if (staleAccess.Count > 0)
+            db.CatalogWorkspaceAccess.RemoveRange(staleAccess);
     }
 
-    private async Task<Catalog> CreateCatalogAsync(CatalogModel model, IReadOnlyDictionary<string, string>? variables, IReadOnlyDictionary<string, string>? env, CancellationToken ct)
+    private async Task<Catalog> CreateCatalogAsync(
+        CatalogModel model,
+        IReadOnlyDictionary<string, string>? variables,
+        IReadOnlyDictionary<string, string>? env,
+        CancellationToken ct,
+        List<string> createdDatabaseNames)
     {
         var now = DateTime.UtcNow;
         if (string.Equals(model.Type, "managed", StringComparison.OrdinalIgnoreCase))
         {
             var settings = catalogSettings.Value;
-            await catalogDatabaseService.CreateDatabaseAsync(
+            var createdNew = await catalogDatabaseService.CreateDatabaseAsync(
                 model.Name,
                 settings.CatalogHost,
                 settings.CatalogPort,
@@ -323,6 +374,8 @@ internal sealed class AdminDeploymentService(
                 settings.CatalogPassword,
                 allowExistingDatabase: true,
                 ct);
+            if (createdNew)
+                createdDatabaseNames.Add(model.Name);
 
             return new ManagedCatalog
             {
@@ -369,9 +422,12 @@ internal sealed class AdminDeploymentService(
         if (!workspaceByName.TryGetValue(model.Workspace, out var workspace))
             throw new InvalidOperationException($"Memberships reference unknown workspace '{model.Workspace}'.");
 
+        var desiredUserIds = new HashSet<Guid>();
+
         foreach (var member in model.Members)
         {
             var user = EnsureUserExists(member.Email, userByEmail);
+            desiredUserIds.Add(user.Id);
             var roles = NormalizeRoles(member.Roles);
             foreach (var role in roles.Where(role => !DatatealRole.IsPerWorkspace(role)))
             {
@@ -399,6 +455,17 @@ internal sealed class AdminDeploymentService(
             membership.Roles = roles;
             membership.UpdatedAt = DateTime.UtcNow;
         }
+
+        // Remove memberships for this workspace that are no longer declared in the bundle.
+        var staleMemberships = membershipByKey.Values
+            .Where(m => m.WorkspaceId == workspace.Id && !desiredUserIds.Contains(m.UserId))
+            .ToList();
+        if (staleMemberships.Count > 0)
+        {
+            db.WorkspaceMemberships.RemoveRange(staleMemberships);
+            foreach (var stale in staleMemberships)
+                membershipByKey.Remove((stale.WorkspaceId, stale.UserId));
+        }
     }
 
     private void ApplyUserCatalogAccessModel(
@@ -411,24 +478,45 @@ internal sealed class AdminDeploymentService(
         user.UpdatedAt = DateTime.UtcNow;
 
         if (model.HasAllCatalogAccess)
+        {
+            // Access is now unrestricted; drop any stale per-catalog grants so they can't
+            // silently reactivate if this user's access is later restricted again.
+            if (user.CatalogAccessList.Count > 0)
+                db.UserCatalogAccess.RemoveRange(user.CatalogAccessList);
             return;
+        }
 
         var existingCatalogIds = user.CatalogAccessList.Select(access => access.CatalogId).ToHashSet();
-        foreach (var catalogName in NormalizeNames(model.AllowedCatalogs))
+        var desiredCatalogNames = NormalizeNames(model.AllowedCatalogs);
+        foreach (var catalogName in desiredCatalogNames)
         {
             if (!catalogByName.TryGetValue(catalogName, out var catalog))
                 throw new InvalidOperationException($"User '{model.Email}' references unknown catalog '{catalogName}'.");
 
             if (existingCatalogIds.Add(catalog.Id))
             {
-                user.CatalogAccessList.Add(new UserCatalogAccess
+                var newAccess = new UserCatalogAccess
                 {
                     Id = Guid.CreateVersion7(),
                     UserId = user.Id,
                     CatalogId = catalog.Id,
-                });
+                };
+                // Add explicitly (rather than relying solely on navigation-collection fixup):
+                // a client-generated, non-default Guid key can otherwise cause EF Core to infer
+                // this is an existing (unchanged/modified) row rather than a new one to insert.
+                db.UserCatalogAccess.Add(newAccess);
+                user.CatalogAccessList.Add(newAccess);
             }
         }
+
+        var desiredCatalogIds = desiredCatalogNames
+            .Select(name => catalogByName[name].Id)
+            .ToHashSet();
+        var staleAccess = user.CatalogAccessList
+            .Where(access => !desiredCatalogIds.Contains(access.CatalogId))
+            .ToList();
+        if (staleAccess.Count > 0)
+            db.UserCatalogAccess.RemoveRange(staleAccess);
     }
 
     private AppUser EnsureUserExists(string email, Dictionary<string, AppUser> userByEmail)

@@ -28,10 +28,15 @@ internal sealed class AdminMembershipMapper : IResourceMapper<WorkspaceMembershi
         if (!string.Equals(NaturalKey(desired), NaturalKey(current), StringComparison.OrdinalIgnoreCase))
             return false;
 
+        var desiredByEmail = desired.Members.ToDictionary(m => m.Email, StringComparer.OrdinalIgnoreCase);
         var currentByEmail = current.Members.ToDictionary(m => m.Email, StringComparer.OrdinalIgnoreCase);
-        foreach (var desiredMember in desired.Members)
+
+        if (desiredByEmail.Count != currentByEmail.Count)
+            return false;
+
+        foreach (var (email, desiredMember) in desiredByEmail)
         {
-            if (!currentByEmail.TryGetValue(desiredMember.Email, out var currentMember))
+            if (!currentByEmail.TryGetValue(email, out var currentMember))
                 return false;
 
             if (!NormalizeRoles(desiredMember.Roles).SequenceEqual(NormalizeRoles(currentMember.Roles), StringComparer.OrdinalIgnoreCase))

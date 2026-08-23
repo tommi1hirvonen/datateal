@@ -44,8 +44,8 @@ internal sealed class AdminCatalogMapper : IResourceMapper<CatalogModel>
 
         if (desired.AccessibleFromAllWorkspaces == false)
         {
-            var currentAccess = NormalizeList(current.WorkspaceAccess).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            return NormalizeList(desired.WorkspaceAccess).All(currentAccess.Contains);
+            return NormalizeList(desired.WorkspaceAccess)
+                .SequenceEqual(NormalizeList(current.WorkspaceAccess), StringComparer.OrdinalIgnoreCase);
         }
 
         return true;
