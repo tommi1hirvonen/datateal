@@ -16,6 +16,7 @@ namespace Datateal.Ui.Server.Infrastructure.Deployment;
 /// </summary>
 internal sealed class DeploymentRecoveryBackgroundService(
     IServiceScopeFactory scopeFactory,
+    IDeploymentLockManager lockManager,
     ILogger<DeploymentRecoveryBackgroundService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -43,6 +44,27 @@ internal sealed class DeploymentRecoveryBackgroundService(
 
             foreach (var log in incompleteLogs)
             {
+                // Guard against racing a manual apply for the same workspace that may already be
+                // running (e.g. a client retried right as the server came back up). Skip rather
+                // than fail — the log stays in its current status and is retried on the next pass.
+                IDisposable deploymentLock;
+                try
+                {
+                    deploymentLock = lockManager.AcquireLock(
+                        DeploymentLockKeys.Workspace(log.WorkspaceId),
+                        $"workspace '{log.WorkspaceId}'");
+                }
+                catch (DeploymentConflictException ex)
+                {
+                    logger.LogWarning(
+                        "Skipping recovery of deployment saga {LogId} for workspace {WorkspaceId}: {Reason}",
+                        log.Id,
+                        log.WorkspaceId,
+                        ex.Message);
+                    continue;
+                }
+
+                using var _ = deploymentLock;
                 try
                 {
                     logger.LogInformation(

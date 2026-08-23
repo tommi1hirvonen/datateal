@@ -48,6 +48,7 @@ public static class ServiceExtensions
         services.AddScoped<IApiTokenRepository, ApiTokenRepository>();
         services.AddScoped<IWorkspaceDeploymentService, WorkspaceDeploymentService>();
         services.AddScoped<IAdminDeploymentService, AdminDeploymentService>();
+        services.AddSingleton<IDeploymentLockManager, DeploymentLockManager>();
         services.AddSingleton<IAiProviderFactory, AiProviderFactory>();
         services.AddHostedService<DeploymentRecoveryBackgroundService>();
     }

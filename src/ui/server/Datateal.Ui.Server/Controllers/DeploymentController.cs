@@ -1,4 +1,5 @@
 using Datateal.Auth;
+using Datateal.Core.Deployment;
 using Datateal.Core.Mediator;
 using Datateal.Deployment.Diff;
 using Datateal.Deployment.Serialization;
@@ -128,6 +129,15 @@ public class DeploymentController(IMediator mediator) : ControllerBase
         try
         {
             return Ok(ToDto(await action()));
+        }
+        catch (DeploymentConflictException ex)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Deployment already in progress",
+                Detail = ex.Message,
+            });
         }
         catch (InvalidOperationException ex)
         {

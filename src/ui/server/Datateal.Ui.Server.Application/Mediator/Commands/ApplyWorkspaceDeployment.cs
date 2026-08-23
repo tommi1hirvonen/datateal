@@ -13,10 +13,17 @@ public record ApplyWorkspaceDeploymentRequest(Guid WorkspaceId, Bundle Bundle, s
 internal sealed class ApplyWorkspaceDeploymentHandler(
     IWorkspaceDeploymentService deploymentService,
     IHttpClientFactory httpClientFactory,
-    IUserRepository userRepository) : IRequestHandler<ApplyWorkspaceDeploymentRequest, ChangeSet>
+    IUserRepository userRepository,
+    IDeploymentLockManager lockManager) : IRequestHandler<ApplyWorkspaceDeploymentRequest, ChangeSet>
 {
     public async Task<ChangeSet> Handle(ApplyWorkspaceDeploymentRequest request, CancellationToken cancellationToken)
     {
+        // Held for the entire saga (pre-flight, snapshot, UI apply, job apply, and any rollback) so
+        // a second concurrent apply for the same workspace can never interleave with this one.
+        using var deploymentLock = lockManager.AcquireLock(
+            DeploymentLockKeys.Workspace(request.WorkspaceId),
+            $"workspace '{request.WorkspaceId}'");
+
         // 1. Pre-flight Validation & Dry-Run Phase
         await deploymentService.PlanAsync(request.WorkspaceId, request.Bundle, request.Env, cancellationToken);
 
