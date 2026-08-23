@@ -1,6 +1,7 @@
 using Datateal.Core.Mediator;
 using Datateal.Deployment.Diff;
 using Datateal.Deployment.Models;
+using Datateal.Orchestrator.Application.Engine;
 using Datateal.Orchestrator.Core.Repositories;
 
 namespace Datateal.Orchestrator.Application.Mediator.Commands;
@@ -31,36 +32,54 @@ internal sealed class PlanJobDeploymentHandler(
 internal sealed class ApplyJobDeploymentHandler(
     IJobRepository jobRepository,
     JobModelMapper mapper,
-    IMediator mediator) : IRequestHandler<ApplyJobDeploymentRequest, ChangeSet>
+    IMediator mediator,
+    IJobScheduleSyncCoordinator scheduleSyncCoordinator) : IRequestHandler<ApplyJobDeploymentRequest, ChangeSet>
 {
     public async Task<ChangeSet> Handle(ApplyJobDeploymentRequest request, CancellationToken cancellationToken)
     {
         var current = await JobDeploymentHelpers.LoadCurrentModelsAsync(request.WorkspaceId, jobRepository, mapper, cancellationToken);
         var diff = DiffEngine.Diff(mapper, JobDeploymentHelpers.NormalizeJobs(request.Jobs), current.Models, allowDeletes: true);
 
-        foreach (var (model, _) in diff.Creations)
-        {
-            var createRequest = await mapper.ToCreateRequestAsync(request.WorkspaceId, request.OwnerUserId, model, cancellationToken);
-            await mediator.SendAsync(createRequest, cancellationToken);
-        }
+        // The whole apply (all creates, updates, and deletes for this workspace) runs inside a
+        // single database transaction: if any job fails partway through, all preceding changes in
+        // this call are rolled back rather than left partially applied. Quartz schedule mutations
+        // triggered by the nested Create/Update/DeleteJobHandler calls are deferred via the batch
+        // and only flushed to Quartz after the transaction has committed successfully — Quartz has
+        // no rollback mechanism, so it must never observe a change that could still be undone.
+        using var scheduleBatch = scheduleSyncCoordinator.BeginBatch();
 
-        foreach (var (model, _) in diff.Updates)
+        await jobRepository.ExecuteInTransactionAsync<object?>(async ct =>
         {
-            var currentJob = current.ByName[mapper.NaturalKey(model)];
-            var updateRequest = await mapper.ToUpdateRequestAsync(
-                request.WorkspaceId,
-                currentJob.Id,
-                request.OwnerUserId,
-                model,
-                cancellationToken);
-            await mediator.SendAsync(updateRequest, cancellationToken);
-        }
+            foreach (var (model, _) in diff.Creations)
+            {
+                var createRequest = await mapper.ToCreateRequestAsync(request.WorkspaceId, request.OwnerUserId, model, ct);
+                await mediator.SendAsync(createRequest, ct);
+            }
 
-        foreach (var (model, _) in diff.Deletions)
-        {
-            var currentJob = current.ByName[mapper.NaturalKey(model)];
-            await mediator.SendAsync(new DeleteJobRequest(request.WorkspaceId, currentJob.Id), cancellationToken);
-        }
+            foreach (var (model, _) in diff.Updates)
+            {
+                var currentJob = current.ByName[mapper.NaturalKey(model)];
+                var updateRequest = await mapper.ToUpdateRequestAsync(
+                    request.WorkspaceId,
+                    currentJob.Id,
+                    request.OwnerUserId,
+                    model,
+                    ct);
+                await mediator.SendAsync(updateRequest, ct);
+            }
+
+            foreach (var (model, _) in diff.Deletions)
+            {
+                var currentJob = current.ByName[mapper.NaturalKey(model)];
+                await mediator.SendAsync(new DeleteJobRequest(request.WorkspaceId, currentJob.Id), ct);
+            }
+
+            return null;
+        }, cancellationToken);
+
+        // Only reached if the transaction committed successfully — safe to apply the queued
+        // Quartz schedule mutations now.
+        await scheduleSyncCoordinator.FlushAsync(cancellationToken);
 
         return new ChangeSet
         {

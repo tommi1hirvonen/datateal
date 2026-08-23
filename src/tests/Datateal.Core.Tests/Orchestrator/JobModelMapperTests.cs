@@ -235,6 +235,9 @@ public class JobModelMapperTests
 
         public Task<bool> DeleteJobAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(true);
+
+        public async Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken = default) =>
+            await action(cancellationToken);
     }
 
     private sealed class FakeNodePoolConfigRepository(IEnumerable<string>? poolNames = null) : INodePoolConfigRepository

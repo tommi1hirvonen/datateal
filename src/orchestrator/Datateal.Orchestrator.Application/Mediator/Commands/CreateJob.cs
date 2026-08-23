@@ -43,7 +43,7 @@ public record CreateJobScheduleRequest(string Name, string CronExpression, bool 
 internal class CreateJobHandler(
     IJobRepository jobRepository,
     IWorkspaceReader workspaceReader,
-    SchedulesManager schedulesManager) : IRequestHandler<CreateJobRequest, Job>
+    IJobScheduleSyncCoordinator scheduleSyncCoordinator) : IRequestHandler<CreateJobRequest, Job>
 {
     public async Task<Job> Handle(CreateJobRequest request, CancellationToken cancellationToken)
     {
@@ -188,8 +188,7 @@ internal class CreateJobHandler(
         var created = await jobRepository.CreateJobAsync(job, cancellationToken);
         if (request.Schedules is not null)
         {
-            foreach (var schedule in created.Schedules)
-                await schedulesManager.AddScheduleAsync(schedule, cancellationToken);
+            await scheduleSyncCoordinator.OnJobCreatedAsync(created, cancellationToken);
         }
 
         return created;

@@ -82,11 +82,10 @@ internal class JobRepository(DatatealDbContext db) : IJobRepository
             .Select(j => j.Name)
             .FirstOrDefaultAsync(cancellationToken);
 
-        var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
-        {
-            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var hasAmbientTransaction = db.Database.CurrentTransaction is not null;
 
+        async Task ApplyAsync()
+        {
             // The job entity is already tracked (loaded via GetJobAsync).
             // Collections were cleared and rebuilt in the handler — EF Core's change tracker
             // automatically marks orphaned children as Deleted for required cascade relationships,
@@ -105,9 +104,29 @@ internal class JobRepository(DatatealDbContext db) : IJobRepository
                     .Where(t => t.Job!.WorkspaceId == job.WorkspaceId && t.SubJobName == oldName)
                     .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.SubJobName, job.Name), cancellationToken);
             }
+        }
 
-            await transaction.CommitAsync(cancellationToken);
-        });
+        if (hasAmbientTransaction)
+        {
+            // Called from within an outer ambient transaction (e.g. the orchestrator's job-apply
+            // deployment loop): do not start a nested transaction or a new execution strategy —
+            // Npgsql does not support true nested transactions, EF's retrying execution strategy
+            // rejects being invoked while a user-initiated transaction is already open, and the
+            // ambient transaction already provides the atomicity guarantee across the whole loop.
+            await ApplyAsync();
+        }
+        else
+        {
+            // Standalone call (e.g. a direct PUT /jobs/{id} API call): keep the existing
+            // self-contained transaction behavior.
+            var strategy = db.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+                await ApplyAsync();
+                await transaction.CommitAsync(cancellationToken);
+            });
+        }
 
         return await GetJobAsync(job.Id, cancellationToken);
     }
@@ -119,5 +138,27 @@ internal class JobRepository(DatatealDbContext db) : IJobRepository
         db.Jobs.Remove(job);
         await db.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    public async Task<T> ExecuteInTransactionAsync<T>(
+        Func<CancellationToken, Task<T>> action,
+        CancellationToken cancellationToken = default)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                var result = await action(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+                return result;
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
     }
 }

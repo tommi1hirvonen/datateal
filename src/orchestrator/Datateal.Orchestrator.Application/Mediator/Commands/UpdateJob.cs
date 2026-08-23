@@ -44,7 +44,7 @@ public record UpdateJobScheduleRequest(string Name, string CronExpression, bool 
 internal class UpdateJobHandler(
     IJobRepository jobRepository,
     IWorkspaceReader workspaceReader,
-    SchedulesManager schedulesManager) : IRequestHandler<UpdateJobRequest, Job?>
+    IJobScheduleSyncCoordinator scheduleSyncCoordinator) : IRequestHandler<UpdateJobRequest, Job?>
 {
     public async Task<Job?> Handle(UpdateJobRequest request, CancellationToken cancellationToken)
     {
@@ -201,9 +201,7 @@ internal class UpdateJobHandler(
         var updated = await jobRepository.UpdateJobAsync(existing, cancellationToken);
         if (updated is not null && request.Schedules is not null)
         {
-            await schedulesManager.RemoveJobAsync(updated.Id, cancellationToken);
-            foreach (var schedule in updated.Schedules)
-                await schedulesManager.AddScheduleAsync(schedule, cancellationToken);
+            await scheduleSyncCoordinator.OnJobUpdatedAsync(updated, cancellationToken);
         }
 
         return updated;
