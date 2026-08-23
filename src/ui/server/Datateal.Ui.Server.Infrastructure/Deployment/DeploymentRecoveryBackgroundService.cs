@@ -29,7 +29,8 @@ internal sealed class DeploymentRecoveryBackgroundService(
             var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
 
             var incompleteLogs = await db.DeploymentLogs
-                .Where(l => l.Status == DeploymentStatus.ApplyingUi
+                .Where(l => l.Status == DeploymentStatus.Staging
+                         || l.Status == DeploymentStatus.ApplyingUi
                          || l.Status == DeploymentStatus.ApplyingJobs
                          || l.Status == DeploymentStatus.RollingBack)
                 .OrderBy(l => l.CreatedAt)
@@ -72,6 +73,23 @@ internal sealed class DeploymentRecoveryBackgroundService(
                         log.Id,
                         log.WorkspaceId,
                         log.Status);
+
+                    // A saga stuck in Staging crashed before any UI/job apply began (the log is
+                    // persisted and status transitioned to ApplyingUi as two separate steps).
+                    // No state was ever mutated, so there is nothing to roll back — simply mark
+                    // the saga as Failed so it doesn't linger forever as "in progress".
+                    if (log.Status == DeploymentStatus.Staging)
+                    {
+                        log.TransitionToFailed("Automatic recovery: deployment never began applying (server restarted before the apply phase started).");
+                        await db.SaveChangesAsync(stoppingToken);
+
+                        logger.LogInformation(
+                            "Marked deployment saga {LogId} for workspace {WorkspaceId} as Failed (no changes had been applied yet).",
+                            log.Id,
+                            log.WorkspaceId);
+
+                        continue;
+                    }
 
                     var fullSnapshot = JsonSerializer.Deserialize<WorkspaceDeploymentFullSnapshot>(log.SnapshotJson)
                         ?? throw new InvalidOperationException($"Snapshot for deployment saga '{log.Id}' could not be deserialized.");
