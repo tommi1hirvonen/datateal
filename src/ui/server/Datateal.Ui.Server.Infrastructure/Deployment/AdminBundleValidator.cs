@@ -15,7 +15,9 @@ internal static class AdminBundleValidator
     public static void Validate(
         Bundle bundle,
         IEnumerable<string> existingWorkspaceNames,
-        IEnumerable<string> existingCatalogNames)
+        IEnumerable<string> existingCatalogNames,
+        IReadOnlyDictionary<string, string>? variables = null,
+        IReadOnlyDictionary<string, string>? env = null)
     {
         var errors = new List<string>();
 
@@ -93,10 +95,47 @@ internal static class AdminBundleValidator
                     errors.Add($"User '{access.Email}' catalog access references catalog '{catalogName}' which does not exist in the tenant or bundle.");
         }
 
+        // ── Variable/env substitution checks ───────────────────────────────────
+        // Resolved here (purely for validation — results are discarded) so an unresolved
+        // ${var.X}/${env.X} token is reported during Plan, not only when Apply actually
+        // substitutes the value.
+
+        foreach (var catalog in bundle.Catalogs)
+        {
+            ValidateSubstitutable(catalog.DataPath, variables, env, errors);
+            ValidateSubstitutable(catalog.CatalogHost, variables, env, errors);
+            ValidateSubstitutable(catalog.CatalogDatabase, variables, env, errors);
+            ValidateSubstitutable(catalog.CatalogUser, variables, env, errors);
+            ValidateSubstitutable(catalog.CatalogPassword, variables, env, errors);
+        }
+
         if (errors.Count > 0)
             throw new InvalidOperationException(
                 $"Bundle validation failed with {errors.Count} error(s):\n" +
                 string.Join("\n", errors.Select((e, i) => $"  {i + 1}. {e}")));
+    }
+
+    /// <summary>
+    /// Attempts to resolve every <c>${var.X}</c>/<c>${env.X}</c> token in <paramref name="value"/>,
+    /// discarding the result — only used to surface <see cref="DeploymentVariableException"/>
+    /// messages as ordinary validation errors instead of letting them propagate individually.
+    /// </summary>
+    private static void ValidateSubstitutable(
+        string? value,
+        IReadOnlyDictionary<string, string>? variables,
+        IReadOnlyDictionary<string, string>? env,
+        List<string> errors)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+
+        try
+        {
+            VariableSubstitution.Substitute(value, variables, env);
+        }
+        catch (DeploymentVariableException ex)
+        {
+            errors.Add(ex.Message);
+        }
     }
 
     private static HashSet<string> BuildSet(IEnumerable<string> bundleValues, IEnumerable<string> existingValues) =>

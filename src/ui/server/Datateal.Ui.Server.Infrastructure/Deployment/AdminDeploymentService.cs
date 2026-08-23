@@ -117,7 +117,9 @@ internal sealed class AdminDeploymentService(
         AdminBundleValidator.Validate(
             bundle,
             existingWorkspaceNames: workspaces.Select(w => w.Name),
-            existingCatalogNames: catalogs.Select(c => c.Name));
+            existingCatalogNames: catalogs.Select(c => c.Name),
+            variables: bundle.Manifest.Variables,
+            env: env);
 
         var currentWorkspaceModels = workspaces.Select(workspaceMapper.ToModel).ToList();
         var currentCatalogModels = catalogs

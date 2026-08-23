@@ -339,7 +339,7 @@ internal sealed class WorkspaceDeploymentService(
             .Select(query => queryMapper.ToModel(query, DeploymentPathHelpers.GetItemPath(query, folderPaths)))
             .ToList();
 
-        WorkspaceBundleValidator.Validate(bundle);
+        WorkspaceBundleValidator.Validate(bundle, bundle.Manifest.Variables, env);
 
         var currentFolderModels = folders
             .Select(folder => folderMapper.ToModel(folder, folderPaths[folder.Id]))

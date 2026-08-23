@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Datateal.Core.RuntimePackages;
 using Datateal.Deployment.Models;
 using Datateal.Deployment.Serialization;
 
@@ -19,7 +20,10 @@ internal static class WorkspaceBundleValidator
     private static readonly HashSet<string> ValidTaskTypes =
         new(["notebook", "sql_query", "sql", "sub_job"], StringComparer.OrdinalIgnoreCase);
 
-    public static void Validate(Bundle bundle)
+    public static void Validate(
+        Bundle bundle,
+        IReadOnlyDictionary<string, string>? variables = null,
+        IReadOnlyDictionary<string, string>? env = null)
     {
         var errors = new List<string>();
 
@@ -45,6 +49,23 @@ internal static class WorkspaceBundleValidator
         {
             if (string.IsNullOrWhiteSpace(secret.Key))
                 errors.Add("A secret entry is missing a required 'key'.");
+        }
+
+        foreach (var wheel in bundle.WheelPackages)
+        {
+            if (string.IsNullOrWhiteSpace(wheel.Name))
+                errors.Add("A wheel package entry is missing a required 'name'.");
+
+            // Bundle file presence is validated separately (missing source files are a distinct,
+            // earlier error); only check size when the file is actually present.
+            if (!string.IsNullOrWhiteSpace(wheel.BundleFilePath)
+                && bundle.Files.TryGetValue(wheel.BundleFilePath, out var wheelBytes)
+                && wheelBytes.LongLength > WheelPackageLimits.MaxFileSizeBytes)
+            {
+                errors.Add(
+                    $"Wheel package '{wheel.Name}' exceeds the maximum size of " +
+                    $"{WheelPackageLimits.MaxFileSizeBytes / 1024 / 1024} MB.");
+            }
         }
 
         foreach (var job in bundle.Jobs)
@@ -153,10 +174,45 @@ internal static class WorkspaceBundleValidator
             }
         }
 
+        // ── Variable/env substitution checks ───────────────────────────────────
+        // Resolved here (purely for validation — results are discarded) so an unresolved
+        // ${var.X}/${env.X} token is reported during Plan, not only when Apply actually
+        // substitutes the value.
+
+        foreach (var variable in bundle.EnvironmentVariables)
+            ValidateSubstitutable(variable.Value, variables, env, errors);
+
+        foreach (var secret in bundle.Secrets)
+            if (secret.Value is not null)
+                ValidateSubstitutable(secret.Value, variables, env, errors);
+
         if (errors.Count > 0)
             throw new InvalidOperationException(
                 $"Bundle validation failed with {errors.Count} error(s):\n" +
                 string.Join("\n", errors.Select((e, i) => $"  {i + 1}. {e}")));
+    }
+
+    /// <summary>
+    /// Attempts to resolve every <c>${var.X}</c>/<c>${env.X}</c> token in <paramref name="value"/>,
+    /// discarding the result — only used to surface <see cref="DeploymentVariableException"/>
+    /// messages as ordinary validation errors instead of letting them propagate individually.
+    /// </summary>
+    private static void ValidateSubstitutable(
+        string? value,
+        IReadOnlyDictionary<string, string>? variables,
+        IReadOnlyDictionary<string, string>? env,
+        List<string> errors)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+
+        try
+        {
+            VariableSubstitution.Substitute(value, variables, env);
+        }
+        catch (DeploymentVariableException ex)
+        {
+            errors.Add(ex.Message);
+        }
     }
 
     private static HashSet<string> BuildSet(IEnumerable<string> bundleValues) =>

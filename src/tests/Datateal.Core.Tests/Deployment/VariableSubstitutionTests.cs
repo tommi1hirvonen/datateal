@@ -85,4 +85,17 @@ public class VariableSubstitutionTests
     {
         Assert.Null(VariableSubstitution.SubstituteDict(null, Vars));
     }
+
+    [Fact]
+    public void DeploymentVariableException_IsInvalidOperationException()
+    {
+        // DeploymentController.ExecuteChangeSetAsync only has dedicated catch clauses for
+        // InvalidOperationException (400) and DeploymentConflictException/DeploymentAuthorizationException.
+        // DeploymentVariableException must derive from InvalidOperationException so an unresolved
+        // ${var.X}/${env.X} token surfaces as a 400 Bad Request instead of an unhandled 500.
+        var ex = Assert.Throws<DeploymentVariableException>(() =>
+            VariableSubstitution.Substitute("${env.MISSING}", null, new Dictionary<string, string>()));
+
+        Assert.IsAssignableFrom<InvalidOperationException>(ex);
+    }
 }

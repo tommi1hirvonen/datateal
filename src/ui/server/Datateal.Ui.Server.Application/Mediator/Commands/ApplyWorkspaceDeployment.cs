@@ -2,13 +2,19 @@ using System.Text.Json;
 using Datateal.Core.Deployment;
 using Datateal.Core.Mediator;
 using Datateal.Deployment.Diff;
+using Datateal.Deployment.Models;
 using Datateal.Deployment.Serialization;
 using Datateal.Ui.Server.Core.Deployment;
 using Datateal.Ui.Server.Core.Repositories;
 
 namespace Datateal.Ui.Server.Application.Mediator.Commands;
 
-public record ApplyWorkspaceDeploymentRequest(Guid WorkspaceId, Bundle Bundle, string? ActingUserId, IReadOnlyDictionary<string, string>? Env = null) : IRequest<ChangeSet>;
+public record ApplyWorkspaceDeploymentRequest(
+    Guid WorkspaceId,
+    Bundle Bundle,
+    string? ActingUserId,
+    WorkspaceDeploymentGrants Grants,
+    IReadOnlyDictionary<string, string>? Env = null) : IRequest<ChangeSet>;
 
 internal sealed class ApplyWorkspaceDeploymentHandler(
     IWorkspaceDeploymentService deploymentService,
@@ -25,17 +31,24 @@ internal sealed class ApplyWorkspaceDeploymentHandler(
             $"workspace '{request.WorkspaceId}'");
 
         // 1. Pre-flight Validation & Dry-Run Phase
-        await deploymentService.PlanAsync(request.WorkspaceId, request.Bundle, request.Env, cancellationToken);
+        var preflightChanges = await deploymentService.PlanAsync(request.WorkspaceId, request.Bundle, request.Env, cancellationToken);
 
+        ChangeSet? preflightJobChanges = null;
         if (request.Bundle.Jobs.Count > 0)
         {
-            await OrchestratorDeploymentClient.PlanJobsAsync(
+            preflightJobChanges = await OrchestratorDeploymentClient.PlanJobsAsync(
                 httpClientFactory,
                 request.WorkspaceId,
                 request.Bundle.Jobs,
                 request.ActingUserId,
                 cancellationToken);
         }
+
+        // Enforce per-resource-type authorization before anything is persisted or mutated: the
+        // caller's baseline WorkspaceManage grant (checked by the controller) is not sufficient on
+        // its own if this deployment would also touch node pools, environment/secrets/wheels, or
+        // jobs — those require their own dedicated policies, same as the direct CRUD endpoints.
+        DeploymentAuthorizationEvaluator.EnsureAuthorized(preflightChanges, preflightJobChanges, request.Grants);
 
         // 2. Snapshot Pre-Deployment State for Rollback & Persist Saga Log
         var uiSnapshot = await deploymentService.CreateSnapshotAsync(request.WorkspaceId, cancellationToken);
@@ -59,7 +72,14 @@ internal sealed class ApplyWorkspaceDeploymentHandler(
         }
 
         var fullSnapshot = new WorkspaceDeploymentFullSnapshot(uiSnapshot, previousJobs);
-        var targetBundleJson = JsonSerializer.Serialize(request.Bundle);
+        // Persist a redacted echo of the uploaded bundle: the raw Files payload (notebook/query
+        // source text, wheel binaries) would otherwise be duplicated into this audit row on every
+        // apply with no bound on growth, and a bundle author could accidentally inline a literal
+        // secret value (instead of a ${var.X}/${env.X} reference) that would then sit in plaintext
+        // in the database forever. Neither is needed for audit/troubleshooting purposes — the
+        // pre-deployment snapshot (which does need Files, for rollback) already retains the actual
+        // prior state, and its secrets are never captured with plaintext values either.
+        var targetBundleJson = JsonSerializer.Serialize(RedactForLogging(request.Bundle));
         var snapshotJson = JsonSerializer.Serialize(fullSnapshot);
 
         var logId = await deploymentService.CreateDeploymentLogAsync(
@@ -139,4 +159,36 @@ internal sealed class ApplyWorkspaceDeploymentHandler(
                 ex);
         }
     }
+
+    /// <summary>
+    /// Builds a copy of <paramref name="bundle"/> suitable for persisting in the deployment log's
+    /// <c>TargetBundleJson</c> column: <see cref="Bundle.Files"/> (notebook/query source text,
+    /// wheel binaries) is dropped, and any literal <see cref="SecretModel.Value"/> a bundle author
+    /// inlined (instead of a <c>${var.X}</c>/<c>${env.X}</c> reference) is replaced with a fixed
+    /// placeholder. The original <paramref name="bundle"/> is left untouched for the actual apply.
+    /// </summary>
+    internal static Bundle RedactForLogging(Bundle bundle) => new()
+    {
+        Manifest = bundle.Manifest,
+        Catalogs = bundle.Catalogs,
+        Workspaces = bundle.Workspaces,
+        Memberships = bundle.Memberships,
+        UserCatalogAccess = bundle.UserCatalogAccess,
+        Folders = bundle.Folders,
+        Notebooks = bundle.Notebooks,
+        Queries = bundle.Queries,
+        NodePools = bundle.NodePools,
+        EnvironmentVariables = bundle.EnvironmentVariables,
+        Secrets = bundle.Secrets
+            .Select(secret => new SecretModel
+            {
+                Key = secret.Key,
+                Description = secret.Description,
+                Value = secret.Value is null ? null : "<redacted>",
+            })
+            .ToList(),
+        WheelPackages = bundle.WheelPackages,
+        Jobs = bundle.Jobs,
+        Files = [],
+    };
 }

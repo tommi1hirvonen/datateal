@@ -104,4 +104,35 @@ public class BundleIoTests
         var ex = Assert.Throws<InvalidOperationException>(() => BundleReader.ReadZip(ms));
         Assert.Contains("manifest.yml", ex.Message);
     }
+
+    // ── Malformed upload errors ───────────────────────────────────────────────
+
+    [Fact]
+    public void ReadZip_NotAZipArchive_ThrowsInvalidOperationException()
+    {
+        // Arbitrary non-ZIP bytes (e.g. a user accidentally uploading a random file) must be
+        // reported as a normal 400-mappable InvalidOperationException, not a raw
+        // System.IO.InvalidDataException bubbling up as an unhandled 500.
+        var garbage = System.Text.Encoding.UTF8.GetBytes("this is definitely not a zip file");
+
+        var ex = Assert.Throws<InvalidOperationException>(() => BundleReader.ReadZip(garbage));
+        Assert.Contains("not a valid ZIP archive", ex.Message);
+    }
+
+    [Fact]
+    public void ReadZip_MalformedManifestYaml_ThrowsInvalidOperationException()
+    {
+        using var ms = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var entry = archive.CreateEntry("manifest.yml");
+            using var s = entry.Open();
+            // Invalid YAML: unterminated flow mapping.
+            s.Write(System.Text.Encoding.UTF8.GetBytes("scope: [workspace"));
+        }
+
+        ms.Position = 0;
+        var ex = Assert.Throws<InvalidOperationException>(() => BundleReader.ReadZip(ms));
+        Assert.Contains("could not be parsed", ex.Message);
+    }
 }

@@ -42,8 +42,18 @@ public static class BundleReader
     /// <summary>Reads a ZIP archive from a stream.</summary>
     public static Bundle ReadZip(Stream zipStream)
     {
-        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
-        return ReadArchive(archive);
+        ZipArchive archive;
+        try
+        {
+            archive = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new InvalidOperationException("Bundle upload is not a valid ZIP archive.", ex);
+        }
+
+        using (archive)
+            return ReadArchive(archive);
     }
 
     /// <summary>Reads a ZIP archive from raw bytes.</summary>

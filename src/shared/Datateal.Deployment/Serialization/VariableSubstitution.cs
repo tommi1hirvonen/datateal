@@ -66,4 +66,4 @@ public static class VariableSubstitution
 }
 
 /// <summary>Thrown when a <c>${var.*}</c> or <c>${env.*}</c> token cannot be resolved.</summary>
-public class DeploymentVariableException(string message) : Exception(message);
+public class DeploymentVariableException(string message) : InvalidOperationException(message);

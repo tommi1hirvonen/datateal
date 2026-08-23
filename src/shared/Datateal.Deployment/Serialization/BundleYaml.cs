@@ -24,7 +24,21 @@ public static class BundleYaml
         .IgnoreUnmatchedProperties()
         .Build();
 
-    public static T Deserialize<T>(string yaml) => Deserializer.Deserialize<T>(yaml);
+    public static T Deserialize<T>(string yaml)
+    {
+        try
+        {
+            return Deserializer.Deserialize<T>(yaml);
+        }
+        catch (Exception ex) when (ex is not InvalidOperationException and not OperationCanceledException)
+        {
+            // YamlDotNet throws its own exception types (YamlException, etc.) for malformed YAML
+            // or type-mapping failures. Translate them into InvalidOperationException so callers
+            // (the deployment controller in particular) can uniformly treat "the uploaded bundle
+            // is malformed" as a 400 Bad Request rather than an unhandled 500.
+            throw new InvalidOperationException($"Bundle YAML could not be parsed: {ex.Message}", ex);
+        }
+    }
 
     public static string Serialize<T>(T value) => Serializer.Serialize(value);
 }
