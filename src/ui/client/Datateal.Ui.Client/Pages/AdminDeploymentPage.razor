@@ -5,6 +5,7 @@
 @using Datateal.Ui.Shared.Deployment
 @inject IDeploymentService DeploymentService
 @inject IJSRuntime JS
+@inject ModalService ModalService
 
 <PageTitle>Admin deployment — Datateal</PageTitle>
 
@@ -58,15 +59,9 @@
                     </Button>
                 </SpaceItem>
                 <SpaceItem>
-                    <Popconfirm Title="Apply this bundle?"
-                                Description="This may create or update tenant-level resources (workspaces, catalogs, memberships, catalog access). Run Plan first to review the changes."
-                                OnConfirm="ApplyAsync"
-                                OkText="@("Apply")" OkType="ButtonType.Primary"
-                                CancelText="Cancel">
-                        <Button Loading="@_busy" Disabled="@(_busy || _bundleBytes is null)">
-                            <Icon Type="@IconType.Outline.Check" /> Apply
-                        </Button>
-                    </Popconfirm>
+                    <Button Loading="@_busy" Disabled="@(_busy || _bundleBytes is null)" OnClick="ConfirmApplyAsync">
+                        <Icon Type="@IconType.Outline.Check" /> Apply
+                    </Button>
                 </SpaceItem>
                 <SpaceItem>
                     <Button OnClick="ExportAsync" Loading="@_exporting" Disabled="@(_busy || _exporting)">
@@ -144,6 +139,23 @@
     }
 
     private Task PlanAsync() => ExecuteBundleActionAsync(stream => DeploymentService.PlanAdminDeploymentAsync(stream));
+
+    private async Task ConfirmApplyAsync()
+    {
+        var confirmed = await ModalService.ConfirmAsync(new ConfirmOptions
+        {
+            Title = "Apply this bundle?",
+            Content = "This may create or update tenant-level resources (workspaces, catalogs, memberships, catalog access). Run Plan first to review the changes.",
+            OkText = "Apply",
+            CancelText = "Cancel",
+            OkButtonProps = new ButtonProps { Type = ButtonType.Primary }
+        });
+
+        if (confirmed)
+        {
+            await ApplyAsync();
+        }
+    }
 
     private Task ApplyAsync() => ExecuteBundleActionAsync(stream => DeploymentService.ApplyAdminDeploymentAsync(stream));
 
