@@ -1,5 +1,6 @@
 using Datateal.Auth;
 using Datateal.Core.Mediator;
+using Datateal.Core.RuntimePackages;
 using Datateal.Ui.Server.Application.Mediator.Commands;
 using Datateal.Ui.Server.Application.Mediator.Queries;
 using Datateal.Ui.Server.Core.Repositories;
@@ -14,7 +15,7 @@ namespace Datateal.Ui.Server.Controllers;
 [Authorize(Policy = AuthPolicy.EnvironmentManage)]
 public class WheelPackagesController(IMediator mediator, IWheelPackageRepository repository) : ControllerBase
 {
-    private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
+    private const long MaxFileSizeBytes = WheelPackageLimits.MaxFileSizeBytes;
 
     [HttpGet]
     public async Task<IReadOnlyList<WheelPackageDto>> GetPackages(Guid workspaceId, CancellationToken ct)

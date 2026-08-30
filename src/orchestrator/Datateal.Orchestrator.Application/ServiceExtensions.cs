@@ -20,6 +20,7 @@ public static class ServiceExtensions
             services.AddTransient<ScheduledJobExecutor>();
             services.AddSingleton<SchedulesManager>();
             services.AddHostedService(sp => sp.GetRequiredService<SchedulesManager>());
+            services.AddScoped<IJobScheduleSyncCoordinator, JobScheduleSyncCoordinator>();
 
             // Engine services
             services.AddSingleton<RunDispatcher>();
@@ -33,6 +34,7 @@ public static class ServiceExtensions
             // YAML import/export
             services.AddScoped<YamlJobSerializer>();
             services.AddScoped<YamlJobImporter>();
+            services.AddScoped<JobModelMapper>();
 
             return services;
         }

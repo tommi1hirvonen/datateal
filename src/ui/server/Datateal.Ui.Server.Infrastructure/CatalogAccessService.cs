@@ -69,8 +69,10 @@ internal class CatalogAccessService(DatatealDbContext db, ICatalogAccessResolver
 
         if (id is null && email is not null)
         {
+            // Case-insensitive, for consistency with AppClaimsTransformation/UserRepository (see
+            // those for why: emails are treated as case-insensitive throughout the app).
             id = await db.AppUsers
-                .Where(u => u.Email == email)
+                .Where(u => u.Email.ToLower() == email.ToLower())
                 .Select(u => (Guid?)u.Id)
                 .FirstOrDefaultAsync(ct);
         }

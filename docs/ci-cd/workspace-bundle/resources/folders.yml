@@ -1,0 +1,11 @@
+# Explicit folder tree declaration.
+# Folders listed here are created if they don't exist.
+# Folders absent from this list AND absent from any notebook/query path are deleted
+# on apply (full-sync semantics).
+
+- path: pipelines
+- path: pipelines/ingestion
+- path: pipelines/transformation
+- path: reports
+- path: reports/daily
+- path: shared

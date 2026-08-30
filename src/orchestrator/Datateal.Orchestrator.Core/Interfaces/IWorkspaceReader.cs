@@ -9,8 +9,6 @@ public interface IWorkspaceReader
 
     Task<Guid?> ResolveNotebookIdByPathAsync(Guid workspaceId, string path, CancellationToken ct = default);
     Task<Guid?> ResolveQueryIdByPathAsync(Guid workspaceId, string path, CancellationToken ct = default);
-    Task<string?> ResolveNotebookPathByIdAsync(Guid id, CancellationToken ct = default);
-    Task<string?> ResolveQueryPathByIdAsync(Guid id, CancellationToken ct = default);
 
     Task<IReadOnlyList<string>> GetWorkspaceItemCatalogNamesAsync(Guid itemId, CancellationToken ct = default);
 }

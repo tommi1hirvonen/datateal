@@ -1,0 +1,23 @@
+# User catalog access — restricts which catalogs a specific user can reach.
+#
+# Two independent axes control catalog visibility:
+#
+#   1. catalog.workspace_access (per-catalog YAML) — restricts which workspaces can attach
+#      a catalog. Only meaningful when accessible_from_all_workspaces: false.
+#
+#   2. This file (user_catalog_access) — restricts which catalogs a user can reach.
+#      has_all_catalog_access: false (default) = no catalog access unless allowed_catalogs is set.
+#      has_all_catalog_access: true = unrestricted, explicit opt-in required.
+#
+# Admin-scope deployments are upsert-only: entries here are created or updated,
+# users not listed are left untouched.
+
+# The ETL service account needs unrestricted access to all catalogs.
+- email: svc-etl-prod@example.com
+  has_all_catalog_access: true
+
+# Individual analyst restricted to their relevant catalog only.
+- email: carol@example.com
+  has_all_catalog_access: false
+  allowed_catalogs:
+    - sales_prod

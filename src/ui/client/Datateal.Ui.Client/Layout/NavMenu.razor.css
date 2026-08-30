@@ -1,0 +1,63 @@
+/* Compact the sider Menu: category headers are non-interactive MenuItemGroup labels
+   (always visible, never collapsible/toggleable) rather than SubMenus, so there's no
+   popup/flyout behavior to break when the sider collapses to icon-only width. */
+
+::deep .ant-menu-item {
+  height: 26px;
+  line-height: 26px;
+  margin-block: 1px;
+  font-size: 13px;
+}
+
+::deep .ant-menu-item .anticon {
+  font-size: 14px;
+  margin-inline-end: 8px;
+}
+
+::deep .ant-menu-item-group-title {
+  height: auto;
+  line-height: 16px;
+  padding: 8px 16px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.65;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+::deep .ant-menu-item-group:not(:first-child) {
+  margin-top: 4px;
+}
+
+/* AntDesign's own CSS hard-codes `line-height: 40px` on collapsed-mode icons (matching its
+   default 40px row height). Our rows are compacted to 26px, so that stale line-height was
+   pushing icons down instead of centering them. Override with the same specificity-boosting
+   selector chain AntDesign itself uses (plus our scope attribute) so this reliably wins. */
+::deep .ant-menu.ant-menu-inline-collapsed > .ant-menu-item .anticon,
+::deep
+  .ant-menu.ant-menu-inline-collapsed
+  > .ant-menu-item-group
+  > .ant-menu-item-group-list
+  > .ant-menu-item
+  .anticon {
+  line-height: 26px;
+}
+
+/* Collapsed (icon-only) sider: hide the text-only group headers entirely instead of
+   letting them render as an empty/broken row, and add a subtle divider between
+   categories so grouping is still visually implied without any popup. */
+::deep .ant-menu-inline-collapsed .ant-menu-item-group-title {
+  height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+::deep .ant-menu-inline-collapsed .ant-menu-item-group:not(:first-child) {
+  margin-top: 20px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}

@@ -41,3 +41,9 @@ window.downloadFile = function (filename, content) {
 window.clickElement = function (element) {
   element.click();
 };
+
+window.readBlobAsBytes = async function (objectUrl) {
+  const response = await fetch(objectUrl);
+  const buffer = await response.arrayBuffer();
+  return new Uint8Array(buffer);
+};

@@ -5,8 +5,8 @@
 <AntContainer />
 
 <Layout Style="min-height: 100vh;">
-    <Sider Collapsible>
-        <NavMenu />
+    <Sider Collapsible @bind-Collapsed="_siderCollapsed">
+        <NavMenu Collapsed="_siderCollapsed" />
     </Sider>
     <Layout Class="site-layout">
         <Header Class="site-header" Style="padding: 0 24px; display: flex; justify-content: flex-end; align-items: center;">
@@ -27,6 +27,8 @@
 </div>
 
 @code {
+    private bool _siderCollapsed;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)

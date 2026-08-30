@@ -91,11 +91,11 @@ Declares a named parameter with an optional default value and a required flag. A
 
 Base class for the task DAG nodes. Shared properties: `Name`, `MaxRetries`, `RetryInterval`, `Timeout`, and `Dependencies`. Stored with TPH discrimination and serialised polymorphically via `[JsonDerivedType]`.
 
-| Concrete type  | Executes                                                                                                              |
-| -------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `NotebookTask` | A workspace notebook identified by `NotebookId`. Requires `NodePoolRef`.                                              |
-| `SqlQueryTask` | A workspace SQL query file identified by `QueryId`. Requires `NodePoolRef`.                                           |
-| `SubJobTask`   | Another job identified by `SubJobId`. No node or kernel involved; waits for the child run to reach a terminal status. |
+| Concrete type  | Executes                                                                                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NotebookTask` | A workspace notebook identified by `NotebookPath` (resolved to a live item fresh on every use). Requires `NodePoolRef`.                                             |
+| `SqlQueryTask` | A workspace SQL query file identified by `QueryPath` (resolved to a live item fresh on every use). Requires `NodePoolRef`.                                          |
+| `SubJobTask`   | Another job identified by `SubJobName` (resolved to a live job fresh on every use). No node or kernel involved; waits for the child run to reach a terminal status. |
 
 ### `TaskDependency`
 
@@ -273,7 +273,7 @@ while (true):
 
 #### SubJobTask
 
-1. Sends `TriggerJobRequest` with `JobRunTrigger.SubJob` and resolved parameters.
+1. Resolves `SubJobName` to the current job via `IJobRepository.GetJobByNameAsync`, then sends `TriggerJobRequest` with `JobRunTrigger.SubJob` and resolved parameters.
 2. Sets `ParentRunId` / `ParentTaskRunId` on the child `JobRun`.
 3. Polls `GetJobRunAsync` every 5 seconds until the child run reaches a terminal status.
 4. Returns normally on `Succeeded`, throws `InvalidOperationException` on `Failed`, throws `OperationCanceledException` on `Cancelled`.

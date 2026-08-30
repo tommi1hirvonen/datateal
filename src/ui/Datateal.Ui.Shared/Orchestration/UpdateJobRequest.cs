@@ -17,9 +17,9 @@ public record UpdateTaskRequest(
     int MaxRetries,
     TimeSpan RetryInterval,
     TimeSpan? Timeout,
-    Guid? NotebookId,
-    Guid? QueryId,
-    Guid? SubJobId,
+    string? NotebookPath,
+    string? QueryPath,
+    string? SubJobName,
     string? NodePoolRef,
     Dictionary<string, string>? Parameters,
     List<UpdateDependencyRequest> Dependencies);

@@ -33,6 +33,7 @@ internal class ScheduleRepository(DatatealDbContext db) : IScheduleRepository
         var existing = await db.JobSchedules.FindAsync([schedule.Id], cancellationToken);
         if (existing is null) return null;
 
+        existing.Name = schedule.Name;
         existing.CronExpression = schedule.CronExpression;
         existing.IsEnabled = schedule.IsEnabled;
         existing.TimeZone = schedule.TimeZone;

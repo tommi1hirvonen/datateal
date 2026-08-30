@@ -1,0 +1,214 @@
+@page "/w/{WorkspaceId:guid}/deployment"
+@attribute [Authorize(Policy = AuthPolicy.WorkspaceManage)]
+
+@using Datateal.Auth
+@using Datateal.Ui.Shared.Deployment
+@inject IDeploymentService DeploymentService
+@inject IJSRuntime JS
+@inject ModalService ModalService
+
+<PageTitle>Deployment — Datateal</PageTitle>
+
+<Space>
+    <SpaceItem>
+        <Icon Height="24px" Width="24px" Type="@IconType.Outline.CloudUpload" />
+    </SpaceItem>
+    <SpaceItem>
+        <h2>Deployment</h2>
+    </SpaceItem>
+</Space>
+
+<p style="color: #8c8c8c; max-width: 720px;">
+    Upload a Datateal workspace bundle ZIP to preview or apply changes. Export downloads the current workspace state as a bundle.
+</p>
+
+@if (_error is not null)
+{
+    <Alert Type="@AlertType.Error" Message="@_error" Closable ShowIcon="true"
+           OnClose="@(() => _error = null)" Style="margin-bottom: 16px;" />
+}
+
+<Card>
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+            <Upload Drag
+                    Action="."
+                    Name="file"
+                    Accept=".zip"
+                    ShowUploadList="false"
+                    BeforeUpload="OnBeforeUpload">
+                <p class="ant-upload-drag-icon">
+                    <Icon Type="@IconType.Outline.Inbox" />
+                </p>
+                <p class="ant-upload-text">Click or drag a bundle ZIP to this area</p>
+                <p class="ant-upload-hint">Accepts .zip files only</p>
+            </Upload>
+        </div>
+        @if (_bundleName is not null)
+        {
+            <div>
+                <span style="color: #8c8c8c;">Selected: @_bundleName</span>
+            </div>
+        }
+        <div>
+            <Space Wrap>
+                <SpaceItem>
+                    <Button Type="@ButtonType.Primary" OnClick="PlanAsync" Loading="@_busy"
+                            Disabled="@(_busy || _bundleBytes is null)">
+                        <Icon Type="@IconType.Outline.Search" /> Plan
+                    </Button>
+                </SpaceItem>
+                <SpaceItem>
+                    <Button Loading="@_busy" Disabled="@(_busy || _bundleBytes is null)" OnClick="ConfirmApplyAsync">
+                        <Icon Type="@IconType.Outline.Check" /> Apply
+                    </Button>
+                </SpaceItem>
+                <SpaceItem>
+                    <Button OnClick="ExportAsync" Loading="@_exporting" Disabled="@(_busy || _exporting)">
+                        <Icon Type="@IconType.Outline.Download" /> Export
+                    </Button>
+                </SpaceItem>
+            </Space>
+        </div>
+    </div>
+</Card>
+
+@if (_changeSet is not null)
+{
+    <Card Title="@(_changeSet.DryRun ? "Plan result" : "Apply result")" Style="margin-top: 16px;">
+        <Space Wrap Style="margin-bottom: 16px;">
+            <SpaceItem><Tag Color="@("green")">Create: @_changeSet.Summary.Create</Tag></SpaceItem>
+            <SpaceItem><Tag Color="@("blue")">Update: @_changeSet.Summary.Update</Tag></SpaceItem>
+            <SpaceItem><Tag Color="@("red")">Delete: @_changeSet.Summary.Delete</Tag></SpaceItem>
+            <SpaceItem><Tag>No change: @_changeSet.Summary.NoChange</Tag></SpaceItem>
+        </Space>
+
+        <Table TItem="ResourceChangeDto" DataSource="_changeSet.Changes" Bordered Size="@TableSize.Small"
+               PageSize="int.MaxValue" PaginationPosition="none"
+               RowExpandable="@(row => row.Data.Details is { Count: > 0 })">
+            <ColumnDefinitions>
+                <PropertyColumn Property="c => c.ResourceType" Title="Resource type" Sortable />
+                <PropertyColumn Property="c => c.ResourceName" Title="Resource name" Sortable />
+                <PropertyColumn Property="c => c.ChangeType" Title="Change">
+                    <Tag Color="@ChangeColor(context.ChangeType)">@context.ChangeType</Tag>
+                </PropertyColumn>
+            </ColumnDefinitions>
+            <ExpandTemplate Context="row">
+                @if (row.Data.Details is { Count: > 0 } details)
+                {
+                    <ul style="margin: 0; padding-left: 20px;">
+                        @foreach (var detail in details)
+                        {
+                            <li><code>@detail.Field</code>: @(detail.Before ?? "(none)") &rarr; @(detail.After ?? "(none)")</li>
+                        }
+                    </ul>
+                }
+            </ExpandTemplate>
+        </Table>
+    </Card>
+}
+
+@code {
+    [Parameter] public Guid WorkspaceId { get; set; }
+
+    private byte[]? _bundleBytes;
+    private string? _bundleName;
+    private bool _busy;
+    private bool _exporting;
+    private string? _error;
+    private ChangeSetDto? _changeSet;
+
+    private bool OnBeforeUpload(UploadFileItem file)
+    {
+        _error = null;
+        _changeSet = null;
+        _ = ReadBundleAsync(file.ObjectURL, file.FileName);
+        return false;
+    }
+
+    private async Task ReadBundleAsync(string objectUrl, string fileName)
+    {
+        try
+        {
+            _bundleBytes = await JS.InvokeAsync<byte[]>("readBlobAsBytes", objectUrl);
+            _bundleName = fileName;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to read bundle: {ex.Message}";
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task PlanAsync() => ExecuteBundleActionAsync(
+        stream => DeploymentService.PlanWorkspaceDeploymentAsync(WorkspaceId, stream));
+
+    private async Task ConfirmApplyAsync()
+    {
+        var confirmed = await ModalService.ConfirmAsync(new ConfirmOptions
+        {
+            Title = "Apply this bundle?",
+            Content = "This may create, update, or delete workspace resources (node pools, notebooks, queries, variables, secrets, wheel packages, jobs). Run Plan first to review the changes.",
+            OkText = "Apply",
+            CancelText = "Cancel",
+            OkButtonProps = new ButtonProps { Type = ButtonType.Primary }
+        });
+
+        if (confirmed)
+        {
+            await ApplyAsync();
+        }
+    }
+
+    private Task ApplyAsync() => ExecuteBundleActionAsync(
+        stream => DeploymentService.ApplyWorkspaceDeploymentAsync(WorkspaceId, stream));
+
+    private async Task ExecuteBundleActionAsync(Func<Stream, Task<ChangeSetDto>> action)
+    {
+        if (_bundleBytes is null)
+            return;
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            await using var stream = new MemoryStream(_bundleBytes, writable: false);
+            _changeSet = await action(stream);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ExportAsync()
+    {
+        _exporting = true;
+        _error = null;
+        try
+        {
+            var bytes = await DeploymentService.ExportWorkspaceBundleAsync(WorkspaceId);
+            await JS.InvokeVoidAsync("downloadFileBytes", "datateal-bundle.zip", bytes, "application/zip");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private static string ChangeColor(string changeType) => changeType switch
+    {
+        "Create" => "green",
+        "Update" => "blue",
+        "Delete" => "red",
+        _ => "default",
+    };
+}

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
@@ -16,6 +17,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\shared\Datateal.Core\Datateal.Core.csproj" />
     <ProjectReference Include="..\..\shared\Datateal.Data\Datateal.Data.csproj" />
+    <ProjectReference Include="..\..\shared\Datateal.Deployment\Datateal.Deployment.csproj" />
+    <ProjectReference Include="..\..\orchestrator\Datateal.Orchestrator.Application\Datateal.Orchestrator.Application.csproj" />
+    <ProjectReference Include="..\..\orchestrator\Datateal.Orchestrator.Infrastructure\Datateal.Orchestrator.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\ui\server\Datateal.Ui.Server.Infrastructure\Datateal.Ui.Server.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\ui\server\Datateal.Ui.Server.Application\Datateal.Ui.Server.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

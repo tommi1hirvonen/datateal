@@ -32,6 +32,7 @@ public class TaskExecutor(
     private record TaskScopeContext(
         IJobRunRepository Repo,
         IWorkspaceReader Workspace,
+        IJobRepository Jobs,
         ICatalogResolver Catalogs,
         ICatalogAccessAuthorizer CatalogAuthorizer,
         Guid WorkspaceId,
@@ -46,6 +47,7 @@ public class TaskExecutor(
         var ctx = new TaskScopeContext(
             scope.ServiceProvider.GetRequiredService<IJobRunRepository>(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceReader>(),
+            scope.ServiceProvider.GetRequiredService<IJobRepository>(),
             scope.ServiceProvider.GetRequiredService<ICatalogResolver>(),
             scope.ServiceProvider.GetRequiredService<ICatalogAccessAuthorizer>(),
             workspaceId,
@@ -74,15 +76,18 @@ public class TaskExecutor(
         NotebookTaskRun taskRun, NotebookTask task, NodeManager nodeManager,
         Dictionary<string, string>? jobRunParameters, TaskScopeContext ctx, CancellationToken ct)
     {
-        var content = await ctx.Workspace.GetNotebookContentAsync(task.NotebookId, ct)
+        var notebookId = await ctx.Workspace.ResolveNotebookIdByPathAsync(ctx.WorkspaceId, task.NotebookPath, ct)
             ?? throw new InvalidOperationException(
-                $"Notebook {task.NotebookId} not found in workspace.");
+                $"Notebook '{task.NotebookPath}' was not found in this workspace. It may have been moved, renamed, or deleted.");
+
+        var content = await ctx.Workspace.GetNotebookContentAsync(notebookId, ct)
+            ?? throw new InvalidOperationException(
+                $"Notebook '{task.NotebookPath}' was not found in this workspace. It may have been moved, renamed, or deleted.");
 
         var cells = ParseNotebookCells(content.Content);
 
         // Determine this notebook's folder path for %run relative path resolution
-        var notebookAbsPath = await ctx.Workspace.ResolveNotebookPathByIdAsync(task.NotebookId, ct);
-        var notebookFolderPath = notebookAbsPath is not null ? GetFolderPath(notebookAbsPath) : "";
+        var notebookFolderPath = GetFolderPath(task.NotebookPath);
 
         var resolvedParameters = ResolveParameters(task.Parameters, jobRunParameters);
 
@@ -128,7 +133,7 @@ public class TaskExecutor(
         try
         {
             // Attach DuckLake catalogs if configured
-            await SetupCatalogsForWorkspaceItemAsync(task.NotebookId, nodeName, kernelId, ctx, ct);
+            await SetupCatalogsForWorkspaceItemAsync(notebookId, nodeName, kernelId, ctx, ct);
 
             for (var i = 0; i < cells.Count; i++)
             {
@@ -216,9 +221,13 @@ public class TaskExecutor(
         SqlQueryTaskRun taskRun, SqlQueryTask task, NodeManager nodeManager,
         Dictionary<string, string>? jobRunParameters, TaskScopeContext ctx, CancellationToken ct)
     {
-        var content = await ctx.Workspace.GetQueryContentAsync(task.QueryId, ct)
+        var queryId = await ctx.Workspace.ResolveQueryIdByPathAsync(ctx.WorkspaceId, task.QueryPath, ct)
             ?? throw new InvalidOperationException(
-                $"Query {task.QueryId} not found in workspace.");
+                $"Query '{task.QueryPath}' was not found in this workspace. It may have been moved, renamed, or deleted.");
+
+        var content = await ctx.Workspace.GetQueryContentAsync(queryId, ct)
+            ?? throw new InvalidOperationException(
+                $"Query '{task.QueryPath}' was not found in this workspace. It may have been moved, renamed, or deleted.");
 
         logger.LogInformation("Executing SQL query '{Title}'", content.Title);
 
@@ -246,7 +255,7 @@ public class TaskExecutor(
         try
         {
             // Attach DuckLake catalogs if configured
-            await SetupCatalogsForWorkspaceItemAsync(task.QueryId, nodeName, kernelId, ctx, ct);
+            await SetupCatalogsForWorkspaceItemAsync(queryId, nodeName, kernelId, ctx, ct);
 
             runCell.Status = "Running";
             runCell.StartedAt = DateTime.UtcNow;
@@ -300,16 +309,20 @@ public class TaskExecutor(
     private async Task ExecuteSubJobAsync(SubJobTaskRun taskRun, SubJobTask task,
         Dictionary<string, string>? jobRunParameters, TaskScopeContext ctx, CancellationToken ct)
     {
-        logger.LogInformation("Triggering sub-job {SubJobId} for task '{TaskName}'",
-            task.SubJobId, task.Name);
+        logger.LogInformation("Triggering sub-job '{SubJobName}' for task '{TaskName}'",
+            task.SubJobName, task.Name);
 
         var resolvedParameters = ResolveParameters(task.Parameters, jobRunParameters);
         var parentRun = await ctx.Repo.GetJobRunAsync(taskRun.JobRunId, ct)
             ?? throw new InvalidOperationException($"Parent run {taskRun.JobRunId} not found.");
 
+        var subJob = await ctx.Jobs.GetJobByNameAsync(task.SubJobName, parentRun.WorkspaceId, ct)
+            ?? throw new InvalidOperationException(
+                $"Sub-job '{task.SubJobName}' was not found in this workspace. It may have been renamed or deleted.");
+
         var subRun = await mediator.SendAsync(
-            new TriggerJobRequest(parentRun.WorkspaceId, task.SubJobId, resolvedParameters, JobRunTrigger.SubJob), ct)
-            ?? throw new InvalidOperationException($"Job {task.SubJobId} not found.");
+            new TriggerJobRequest(parentRun.WorkspaceId, subJob.Id, resolvedParameters, JobRunTrigger.SubJob), ct)
+            ?? throw new InvalidOperationException($"Job '{task.SubJobName}' not found.");
 
         // Set parent references
         subRun.ParentRunId = taskRun.JobRunId;
@@ -499,9 +512,10 @@ public class TaskExecutor(
                         : c.Source)
                     .Where(s => !string.IsNullOrWhiteSpace(s)));
 
-                // Recurse using the referenced notebook's folder as the new base
-                var refAbsPath = await workspaceReader.ResolveNotebookPathByIdAsync(notebookId.Value, ct);
-                var refFolderPath = refAbsPath is not null ? GetFolderPath(refAbsPath) : baseFolderPath;
+                // Recurse using the referenced notebook's own folder as the new base. We already
+                // have its resolved absolute path from the lookup above, so no extra round trip
+                // back from id to path is needed.
+                var refFolderPath = GetFolderPath(absolutePath);
                 cellCode = await ExpandRunMagicAsync(cellCode, refFolderPath, visited, depth + 1, workspaceReader, workspaceId, ct);
 
                 visited.Remove(notebookId.Value);

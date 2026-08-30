@@ -2,10 +2,12 @@ using Datateal.Auth.ApiKey;
 using Datateal.Data.Catalogs;
 using Datateal.Ui.Server.Application.Ai;
 using Datateal.Ui.Server.Core.Catalogs;
+using Datateal.Ui.Server.Core.Deployment;
 using Datateal.Ui.Server.Core.Repositories;
 using Datateal.Ui.Server.Infrastructure.Ai;
 using Datateal.Ui.Server.Infrastructure.Catalogs;
 using Datateal.Ui.Server.Infrastructure.Data;
+using Datateal.Ui.Server.Infrastructure.Deployment;
 using Datateal.Ui.Server.Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +46,10 @@ public static class ServiceExtensions
         services.AddScoped<IInteractivePoolRepository, InteractivePoolRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IApiTokenRepository, ApiTokenRepository>();
+        services.AddScoped<IWorkspaceDeploymentService, WorkspaceDeploymentService>();
+        services.AddScoped<IAdminDeploymentService, AdminDeploymentService>();
+        services.AddSingleton<IDeploymentLockManager, DeploymentLockManager>();
         services.AddSingleton<IAiProviderFactory, AiProviderFactory>();
+        services.AddHostedService<DeploymentRecoveryBackgroundService>();
     }
 }

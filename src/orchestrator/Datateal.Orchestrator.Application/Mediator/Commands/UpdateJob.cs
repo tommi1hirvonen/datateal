@@ -1,8 +1,10 @@
 using Datateal.Core.Mediator;
 using Datateal.Core.Orchestration;
+using Datateal.Orchestrator.Application.Engine;
 using Datateal.Orchestrator.Application.Validation;
 using Datateal.Orchestrator.Core.Entities;
 using Datateal.Orchestrator.Core.Enums;
+using Datateal.Orchestrator.Core.Interfaces;
 using Datateal.Orchestrator.Core.Repositories;
 
 namespace Datateal.Orchestrator.Application.Mediator.Commands;
@@ -17,7 +19,8 @@ public record UpdateJobRequest(
     bool IsEnabled,
     Guid? OwnerUserId,
     List<UpdateJobTaskRequest>? Tasks = null,
-    List<UpdateJobParameterRequest>? Parameters = null) : IRequest<Job?>;
+    List<UpdateJobParameterRequest>? Parameters = null,
+    List<UpdateJobScheduleRequest>? Schedules = null) : IRequest<Job?>;
 
 public record UpdateJobTaskRequest(
     string Name,
@@ -25,9 +28,9 @@ public record UpdateJobTaskRequest(
     int MaxRetries,
     TimeSpan RetryInterval,
     TimeSpan? Timeout,
-    Guid? NotebookId,
-    Guid? QueryId,
-    Guid? SubJobId,
+    string? NotebookPath,
+    string? QueryPath,
+    string? SubJobName,
     string? NodePoolRef,
     Dictionary<string, string>? Parameters,
     List<UpdateJobDependencyRequest> Dependencies);
@@ -36,7 +39,12 @@ public record UpdateJobDependencyRequest(string DependsOnTaskName, DependencyCon
 
 public record UpdateJobParameterRequest(string Name, string? DefaultValue, bool IsRequired, string? Description);
 
-internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<UpdateJobRequest, Job?>
+public record UpdateJobScheduleRequest(string Name, string CronExpression, bool IsEnabled, string? TimeZone, Dictionary<string, string>? Parameters);
+
+internal class UpdateJobHandler(
+    IJobRepository jobRepository,
+    IWorkspaceReader workspaceReader,
+    IJobScheduleSyncCoordinator scheduleSyncCoordinator) : IRequestHandler<UpdateJobRequest, Job?>
 {
     public async Task<Job?> Handle(UpdateJobRequest request, CancellationToken cancellationToken)
     {
@@ -112,7 +120,9 @@ internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<
                         MaxRetries = t.MaxRetries,
                         RetryInterval = t.RetryInterval,
                         Timeout = t.Timeout,
-                        NotebookId = t.NotebookId ?? throw new InvalidOperationException("NotebookId is required for notebook tasks."),
+                        NotebookPath = string.IsNullOrWhiteSpace(t.NotebookPath)
+                            ? throw new InvalidOperationException("NotebookPath is required for notebook tasks.")
+                            : await ResolveNotebookPathAsync(existing.WorkspaceId, t.NotebookPath, cancellationToken),
                         NodePoolRef = t.NodePoolRef ?? throw new InvalidOperationException("NodePoolRef is required for notebook tasks."),
                         Parameters = t.Parameters,
                     },
@@ -123,7 +133,9 @@ internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<
                         MaxRetries = t.MaxRetries,
                         RetryInterval = t.RetryInterval,
                         Timeout = t.Timeout,
-                        QueryId = t.QueryId ?? throw new InvalidOperationException("QueryId is required for SQL query tasks."),
+                        QueryPath = string.IsNullOrWhiteSpace(t.QueryPath)
+                            ? throw new InvalidOperationException("QueryPath is required for SQL query tasks.")
+                            : await ResolveQueryPathAsync(existing.WorkspaceId, t.QueryPath, cancellationToken),
                         NodePoolRef = t.NodePoolRef ?? throw new InvalidOperationException("NodePoolRef is required for SQL query tasks."),
                         Parameters = t.Parameters,
                     },
@@ -134,7 +146,9 @@ internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<
                         MaxRetries = t.MaxRetries,
                         RetryInterval = t.RetryInterval,
                         Timeout = t.Timeout,
-                        SubJobId = t.SubJobId ?? throw new InvalidOperationException("SubJobId is required for sub-job tasks."),
+                        SubJobName = string.IsNullOrWhiteSpace(t.SubJobName)
+                            ? throw new InvalidOperationException("SubJobName is required for sub-job tasks.")
+                            : await ResolveSubJobNameAsync(existing.WorkspaceId, t.SubJobName, cancellationToken),
                         Parameters = t.Parameters,
                     },
                     _ => throw new InvalidOperationException($"Unknown task type: {t.TaskType}")
@@ -167,6 +181,50 @@ internal class UpdateJobHandler(IJobRepository jobRepository) : IRequestHandler<
             DagValidator.Validate(existing.Tasks);
         }
 
-        return await jobRepository.UpdateJobAsync(existing, cancellationToken);
+        if (request.Schedules is not null)
+        {
+            existing.Schedules.Clear();
+            foreach (var schedule in request.Schedules)
+            {
+                existing.Schedules.Add(new JobSchedule
+                {
+                    JobId = existing.Id,
+                    Name = schedule.Name,
+                    CronExpression = schedule.CronExpression,
+                    IsEnabled = schedule.IsEnabled,
+                    TimeZone = schedule.TimeZone,
+                    Parameters = schedule.Parameters,
+                });
+            }
+        }
+
+        var updated = await jobRepository.UpdateJobAsync(existing, cancellationToken);
+        if (updated is not null && request.Schedules is not null)
+        {
+            await scheduleSyncCoordinator.OnJobUpdatedAsync(updated, cancellationToken);
+        }
+
+        return updated;
+    }
+
+    private async Task<string> ResolveNotebookPathAsync(Guid workspaceId, string path, CancellationToken ct)
+    {
+        _ = await workspaceReader.ResolveNotebookIdByPathAsync(workspaceId, path, ct)
+            ?? throw new InvalidOperationException($"Notebook '{path}' was not found in this workspace.");
+        return path;
+    }
+
+    private async Task<string> ResolveQueryPathAsync(Guid workspaceId, string path, CancellationToken ct)
+    {
+        _ = await workspaceReader.ResolveQueryIdByPathAsync(workspaceId, path, ct)
+            ?? throw new InvalidOperationException($"Query '{path}' was not found in this workspace.");
+        return path;
+    }
+
+    private async Task<string> ResolveSubJobNameAsync(Guid workspaceId, string name, CancellationToken ct)
+    {
+        _ = await jobRepository.GetJobByNameAsync(name, workspaceId, ct)
+            ?? throw new InvalidOperationException($"Sub-job '{name}' was not found in this workspace.");
+        return name;
     }
 }

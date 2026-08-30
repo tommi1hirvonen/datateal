@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Datateal.Core.ApiTokens;
 using Datateal.Core.Catalogs;
+using Datateal.Core.Deployment;
 using Datateal.Core.Environment;
 using Datateal.Core.Nodes;
 using Datateal.Core.Orchestration;
@@ -74,6 +75,9 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
     public DbSet<JobRun> JobRuns => Set<JobRun>();
     public DbSet<TaskRun> TaskRuns => Set<TaskRun>();
 
+    // ── Deployment ────────────────────────────────────────────────────────
+    public DbSet<DeploymentLog> DeploymentLogs => Set<DeploymentLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureWorkspaces(modelBuilder);
@@ -84,6 +88,7 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
         ConfigureUsers(modelBuilder);
         ConfigureApiTokens(modelBuilder);
         ConfigureOrchestrator(modelBuilder);
+        ConfigureDeploymentLogs(modelBuilder);
     }
 
     private static void ConfigureWorkspaces(ModelBuilder modelBuilder)
@@ -132,6 +137,15 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
                 .HasForeignKey(e => e.WorkspaceId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.WorkspaceId);
+            // Two partial unique indexes because NULL != NULL in SQL.
+            entity.HasIndex(e => new { e.WorkspaceId, e.Name })
+                .IsUnique()
+                .HasFilter("\"ParentId\" IS NULL")
+                .HasDatabaseName("IX_Folders_WorkspaceId_Name_Root");
+            entity.HasIndex(e => new { e.WorkspaceId, e.ParentId, e.Name })
+                .IsUnique()
+                .HasFilter("\"ParentId\" IS NOT NULL")
+                .HasDatabaseName("IX_Folders_WorkspaceId_ParentId_Name");
         });
 
         modelBuilder.Entity<WorkspaceItem>(entity =>
@@ -342,6 +356,7 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(128).IsRequired();
+            entity.HasIndex(e => new { e.JobId, e.Name }).IsUnique();
         });
 
         modelBuilder.Entity<JobTask>(entity =>
@@ -359,16 +374,19 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
 
         modelBuilder.Entity<NotebookTask>(entity =>
         {
+            entity.Property(e => e.NotebookPath).HasMaxLength(1024).IsRequired();
             entity.Property(e => e.Parameters).HasColumnType("jsonb").HasConversion(DictJsonConverter);
         });
 
         modelBuilder.Entity<SqlQueryTask>(entity =>
         {
+            entity.Property(e => e.QueryPath).HasMaxLength(1024).IsRequired();
             entity.Property(e => e.Parameters).HasColumnType("jsonb").HasConversion(DictJsonConverter);
         });
 
         modelBuilder.Entity<SubJobTask>(entity =>
         {
+            entity.Property(e => e.SubJobName).HasMaxLength(256).IsRequired();
             entity.Property(e => e.Parameters).HasColumnType("jsonb").HasConversion(DictJsonConverter);
         });
 
@@ -377,14 +395,17 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Condition).HasConversion<string>().HasMaxLength(32);
             entity.HasOne(e => e.DependsOnTask).WithMany().HasForeignKey(e => e.DependsOnTaskId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.TaskId, e.DependsOnTaskId }).IsUnique();
         });
 
         modelBuilder.Entity<JobSchedule>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(256).IsRequired();
             entity.Property(e => e.CronExpression).HasMaxLength(128).IsRequired();
             entity.Property(e => e.TimeZone).HasMaxLength(64);
             entity.Property(e => e.Parameters).HasColumnType("jsonb").HasConversion(DictJsonConverter);
+            entity.HasIndex(e => new { e.JobId, e.Name }).IsUnique();
         });
 
         modelBuilder.Entity<NodePoolConfig>(entity =>
@@ -443,6 +464,28 @@ public class DatatealDbContext(DbContextOptions<DatatealDbContext> options)
                 .HasValue<SubJobTaskRun>(TaskType.SubJob);
             entity.Property(e => e.TaskType).HasConversion<string>().HasMaxLength(32).IsRequired();
             entity.HasOne(e => e.Task).WithMany().HasForeignKey(e => e.TaskId).OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+
+    private static void ConfigureDeploymentLogs(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<DeploymentLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Scope).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.Property(e => e.TargetBundleJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(e => e.SnapshotJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(e => e.IssuedByUserId).HasMaxLength(256);
+            entity.Property(e => e.IssuedByDisplayName).HasMaxLength(256);
+            entity.Property(e => e.FailureReason).HasMaxLength(2048);
+            entity.HasOne<Datateal.Core.Workspaces.Workspace>()
+                .WithMany()
+                .HasForeignKey(e => e.WorkspaceId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.WorkspaceId, e.Status });
+            entity.HasIndex(e => e.Status);
         });
     }
 }

@@ -1,5 +1,6 @@
 using Datateal.Auth;
 using Datateal.Core.Mediator;
+using Datateal.Deployment.Models;
 using Datateal.Orchestrator.Application.Mediator.Commands;
 using Datateal.Orchestrator.Application.Mediator.Queries;
 using Datateal.Orchestrator.Core.Entities;
@@ -8,6 +9,9 @@ namespace Datateal.Orchestrator.Endpoints;
 
 public static class JobEndpoints
 {
+    private const string MissingOwnerMessage =
+        "A job owner is required but the acting user could not be resolved. Ensure the request is made by a provisioned application user.";
+
     public static IEndpointRouteBuilder MapJobEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/workspaces/{workspaceId:guid}/jobs").WithTags("Jobs");
@@ -151,6 +155,51 @@ public static class JobEndpoints
             return yaml is null ? Results.NotFound() : Results.Content(yaml, "application/yaml");
         })
         .WithName("ExportJob");
+
+        return endpoints;
+    }
+
+    public static IEndpointRouteBuilder MapJobDeployEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/workspaces/{workspaceId:guid}/jobs").WithTags("Job Deployment");
+
+        group.MapPost("/plan", async (Guid workspaceId, List<JobModel> jobs, HttpContext http, IMediator mediator, CancellationToken ct) =>
+        {
+            try
+            {
+                var actingUser = GetActingUser(http);
+                if (actingUser is null)
+                    return Results.BadRequest(new { error = MissingOwnerMessage });
+
+                var changeSet = await mediator.SendAsync(
+                    new PlanJobDeploymentRequest(workspaceId, actingUser.Value, jobs), ct);
+                return Results.Ok(changeSet);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+        .WithName("PlanJobDeployment");
+
+        group.MapPost("/apply", async (Guid workspaceId, List<JobModel> jobs, HttpContext http, IMediator mediator, CancellationToken ct) =>
+        {
+            try
+            {
+                var actingUser = GetActingUser(http);
+                if (actingUser is null)
+                    return Results.BadRequest(new { error = MissingOwnerMessage });
+
+                var changeSet = await mediator.SendAsync(
+                    new ApplyJobDeploymentRequest(workspaceId, actingUser.Value, jobs), ct);
+                return Results.Ok(changeSet);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+        .WithName("ApplyJobDeployment");
 
         return endpoints;
     }

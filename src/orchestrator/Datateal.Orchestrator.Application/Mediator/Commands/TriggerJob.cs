@@ -57,17 +57,29 @@ internal class TriggerJobHandler(
     /// </summary>
     private async Task EnsureOwnerCatalogAccessAsync(Job job, CancellationToken ct)
     {
-        var itemIds = job.Tasks
-            .Select(t => t switch
+        var itemIds = new List<Guid>();
+        foreach (var t in job.Tasks)
+        {
+            switch (t)
             {
-                NotebookTask n => (Guid?)n.NotebookId,
-                SqlQueryTask q => (Guid?)q.QueryId,
-                _ => null,
-            })
-            .Where(id => id is not null)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToList();
+                case NotebookTask n:
+                    var notebookId = await workspaceReader.ResolveNotebookIdByPathAsync(job.WorkspaceId, n.NotebookPath, ct)
+                        ?? throw new InvalidOperationException(
+                            $"Job '{job.Name}' task '{n.Name}' references notebook '{n.NotebookPath}' which no longer " +
+                            "exists in this workspace. It may have been moved, renamed, or deleted.");
+                    itemIds.Add(notebookId);
+                    break;
+                case SqlQueryTask q:
+                    var queryId = await workspaceReader.ResolveQueryIdByPathAsync(job.WorkspaceId, q.QueryPath, ct)
+                        ?? throw new InvalidOperationException(
+                            $"Job '{job.Name}' task '{q.Name}' references query '{q.QueryPath}' which no longer " +
+                            "exists in this workspace. It may have been moved, renamed, or deleted.");
+                    itemIds.Add(queryId);
+                    break;
+            }
+        }
+
+        itemIds = itemIds.Distinct().ToList();
 
         var catalogNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var itemId in itemIds)

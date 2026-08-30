@@ -9,9 +9,9 @@ public record TaskDto(
     int MaxRetries,
     TimeSpan RetryInterval,
     TimeSpan? Timeout,
-    Guid? NotebookId,
-    Guid? QueryId,
-    Guid? SubJobId,
+    string? NotebookPath,
+    string? QueryPath,
+    string? SubJobName,
     string? NodePoolRef,
     Dictionary<string, string>? Parameters,
     List<TaskDependencyDto> Dependencies);

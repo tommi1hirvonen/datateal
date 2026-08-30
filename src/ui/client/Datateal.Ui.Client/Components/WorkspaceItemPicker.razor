@@ -3,12 +3,12 @@
 @inject IWorkspaceService WorkspaceService
 
 <Select TItem="WorkspaceItem"
-        TItemValue="Guid?"
+        TItemValue="string"
         DataSource="_items"
-        Value="SelectedId"
+        Value="SelectedPath"
         ValueChanged="OnValueChanged"
         LabelName="@nameof(WorkspaceItem.Path)"
-        ValueName="@nameof(WorkspaceItem.Id)"
+        ValueName="@nameof(WorkspaceItem.Path)"
         Placeholder="@(Placeholder ?? $"Select {ItemType}")"
         EnableSearch
         AllowClear
@@ -18,8 +18,8 @@
 
 @code {
     [Parameter] public string ItemType { get; set; } = "Notebook";
-    [Parameter] public Guid? SelectedId { get; set; }
-    [Parameter] public EventCallback<Guid?> SelectedIdChanged { get; set; }
+    [Parameter] public string? SelectedPath { get; set; }
+    [Parameter] public EventCallback<string?> SelectedPathChanged { get; set; }
     [Parameter] public string? Placeholder { get; set; }
 
     private List<WorkspaceItem> _items = [];
@@ -47,12 +47,12 @@
         if (ItemType == "Notebook")
         {
             foreach (var item in listing.Items.Where(i => i.ItemType == WorkspaceItemType.Notebook))
-                _items.Add(new WorkspaceItem(item.Id, $"{parentPath}/{item.Title}"));
+                _items.Add(new WorkspaceItem($"{parentPath}/{item.Title}".TrimStart('/')));
         }
         else if (ItemType == "Query")
         {
             foreach (var item in listing.Items.Where(i => i.ItemType == WorkspaceItemType.Query))
-                _items.Add(new WorkspaceItem(item.Id, $"{parentPath}/{item.Title}"));
+                _items.Add(new WorkspaceItem($"{parentPath}/{item.Title}".TrimStart('/')));
         }
 
         foreach (var folder in listing.Folders)
@@ -61,11 +61,11 @@
         }
     }
 
-    private async Task OnValueChanged(Guid? value)
+    private async Task OnValueChanged(string? value)
     {
-        SelectedId = value;
-        await SelectedIdChanged.InvokeAsync(value);
+        SelectedPath = value;
+        await SelectedPathChanged.InvokeAsync(value);
     }
 
-    private record WorkspaceItem(Guid Id, string Path);
+    private record WorkspaceItem(string Path);
 }

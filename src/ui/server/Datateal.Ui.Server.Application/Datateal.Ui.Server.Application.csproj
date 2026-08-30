@@ -9,12 +9,14 @@
     <PackageReference Include="Microsoft.Extensions.AI" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Options" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Datateal.Ui.Server.Core\Datateal.Ui.Server.Core.csproj" />
     <ProjectReference Include="..\..\Datateal.Ui.Shared\Datateal.Ui.Shared.csproj" />
+    <ProjectReference Include="..\..\..\shared\Datateal.Deployment\Datateal.Deployment.csproj" />
   </ItemGroup>
 
 </Project>

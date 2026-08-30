@@ -1,0 +1,16 @@
+# Non-sensitive environment variables injected into every pod environment.
+# Available as os.environ['KEY'] in Python code.
+#
+# Variable substitution: ${var.NAME} and ${env.NAME} tokens are resolved at deploy time.
+
+- key: DATA_PATH
+  value: ${var.data_path}
+  description: Root data path on Azure Data Lake Storage
+
+- key: ENVIRONMENT
+  value: ${var.environment}
+  description: Deployment environment name (prod, dev, staging)
+
+- key: LOG_LEVEL
+  value: INFO
+  description: Python logging level for pipeline notebooks

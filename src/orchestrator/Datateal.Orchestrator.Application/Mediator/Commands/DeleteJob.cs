@@ -8,7 +8,7 @@ public record DeleteJobRequest(Guid WorkspaceId, Guid Id) : IRequest<bool>;
 
 internal class DeleteJobHandler(
     IJobRepository jobRepository,
-    SchedulesManager schedulesManager)
+    IJobScheduleSyncCoordinator scheduleSyncCoordinator)
     : IRequestHandler<DeleteJobRequest, bool>
 {
     public async Task<bool> Handle(DeleteJobRequest request, CancellationToken cancellationToken)
@@ -17,7 +17,7 @@ internal class DeleteJobHandler(
         if (job is null || job.WorkspaceId != request.WorkspaceId) return false;
 
         await jobRepository.DeleteJobAsync(request.Id, cancellationToken);
-        await schedulesManager.RemoveJobAsync(request.Id, cancellationToken);
+        await scheduleSyncCoordinator.OnJobDeletedAsync(request.Id, cancellationToken);
         return true;
     }
 }

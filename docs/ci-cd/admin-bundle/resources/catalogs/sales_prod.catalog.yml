@@ -1,0 +1,9 @@
+# Managed DuckLake catalog — connection details come from server-side CatalogSettings.
+# The database and storage path are provisioned by the platform; only the name and access
+# policy are declared here.
+
+type: managed
+name: sales_prod
+
+# Allow every workspace to query this catalog by default.
+accessible_from_all_workspaces: true

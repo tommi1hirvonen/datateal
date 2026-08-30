@@ -81,7 +81,7 @@ public class SchedulesManager(
     /// <summary>
     /// Registers a newly created schedule with the Quartz scheduler.
     /// </summary>
-    public async Task AddScheduleAsync(JobSchedule schedule, CancellationToken cancellationToken = default)
+    public virtual async Task AddScheduleAsync(JobSchedule schedule, CancellationToken cancellationToken = default)
     {
         await _semaphore.WaitAsync(cancellationToken);
         try
@@ -137,7 +137,7 @@ public class SchedulesManager(
     /// <summary>
     /// Removes all Quartz triggers associated with a job. Called when a job is deleted.
     /// </summary>
-    public async Task RemoveJobAsync(Guid jobId, CancellationToken cancellationToken = default)
+    public virtual async Task RemoveJobAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
         await _semaphore.WaitAsync(cancellationToken);
         try

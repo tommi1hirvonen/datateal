@@ -152,6 +152,63 @@ namespace Datateal.Data.Migrations
                     b.ToTable("CatalogWorkspaceAccess");
                 });
 
+            modelBuilder.Entity("Datateal.Core.Deployment.DeploymentLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<string>("IssuedByDisplayName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("IssuedByUserId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("TargetBundleJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("WorkspaceId", "Status");
+
+                    b.ToTable("DeploymentLogs");
+                });
+
             modelBuilder.Entity("Datateal.Core.Environment.EnvironmentVariable", b =>
                 {
                     b.Property<Guid>("Id")
@@ -358,6 +415,16 @@ namespace Datateal.Data.Migrations
 
                     b.HasIndex("WorkspaceId");
 
+                    b.HasIndex("WorkspaceId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Folders_WorkspaceId_Name_Root")
+                        .HasFilter("\"ParentId\" IS NULL");
+
+                    b.HasIndex("WorkspaceId", "ParentId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Folders_WorkspaceId_ParentId_Name")
+                        .HasFilter("\"ParentId\" IS NOT NULL");
+
                     b.ToTable("Folders");
                 });
 
@@ -557,7 +624,8 @@ namespace Datateal.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("JobId");
+                    b.HasIndex("JobId", "Name")
+                        .IsUnique();
 
                     b.ToTable("JobParameters");
                 });
@@ -646,6 +714,11 @@ namespace Datateal.Data.Migrations
                     b.Property<Guid>("JobId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<string>("Parameters")
                         .HasColumnType("jsonb");
 
@@ -655,7 +728,8 @@ namespace Datateal.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("JobId");
+                    b.HasIndex("JobId", "Name")
+                        .IsUnique();
 
                     b.ToTable("JobSchedules");
                 });
@@ -784,7 +858,8 @@ namespace Datateal.Data.Migrations
 
                     b.HasIndex("DependsOnTaskId");
 
-                    b.HasIndex("TaskId");
+                    b.HasIndex("TaskId", "DependsOnTaskId")
+                        .IsUnique();
 
                     b.ToTable("TaskDependencies");
                 });
@@ -969,8 +1044,10 @@ namespace Datateal.Data.Migrations
                     b.Property<string>("NodePoolRef")
                         .HasColumnType("text");
 
-                    b.Property<Guid>("NotebookId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("NotebookPath")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
 
                     b.Property<string>("Parameters")
                         .HasColumnType("jsonb");
@@ -988,8 +1065,10 @@ namespace Datateal.Data.Migrations
                     b.Property<string>("Parameters")
                         .HasColumnType("jsonb");
 
-                    b.Property<Guid>("QueryId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("QueryPath")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
 
                     b.ToTable("JobTasks", t =>
                         {
@@ -1010,8 +1089,10 @@ namespace Datateal.Data.Migrations
                     b.Property<string>("Parameters")
                         .HasColumnType("jsonb");
 
-                    b.Property<Guid>("SubJobId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("SubJobName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.ToTable("JobTasks", t =>
                         {
@@ -1117,6 +1198,14 @@ namespace Datateal.Data.Migrations
                     b.Navigation("Catalog");
 
                     b.Navigation("Workspace");
+                });
+
+            modelBuilder.Entity("Datateal.Core.Deployment.DeploymentLog", b =>
+                {
+                    b.HasOne("Datateal.Core.Workspaces.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("Datateal.Core.Environment.EnvironmentVariable", b =>

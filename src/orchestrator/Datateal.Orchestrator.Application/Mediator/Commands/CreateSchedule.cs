@@ -8,6 +8,7 @@ namespace Datateal.Orchestrator.Application.Mediator.Commands;
 public record CreateScheduleRequest(
     Guid WorkspaceId,
     Guid JobId,
+    string Name,
     string CronExpression,
     bool IsEnabled,
     string? TimeZone,
@@ -29,6 +30,7 @@ internal class CreateScheduleHandler(
         {
             Id = Guid.NewGuid(),
             JobId = request.JobId,
+            Name = request.Name,
             CronExpression = request.CronExpression,
             IsEnabled = request.IsEnabled,
             TimeZone = request.TimeZone,
