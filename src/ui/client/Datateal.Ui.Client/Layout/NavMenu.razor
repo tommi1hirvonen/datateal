@@ -5,20 +5,22 @@
 @using Datateal.Ui.Shared.Orchestration
 @implements IDisposable
 
-<Menu @ref="_menu"
-      Mode="MenuMode.Vertical"
-      Theme="MenuTheme.Dark"
-      SelectedKeys="@_selectedKeys"
-      Style="border-right: none;">
+<div class="navmenu-root">
+    <Menu @ref="_menu"
+          Mode="MenuMode.Inline"
+          Theme="MenuTheme.Dark"
+          InlineCollapsed="Collapsed"
+          SelectedKeys="@_selectedKeys"
+          Style="border-right: none;">
     <div class="navmenu-brand" style="height: 32px; margin: 16px; display: flex; align-items: center;">
         <span style="font-size: 22px; font-weight: 600; color: #ddd;">
-            @if (_menu?.InlineCollapsed is null or false)
+            @if (!Collapsed)
             {
                 <text>Datateal</text>
             }
         </span>
     </div>
-    <SubMenu Key="new" TitleTemplate="@_newTitle">
+    <MenuItemGroup Key="new" TitleTemplate="@_newTitle">
         <AuthorizeView Policy="@AuthPolicy.WorkspaceRead">
             <MenuItem Key="new-notebook" RouterLink="@Ws("notebook")" RouterMatch="NavLinkMatch.All">
                 <Icon Type="@IconType.Outline.FileText" />
@@ -37,74 +39,81 @@
                 <span>Job</span>
             </MenuItem>
         </AuthorizeView>
-    </SubMenu>
-    <MenuItem Key="home" RouterLink="@Ws("")" RouterMatch="NavLinkMatch.All">
-        <Icon Type="@IconType.Outline.Home" />
-        <span>Home</span>
-    </MenuItem>
-    <AuthorizeView Policy="@AuthPolicy.WorkspaceRead">
-        <MenuItem Key="notebook" RouterLink="@Ws("workspace")" RouterMatch="NavLinkMatch.Prefix">
-            <Icon Type="@IconType.Outline.FolderOpen" />
-            <span>Workspace</span>
+    </MenuItemGroup>
+    <MenuItemGroup Key="cat-workspace" TitleTemplate="@_workspaceCategoryTitle">
+        <MenuItem Key="home" RouterLink="@Ws("")" RouterMatch="NavLinkMatch.All">
+            <Icon Type="@IconType.Outline.Home" />
+            <span>Home</span>
         </MenuItem>
-    </AuthorizeView>
-    <AuthorizeView Policy="@AuthPolicy.JobRead">
-        <MenuItem Key="jobs" RouterLink="@Ws("jobs")" RouterMatch="NavLinkMatch.Prefix">
-            <Icon Type="@IconType.Outline.Partition" />
-            <span>Jobs</span>
+        <AuthorizeView Policy="@AuthPolicy.WorkspaceRead">
+            <MenuItem Key="notebook" RouterLink="@Ws("workspace")" RouterMatch="NavLinkMatch.Prefix">
+                <Icon Type="@IconType.Outline.FolderOpen" />
+                <span>Workspace</span>
+            </MenuItem>
+        </AuthorizeView>
+        <AuthorizeView Policy="@AuthPolicy.JobRead">
+            <MenuItem Key="jobs" RouterLink="@Ws("jobs")" RouterMatch="NavLinkMatch.Prefix">
+                <Icon Type="@IconType.Outline.Partition" />
+                <span>Jobs</span>
+            </MenuItem>
+        </AuthorizeView>
+        <AuthorizeView Policy="@AuthPolicy.NodePoolOperate">
+            <MenuItem Key="node-pools" RouterLink="@Ws("node-pools")" RouterMatch="NavLinkMatch.Prefix">
+                <Icon Type="@IconType.Outline.Cluster" />
+                <span>Node pools</span>
+            </MenuItem>
+        </AuthorizeView>
+        <AuthorizeView Policy="@AuthPolicy.EnvironmentManage">
+            <MenuItem Key="environment" RouterLink="@Ws("environment")" RouterMatch="NavLinkMatch.Prefix">
+                <Icon Type="@IconType.Outline.Tool" />
+                <span>Environment</span>
+            </MenuItem>
+        </AuthorizeView>
+        <AuthorizeView Policy="@AuthPolicy.WorkspaceManage">
+            <MenuItem Key="deployment" RouterLink="@Ws("deployment")" RouterMatch="NavLinkMatch.Prefix">
+                <Icon Type="@IconType.Outline.CloudUpload" />
+                <span>Workspace deployment</span>
+            </MenuItem>
+        </AuthorizeView>
+    </MenuItemGroup>
+    <MenuItemGroup Key="cat-admin" TitleTemplate="@_adminCategoryTitle">
+        <MenuItem Key="catalogs" RouterLink="/catalogs" RouterMatch="NavLinkMatch.Prefix">
+            <Icon Type="@IconType.Outline.Database" />
+            <span>Catalogs</span>
         </MenuItem>
-    </AuthorizeView>
-    <AuthorizeView Policy="@AuthPolicy.NodePoolOperate">
-        <MenuItem Key="node-pools" RouterLink="@Ws("node-pools")" RouterMatch="NavLinkMatch.Prefix">
-            <Icon Type="@IconType.Outline.Cluster" />
-            <span>Node pools</span>
+        <AuthorizeView Policy="@AuthPolicy.Admin">
+            <MenuItem Key="workspaces" RouterLink="/workspaces" RouterMatch="NavLinkMatch.Prefix">
+                <Icon Type="@IconType.Outline.Appstore" />
+                <span>Workspaces</span>
+            </MenuItem>
+        </AuthorizeView>
+        <AuthorizeView Policy="@AuthPolicy.Admin">
+            <MenuItem Key="users" RouterLink="/users" RouterMatch="NavLinkMatch.Prefix">
+                <Icon Type="@IconType.Outline.Team" />
+                <span>Users</span>
+            </MenuItem>
+        </AuthorizeView>
+        <AuthorizeView Policy="@AuthPolicy.Admin">
+            <MenuItem Key="tokens" RouterLink="/tokens" RouterMatch="NavLinkMatch.Prefix">
+                <Icon Type="@IconType.Outline.Key" />
+                <span>API tokens</span>
+            </MenuItem>
+        </AuthorizeView>
+        <AuthorizeView Policy="@AuthPolicy.Admin">
+            <MenuItem Key="admin-deployment" RouterLink="/deployment/admin" RouterMatch="NavLinkMatch.Prefix">
+                <Icon Type="@IconType.Outline.CloudServer" />
+                <span>Admin deployment</span>
+            </MenuItem>
+        </AuthorizeView>
+    </MenuItemGroup>
+    <MenuItemGroup Key="cat-account" TitleTemplate="@_accountCategoryTitle">
+        <MenuItem Key="settings" RouterLink="/settings" RouterMatch="NavLinkMatch.Prefix">
+            <Icon Type="@IconType.Outline.Setting" />
+            <span>Settings</span>
         </MenuItem>
-    </AuthorizeView>
-    <AuthorizeView Policy="@AuthPolicy.EnvironmentManage">
-        <MenuItem Key="environment" RouterLink="@Ws("environment")" RouterMatch="NavLinkMatch.Prefix">
-            <Icon Type="@IconType.Outline.Tool" />
-            <span>Environment</span>
-        </MenuItem>
-    </AuthorizeView>
-    <AuthorizeView Policy="@AuthPolicy.WorkspaceManage">
-        <MenuItem Key="deployment" RouterLink="@Ws("deployment")" RouterMatch="NavLinkMatch.Prefix">
-            <Icon Type="@IconType.Outline.CloudUpload" />
-            <span>Deployment</span>
-        </MenuItem>
-    </AuthorizeView>
-    <MenuItem Key="catalogs" RouterLink="/catalogs" RouterMatch="NavLinkMatch.Prefix">
-        <Icon Type="@IconType.Outline.Database" />
-        <span>Catalogs</span>
-    </MenuItem>
-    <MenuItem Key="settings" RouterLink="/settings" RouterMatch="NavLinkMatch.Prefix">
-        <Icon Type="@IconType.Outline.Setting" />
-        <span>Settings</span>
-    </MenuItem>
-    <AuthorizeView Policy="@AuthPolicy.Admin">
-        <MenuItem Key="admin-deployment" RouterLink="/deployment/admin" RouterMatch="NavLinkMatch.Prefix">
-            <Icon Type="@IconType.Outline.CloudServer" />
-            <span>Deployment</span>
-        </MenuItem>
-    </AuthorizeView>
-    <AuthorizeView Policy="@AuthPolicy.Admin">
-        <MenuItem Key="workspaces" RouterLink="/workspaces" RouterMatch="NavLinkMatch.Prefix">
-            <Icon Type="@IconType.Outline.Appstore" />
-            <span>Workspaces</span>
-        </MenuItem>
-    </AuthorizeView>
-    <AuthorizeView Policy="@AuthPolicy.Admin">
-        <MenuItem Key="users" RouterLink="/users" RouterMatch="NavLinkMatch.Prefix">
-            <Icon Type="@IconType.Outline.Team" />
-            <span>Users</span>
-        </MenuItem>
-    </AuthorizeView>
-    <AuthorizeView Policy="@AuthPolicy.Admin">
-        <MenuItem Key="tokens" RouterLink="/tokens" RouterMatch="NavLinkMatch.Prefix">
-            <Icon Type="@IconType.Outline.Key" />
-            <span>API tokens</span>
-        </MenuItem>
-    </AuthorizeView>
+    </MenuItemGroup>
 </Menu>
+</div>
 
 <Drawer Closable="true" @bind-Visible="_showCreateJobModal" Placement="DrawerPlacement.Right"
         Width="480" Title="@("New job")"
@@ -141,6 +150,8 @@
 </Drawer>
 
 @code {
+    [Parameter] public bool Collapsed { get; set; }
+
     private Menu? _menu;
     private string[] _selectedKeys = [];
 
@@ -149,6 +160,15 @@
             <Icon Type="@IconType.Outline.Plus" />
             <span>New</span>
         </span>;
+
+    private readonly RenderFragment _workspaceCategoryTitle =
+        @<span>Workspace</span>;
+
+    private readonly RenderFragment _adminCategoryTitle =
+        @<span>Admin</span>;
+
+    private readonly RenderFragment _accountCategoryTitle =
+        @<span>Account</span>;
 
     // New job modal state
     private bool _showCreateJobModal;
